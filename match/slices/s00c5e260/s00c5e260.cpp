@@ -1,17 +1,5 @@
 // Decompiled slice s00c5e260 -- Simulator/SP mission objects.
 // Reconstructed from the shipped binary; helper addresses noted per call.
-
-// addresses retail relocates here, named so the build relocates them too
-extern "C" char g_146dfb4[];
-extern "C" char g_146fbf0[];
-extern "C" char g_146fc00[];
-extern "C" char g_146fe3c[];
-extern "C" char g_146fe4c[];
-extern "C" char g_146fe60[];
-extern "C" char g_16925c0[];
-extern "C" char g_16925c4[];
-extern "C" char g_16925c8[];
-
 #include "types.h"
 
 // ---------------------------------------------------------------------------
@@ -169,13 +157,13 @@ void __fastcall MissionBaseCtor(void* self);
 MissionScan::MissionScan()
 {
   MissionBaseCtor(this);
-  mpVtable  = (Vtbl*)g_146fc00;
-  mpField04 = (void*)g_146dfb4;
-  mpField34 = (void*)g_146fbf0;
+  mpVtable  = (Vtbl*)0x146fc00;
+  mpField04 = (void*)0x146dfb4;
+  mpField34 = (void*)0x146fbf0;
   mField1f0 = 0;
-  mpField1f4 = (void*)*(int*)g_16925c0;
-  mField1f8 = *(int*)g_16925c4;
-  mField1fc = *(int*)g_16925c8;
+  mpField1f4 = (void*)*(int*)0x16925c0;
+  mField1f8 = *(int*)0x16925c4;
+  mField1fc = *(int*)0x16925c8;
 }
 
 // ===========================================================================
@@ -408,9 +396,9 @@ MissionStory201::MissionStory201()
   MissionBaseCtor(this);
   int zero = 0;
   *(volatile int*)&mField1f0 = zero;
-  *(volatile int*)&mpVtable  = (int)g_146fe60;
-  *(volatile int*)&mpField04 = (int)g_146fe4c;
-  *(volatile int*)&mpField34 = (int)g_146fe3c;
+  *(volatile int*)&mpVtable  = (int)0x146fe60;
+  *(volatile int*)&mpField04 = (int)0x146fe4c;
+  *(volatile int*)&mpField34 = (int)0x146fe3c;
   *(volatile int*)&mpField1f4 = zero;
   *(volatile int*)&mField1f8 = zero;
   *(volatile int*)&mField1fc = zero;
@@ -539,4 +527,229 @@ int Mission::FUN_00c5f4e0(int id)
       return 0;
   }
   return 1;
+}
+
+// ===========================================================================
+// 0x00c5e260 -- per-tick mission step: mission id / state dispatch plus the
+//               UI notification that goes with the state it settles on.
+// ===========================================================================
+struct Obj84 {
+  uint8_t mPad000[0x84];
+  int     mField84;      // +0x84
+};
+
+struct Vec3 {
+  float x, y, z;
+  Vec3(const Vec3& o) : x(o.x), y(o.y), z(o.z) {}
+};
+
+// Engine objects reached through the mission.  Only the calls this routine
+// makes are declared; the bodies live elsewhere in the executable.
+struct SysA {
+  Obj84* FUN_00ba9370();    // 0x00ba9370
+};
+
+struct SysB {
+  int FUN_00885c90();       // 0x00885c90
+};
+
+struct PlanetNode : Planet {
+  int FUN_00c70e00();       // 0x00c70e00
+  int FUN_00c71e30();       // 0x00c71e30
+};
+
+struct HomeObj {
+  HomeObj* FUN_00b8de30();  // 0x00b8de30
+  int      FUN_00b1fdb0();  // 0x00b1fdb0
+};
+
+struct EaText {
+  EaText* FUN_00dd8640();   // 0x00dd8640
+  void*   FUN_00dd6df0();   // 0x00dd6df0
+  void*   FUN_00dd67d0();   // 0x00dd67d0
+};
+
+struct ManagerObj {
+  void FUN_010151a0(int home, int value);  // 0x010151a0
+};
+
+// Fields the scanned-mission objects add on top of the shared Mission layout.
+struct MissionExt : Mission {
+  uint8_t  mObj200[0x0c];  // +0x200 .. +0x20b (UI object handed to the vtables)
+  uint8_t  mField20c[4];   // +0x20c
+  uint8_t  mField210[4];   // +0x210
+  uint8_t  mField214[1];   // +0x214
+  uint8_t  mField215;      // +0x215
+  uint8_t  mPad216[0x06];  // +0x216 .. +0x21b
+  uint8_t  mField21c;      // +0x21c
+  uint8_t  mPad21d;        // +0x21d
+  uint8_t  mField21e;      // +0x21e
+  uint8_t  mPad21f;        // +0x21f
+  uint32_t mField220;      // +0x220
+  Vec3     mPos;           // +0x224 .. +0x22f
+  uint32_t mField230;      // +0x230
+  uint8_t  mField234;      // +0x234
+  uint8_t  mPad235[0x03];  // +0x235 .. +0x237
+  int      mField238[4];   // +0x238 (state block)
+
+  int  FUN_00c478b0(int deltaMs);   // 0x00c478b0
+  int  FUN_00c5e260(int deltaMs);
+};
+
+typedef char (__thiscall* FnC2i)(void*, int, void*);
+typedef char (__thiscall* FnC2p)(void*, void*, int);
+
+void* __stdcall FUN_00b3d380();
+// 0x00b3d2a0: the shipped call sites disagree about the argument list (the
+// first pushes the mission key, the second pushes nothing), so both shapes
+// are declared against the one address.
+void* __stdcall FUN_00b3d2a0(uint32_t owner);
+void* __stdcall FUN_00b3d2a0_cur();
+void* __cdecl   FUN_0041ea70();
+void* __cdecl   FUN_00401010();
+char  __cdecl   FUN_00c5da10(void* self, void* pState238);
+void  __cdecl   FUN_00c5c310(void* pState238, void* p1f8, void* p1fc,
+                             void* pOut, int a, int b);
+void  __cdecl   FUN_00c5d140(void* self, void* pState238, int index, void* pUi200,
+                             Vec3 pos, int flag234, int flag21c);
+void  __cdecl   FUN_00c5c860(void* pState238, void* pPlanet, int field230,
+                             void* p1f8, void* p1fc, void* pTarget180,
+                             void* p20c, void* p210, void* p214, int deltaMs);
+void  __cdecl   FUN_00410370(void* obj, int id, void* pOut);
+void  __cdecl   FUN_0040cf10(void* obj, int id, void* pOut);
+int   __cdecl   FUN_01021260();
+int   __cdecl   FUN_0102c0c0(void* planet);
+bool  __cdecl   FUN_00c8b920(int planetField13c, int field230);
+// 0x00b3d3e0 text builder: the shipped call sites push two arguments and, from
+// the formatting site, six; both shapes are declared against the one address.
+EaText* __stdcall FUN_00b3d3e0(int a, int b);
+EaText* __stdcall FUN_00b3d3e0_fmt(int a, int b, int c, int d, int e, int f);
+void  __cdecl   FUN_00f47380(void* p);
+
+// @ 0x00c5e260
+int __thiscall MissionExt::FUN_00c5e260(int deltaMs)
+{
+  if (FUN_00c478b0(deltaMs) != 3)
+    return 3;
+
+  // Only missions that are owned by the local player get a mission key.
+  int flags = *(int*)((char*)FUN_00b3d380() + 0x48);
+  if ((flags & 1) != 0)
+    deltaMs = 0;
+
+  float delay = *(float*)0x1473c70;
+  if (mpField180 != 0) {
+    SomeVec* pInfo;
+    if (((FnC2i)(*(Vtbl**)mpField180)->p[0x24 / 4])(mpField180, 0x3a38abe, &pInfo)
+        && pInfo->mField12 == 0xd)
+      delay = *(float*)FUN_0041ea70();
+  }
+
+  bool isOwner = false;
+  if (FUN_01021260() == (int)GetTargetPlanet() && FUN_01021080() == 0)
+    isOwner = true;
+
+  unsigned int now = (unsigned int)(delay * *(float*)0x13ec5b4);
+
+  if (mField215 != 0) {
+    if (!(*(uint32_t*)((char*)this + 0x7c) > now || isOwner))
+      return 3;
+
+    void* pSystem = FUN_00401010();
+    if (!((FnC2p)(*(Vtbl**)pSystem)->p[0x1c / 4])(pSystem, (void*)mObj200, 0))
+      return 3;
+
+    if (mField215 != 0) {
+      Obj84* pOwner = ((SysA*)FUN_00b3d2a0(mField230))->FUN_00ba9370();
+      int index = (pOwner != 0) ? pOwner->mField84 : -1;
+
+      int argA = 1;
+      int argB = 1;
+      if (mpField180 != 0) {
+        FUN_00410370(mpField180, 0x339bbc1, &argA);
+        FUN_00410370(mpField180, 0x339bbc5, &argB);
+      }
+
+      int extra = 0;
+      FUN_00c5c310(&mField238, &mField1f8, &mField1fc, &extra, argA, argB);
+
+      if (FUN_01021080() == 0 && FUN_01021260() == (int)GetTargetPlanet())
+        FUN_00c5d140(this, &mField238, index, (void*)mObj200, mPos,
+                     (int)mField234, (int)mField21c);
+      mField215 = 0;
+    }
+  }
+
+  bool stateChanged =
+      mField230 == (uint32_t)((SysB*)FUN_00b3d2a0_cur())->FUN_00885c90();
+
+  if (isOwner && mField220 == 0)
+    mField220 = *(uint32_t*)((char*)this + 0x7c);
+
+  if (!(mField21c != 0 && mField220 != 0 &&
+        *(uint32_t*)((char*)this + 0x7c) > mField220 &&
+        *(uint32_t*)((char*)this + 0x7c) - mField220 > *(uint32_t*)0x1576768)) {
+    if (!FUN_00c5da10(this, &mField238)) {
+      if (mField078 == 0xd646c543 || mField078 == 0x77184bae ||
+          mField078 == 0xa4b0a2df || mField078 == 0xc4956aa7) {
+        if (!isOwner)
+          return 6;
+      }
+    } else {
+      if (((PlanetNode*)GetTargetPlanet())->FUN_00c70e00() != 5)
+        return 6;
+
+      HomeObj* pHome = (HomeObj*)((Planet*)GetTargetPlanet())->mField13c;
+      if (FUN_00c8b920((int)pHome, (int)mField230))
+        return 6;
+      if (pHome->FUN_00b8de30()->FUN_00b1fdb0() !=
+          *(int*)((char*)this + 0x94))
+        return 6;
+
+      float window = *(float*)0x1473c70;
+      if (mpField180 != 0)
+        FUN_0040cf10(mpField180, 0x2b9e524, &window);
+
+      if (*(uint32_t*)((char*)this + 0x7c) <
+          now - (unsigned int)(window * *(float*)0x1440738)) {
+        FUN_00c5c860(&mField238, GetTargetPlanet(), (int)mField230, &mField1f8,
+                     &mField1fc, mpField180, &mField20c, &mField210, &mField214,
+                     deltaMs);
+        return 3;
+      }
+
+      FUN_0102c0c0(GetTargetPlanet());
+      if (stateChanged) {
+        int id = ((Planet*)GetTargetPlanet())->mField13c;
+        ManagerObj* pManager = *(ManagerObj**)0x16dc798;
+        pManager->FUN_010151a0(
+            id, ((PlanetNode*)GetTargetPlanet())->FUN_00c71e30());
+      }
+      return 6;
+    }
+  }
+
+  if (mField21e != 0 || isOwner) {
+    const char* names[3];
+    names[0] = (const char*)0x1667bac;
+    names[1] = names[0];
+    names[2] = (const char*)0x1667bae;
+    GetText(0x25594ea8, (int)names);
+
+    EaText* text = FUN_00b3d3e0_fmt(0xcc0a183b, 0x131a9f54, 0, 0, 1, 0);
+    text = text->FUN_00dd8640();
+    FUN_00b3d3e0((int)text, (int)names[0])->FUN_00dd6df0();
+    FUN_00b3d3e0((int)text, 1)->FUN_00dd67d0();
+
+    int span = ((int)names[2] - (int)names[0]) & ~1;
+    if (span > 2 && names[0] != 0)
+      FUN_00f47380((void*)names[0]);
+  }
+
+  if (stateChanged) {
+    int id = ((Planet*)GetTargetPlanet())->mField13c;
+    ManagerObj* pManager = *(ManagerObj**)0x16dc798;
+    pManager->FUN_010151a0(id, ((PlanetNode*)GetTargetPlanet())->FUN_00c71e30());
+  }
+  return 5;
 }

@@ -1,3 +1,4 @@
+// @ 0x0106ba00
 // Slice s0106ba00 (batch op2_big) — 0x0106ba00, 3880 bytes.
 //
 // SP::cSPUISpace::UpdatePlanetRollover(cPlanet* pPlanet)   (__thiscall, ret 4)
@@ -386,8 +387,10 @@ void cSPUISpace::UpdatePlanetRollover(cPlanet* pPlanet)
         WindowManager()->GetModalWindow() != 0)
     {
         mPlanetRolloverRoot->SetFlag(1, false);
-        DetachFromParent(mPlanetRolloverRoot);
-        DetachFromParent(mMissionRolloverRoot);
+        if (mPlanetRolloverRoot->GetParent())
+                        mPlanetRolloverRoot->GetParent()->RemoveWindow(mPlanetRolloverRoot);
+        if (mMissionRolloverRoot->GetParent())
+                        mMissionRolloverRoot->GetParent()->RemoveWindow(mMissionRolloverRoot);
         if (mpAnimator)
         {
             mpAnimator->Shutdown(true);
@@ -590,8 +593,10 @@ void cSPUISpace::UpdatePlanetRollover(cPlanet* pPlanet)
             {
                 if (mPlanetRolloverFrame)
                 {
-                    DetachFromParent(mPlanetRolloverRoot);
-                    DetachFromParent(mMissionRolloverRoot);
+                    if (mPlanetRolloverRoot->GetParent())
+                        mPlanetRolloverRoot->GetParent()->RemoveWindow(mPlanetRolloverRoot);
+                    if (mMissionRolloverRoot->GetParent())
+                        mMissionRolloverRoot->GetParent()->RemoveWindow(mMissionRolloverRoot);
                     SPUIHelpers::DestroyRolloverFrame(mPlanetRolloverFrame);
                     mPlanetRolloverFrame.Clear();
                 }
@@ -612,7 +617,8 @@ void cSPUISpace::UpdatePlanetRollover(cPlanet* pPlanet)
                 mPlanetRolloverFrame = SPUIHelpers::CreateRolloverFrame(
                     L"RolloverFrameGeneric", screenX, screenY, rect.x2 - rect.x1, rect.y2 - rect.y1,
                     pContainer.AsPPTypeParam(), 1, 1, screenRadius, 0xe9f70df9);
-                DetachFromParent(mPlanetRolloverRoot);
+                if (mPlanetRolloverRoot->GetParent())
+                        mPlanetRolloverRoot->GetParent()->RemoveWindow(mPlanetRolloverRoot);
                 pContainer->AddWindow(mPlanetRolloverRoot);
                 if (pMission)
                 {
@@ -653,8 +659,10 @@ noPlanet:
 done:
     if (!bShowRollover && mRolloverPlanet && mPlanetRolloverFrame)
     {
-        DetachFromParent(mPlanetRolloverRoot);
-        DetachFromParent(mMissionRolloverRoot);
+        if (mPlanetRolloverRoot->GetParent())
+                        mPlanetRolloverRoot->GetParent()->RemoveWindow(mPlanetRolloverRoot);
+        if (mMissionRolloverRoot->GetParent())
+                        mMissionRolloverRoot->GetParent()->RemoveWindow(mMissionRolloverRoot);
         SPUIHelpers::DestroyRolloverFrame(mPlanetRolloverFrame);
         mPlanetRolloverFrame.Clear();
         mRolloverPlanet.Clear();

@@ -2,14 +2,6 @@
 // Object file: SPGonzago/_at_00c50000.obj.  Function bodies keep the slice's code; types, members and virtual calls use the
 // canonical headers under src/game/include.  Each function keeps its '// @ 0xVA' marker.
 
-// addresses retail relocates here, named so the build relocates them too
-extern "C" char g_146dfb4[];
-extern "C" char g_146fbf0[];
-extern "C" char g_146fc00[];
-extern "C" char g_16925c0[];
-extern "C" char g_16925c4[];
-extern "C" char g_16925c8[];
-
 #include "game/types.h"
 #include "SP/cGameNounManager.h"
 #include "SP/cSPMission.h"
@@ -509,19 +501,6 @@ public:
     virtual IOStream* GetStream();          // 0x20
     virtual uint32_t GetType();             // 0x3c
 };
-struct MissionArchiveStreamHolder {
-    virtual void slot0(); virtual void slot1(); virtual void slot2();
-    virtual void slot3(); virtual void slot4(); virtual void slot5();
-    virtual IOStream* GetStream(); // +0x18
-};
-struct MissionArchive {
-    virtual void slot0(); virtual void slot1(); virtual void slot2();
-    virtual void slot3(); virtual void slot4(); virtual void slot5();
-    virtual void slot6(); virtual void slot7();
-    virtual MissionArchiveStreamHolder* GetStreamHolder(); // +0x20
-};
-extern SP::cDataSerializerGeneric gMissionMultiStepSerializerList[]; // 0x01576840
-
 void ReadInt32(IOStream* pStream, void* pDest, int nCount, int bFlag);
 void WriteUint32(IOStream* pStream, void* pSource, int nCount, int bFlag);
 class cVarListSerializer {
@@ -923,104 +902,60 @@ cMissionMultiStep::cMissionMultiStep()
 // @ 0x00c5ae30
 bool cMissionMultiStep::Write(void* pData)
 {
-    MissionArchiveStreamHolder* __restrict holder = static_cast<MissionArchive*>(pData)->GetStreamHolder();
-    uint32_t version = 0x05626b91;
-    IOStream* stream = holder->GetStream();
-    WriteUint32(stream, &version, 1, 0);
-    SP::cVarListSerializer serializer(this, gMissionMultiStepSerializerList,
-                                     SP::cVarListSerializer::kSignature);
-    bool result = serializer.Serialize(*static_cast<SP::cIObjectDatabaseOStream*>(pData)) ? true : false;
-    return result;
+    IOStream* pStream = ((ISerializer*)pData)->GetStream();
+    uint32_t nType = 0x5626b91;
+    WriteUint32(pStream->GetStream(), &nType, 1, 0);
+
+    cVarListSerializer serializer(this, (const void*)0x01576840, 0x1a80d26);
+    return serializer.Serialize(pData) != 0;
 }
 
 // @ 0x00c5aea0
 bool cMissionMultiStep::Read(void* pData)
 {
-    IOStream* stream = static_cast<MissionArchive*>(pData)->GetStreamHolder()->GetStream();
-    uint32_t version;
-    ReadInt32(stream, &version, 1, 0);
-    SP::cVarListSerializer serializer(this, gMissionMultiStepSerializerList,
-                                     SP::cVarListSerializer::kSignature);
-    bool result = serializer.Serialize(*static_cast<SP::cIObjectDatabaseIStream*>(pData)) ? true : false;
-    return result;
-}
+    IOStream* pStream = ((ISerializer*)pData)->GetStream();
+    uint32_t nType = 0;
+    ReadInt32(pStream->GetStream(), &nType, 1, 0);
 
-namespace TerrainSphereMission {
-struct ResourceKey {
-    uint32_t mInstance;
-    uint32_t mType;
-    uint32_t mGroup;
-};
-struct PropertyListOptions {
-    uint32_t mFlags;
-    uint16_t mMode;
-    uint16_t mCount;
-};
-class cTerrainSphere {
-public:
-    virtual void v00(); virtual void v04(); virtual void v08(); virtual void v0c();
-    virtual void v10(); virtual void v14(); virtual void v18(); virtual void v1c();
-    virtual void v20(); virtual void v24(); virtual void v28(); virtual void v2c();
-    virtual void v30(); virtual void v34(); virtual void v38(); virtual void v3c();
-    virtual void Refresh();                             // +0x40
-    const ResourceKey& GetPropertyListKey();            // 0x00c75770
-};
-class cGameNounManager {
-public:
-    cTerrainSphere* GetCurrentTerrainSphere();          // 0x00f67d90
-};
-cGameNounManager* NounManager();                        // 0x00b3d300
-class cPropertyListManager {
-public:
-    virtual void v00(); virtual void v04(); virtual void v08(); virtual void v0c();
-    virtual void v10(); virtual void v14();
-    virtual bool HasPropertyList(const ResourceKey* key);                           // +0x18
-    virtual bool IsPropertyListLoaded(const ResourceKey* key, int flags);           // +0x1c
-    virtual void v20(); virtual void v24(); virtual void v28();
-    virtual void v2c(); virtual void v30(); virtual void v34(); virtual void v38();
-    virtual void v3c(); virtual void v40(); virtual void v44(); virtual void v48();
-    virtual void CreatePropertyList(const ResourceKey* key, PropertyListOptions* o); // +0x4c
-};
-cPropertyListManager* PropManager();                    // 0x00401010
-class cMission {
-public:
-    void PostLoad();                                    // 0x00c466d0
-    void OnAccept();                                    // 0x00c47a10 (SP::cSPMission::OnAccept)
-    void UpdateFromTerrainSphere();
-    void AcceptFromTerrainSphere();
-    uint8_t mPad000[0x1f0];
-    ResourceKey mTerrainSphereKey;                      // +0x1f0
-};
+    cVarListSerializer serializer(this, (const void*)0x01576840, 0x1a80d26);
+    return serializer.Serialize(pData) != 0;
 }
 
 // @ 0x00c5b020
-void TerrainSphereMission::cMission::UpdateFromTerrainSphere()
+void cMissionMultiStep::UpdateFromTerrainSphereA()
 {
-    PostLoad();
-    NounManager()->GetCurrentTerrainSphere()->Refresh();
-    mTerrainSphereKey = NounManager()->GetCurrentTerrainSphere()->GetPropertyListKey();
-    if (!PropManager()->HasPropertyList(&mTerrainSphereKey)) {
-        cPropertyListManager* manager = PropManager();
-        PropertyListOptions options;
-        options.mFlags = 0;
-        options.mMode = 0;
-        options.mCount = 1;
-        manager->CreatePropertyList(&mTerrainSphereKey, &options);
-    }
+    UpdateMissionStepState();
+
+    cTerrainEditor* pEditor = NounManager_s00c5_a580();
+    ((IRefCounted_s00c5_a580*)pEditor->GetCurrentTerrainSphere())->v10();
+
+    pEditor = NounManager_s00c5_a580();
+    pEditor->GetCurrentTerrainSphere();
+    Vec3_s00c5_a580* pPosition = GetTerrainSpherePosition();
+    mpStepsBegin = *(cMissionStep***)pPosition;
+    mpStepsEnd = *(cMissionStep***)((uint8_t*)pPosition + 4);
+    mpStepsCap = *(cMissionStep***)((uint8_t*)pPosition + 8);
+
+    void* pTuning = GetSpaceTuning();
+    if (!((ISerializer*)pTuning)->Serialize(&mpStepsBegin))
+        ClearMissionUI();
 }
 
 // @ 0x00c5b0b0
-void TerrainSphereMission::cMission::AcceptFromTerrainSphere()
+void cMissionMultiStep::UpdateFromTerrainSphereB()
 {
-    OnAccept();
-    mTerrainSphereKey = NounManager()->GetCurrentTerrainSphere()->GetPropertyListKey();
-    if (!PropManager()->IsPropertyListLoaded(&mTerrainSphereKey, 0)) {
-        PropertyListOptions options;
-        options.mFlags = 0;
-        options.mMode = 0;
-        options.mCount = 1;
-        PropManager()->CreatePropertyList(&mTerrainSphereKey, &options);
-    }
+    ResetStepSchedule();
+
+    cTerrainEditor* pEditor = NounManager_s00c5_a580();
+    pEditor->GetCurrentTerrainSphere();
+    Vec3_s00c5_a580* pPosition = GetTerrainSpherePosition();
+    mpStepsBegin = *(cMissionStep***)pPosition;
+    mpStepsEnd = *(cMissionStep***)((uint8_t*)pPosition + 4);
+    mpStepsCap = *(cMissionStep***)((uint8_t*)pPosition + 8);
+
+    void* pTuning = GetSpaceTuning();
+    if (!((ISerializer*)pTuning)->Serialize(&mpStepsBegin))
+        ClearMissionUI();
 }
 
 void FUN_0102c0c0(SP::cPlanet* planet);                          // 0x0102c0c0
@@ -1123,13 +1058,13 @@ cRaidEvent* __fastcall FUN_00c5bd40(cRaidEvent* self, void* dummy)
 MissionScan::MissionScan()
 {
   MissionBaseCtor(this);
-  mpVtable  = (Vtbl*)g_146fc00;
-  mpField04 = (void*)g_146dfb4;
-  mpField34 = (void*)g_146fbf0;
+  mpVtable  = (Vtbl*)0x146fc00;
+  mpField04 = (void*)0x146dfb4;
+  mpField34 = (void*)0x146fbf0;
   mField1f0 = 0;
-  mpField1f4 = (void*)*(int*)g_16925c0;
-  mField1f8 = *(int*)g_16925c4;
-  mField1fc = *(int*)g_16925c8;
+  mpField1f4 = (void*)*(int*)0x16925c0;
+  mField1f8 = *(int*)0x16925c4;
+  mField1fc = *(int*)0x16925c8;
 }
 
 // @ 0x00c5ea60

@@ -10,11 +10,8 @@
 //   void __thiscall HandleSimulationUpdate(cCreatureModeStrategy* this, float a, float b)  (ret 8)
 
 #include "types.h"
+#include "sse_helpers.h"
 #include <math.h>
-
-// float -> int with the current MXCSR rounding (asm helper in the original).
-__forceinline int RoundToInt(float f) { __asm cvtss2si eax, f }
-#pragma warning(disable: 4035)
 
 struct Vector2
 {
@@ -456,6 +453,7 @@ public:
 
 enum { kMODE_ENDING = 1, kLoadingDone = 0xd };
 
+// @ 0x00d45790
 void cCreatureModeStrategy::HandleSimulationUpdate(float gameDelta, float realDelta)
 {
     if (FUN_00b3d320()->mbSuspended) {
@@ -463,8 +461,8 @@ void cCreatureModeStrategy::HandleSimulationUpdate(float gameDelta, float realDe
         return;
     }
 
-    uint32_t deltaMS = RoundToInt(realDelta * 1000.0f);
-    RoundToInt(gameDelta * 1000.0f);
+    uint32_t deltaMS = (uint32_t)SseRoundToInt(realDelta * 1000.0f);
+    SseRoundToInt(gameDelta * 1000.0f);
 
     if (mbShowTutorial && mbWaitForLoadGate) {
         if (!FUN_00b3d410()->IsReady())
@@ -505,18 +503,20 @@ void cCreatureModeStrategy::HandleSimulationUpdate(float gameDelta, float realDe
 
         GameDataVector<cInteractiveOrnament>* ornaments = (GameDataVector<cInteractiveOrnament>*)
             nounMgr->GetGameDataVector(FUN_00cd7d10, FUN_00d3d420, FUN_00d3d440, FUN_00b1e500, 0x3a2511e);
-        uint32_t n = ornaments->mData.size();
+        PtrVector<cInteractiveOrnament>& ornamentData = ornaments->mData;
+        uint32_t n = ornamentData.size();
         for (uint32_t i = 0; i < n; i++) {
-            cInteractiveOrnament* o = ornaments->mData[i];
+            cInteractiveOrnament* o = ornamentData.mpBegin[i];
             if (o)
                 o->Update(scaledMS);
         }
 
         GameDataVector<cPosseMember>* posse = (GameDataVector<cPosseMember>*)
             nounMgr->GetGameDataVector(FUN_00cd7d10, FUN_00d3d420, FUN_00ace0f0, FUN_00b1e500, 0x18eb45e);
-        n = posse->mData.size();
+        PtrVector<cPosseMember>& posseData = posse->mData;
+        n = posseData.size();
         for (uint32_t i = 0; i < n; i++) {
-            cPosseMember* m = posse->mData[i];
+            cPosseMember* m = posseData.mpBegin[i];
             if (m && m->mbIsInPosse)
                 m->Update(scaledMS);
         }
@@ -537,9 +537,10 @@ void cCreatureModeStrategy::HandleSimulationUpdate(float gameDelta, float realDe
 
             GameDataVector<cHerd>* herds = (GameDataVector<cHerd>*)
                 nounMgr->GetGameDataVector(FUN_00cd7d10, FUN_00d3d420, FUN_00accc30, FUN_00b1e500, 0x1be418e);
-            int herdCount = (int)herds->mData.size();
+            PtrVector<cHerd>& herdData = herds->mData;
+            int herdCount = (int)herdData.size();
             for (int i = 0; i < herdCount; i++) {
-                cHerd* herd = herds->mData[i];
+                cHerd* herd = herdData.mpBegin[i];
                 if (herd->IsActive())
                     herd->Update(scaledMS);
                 if (mbGainedEvoPoints && herd->mbEvolves && herd->mpProfile != avatarProfile && bHerdsEvolve &&

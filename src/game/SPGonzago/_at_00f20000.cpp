@@ -2,9 +2,6 @@
 // Object file: SPGonzago/_at_00f20000.obj.  Function bodies keep the slice's code; types, members and virtual calls use the
 // canonical headers under src/game/include.  Each function keeps its '// @ 0xVA' marker.
 
-// addresses retail relocates here, named so the build relocates them too
-extern "C" void FUN_00f24a90();
-
 #include "game/types.h"
 #include "SP/cGameNounManager.h"
 #include "EA/Random/RandomLinearCongruential.h"
@@ -741,11 +738,11 @@ struct Obj {
   uint_s00f2_4b30 f4a8, f4ac, f4b0, f4b4, f4b8, f4bc, f4c0, f4c4;
 
   int  fn25080(Obj* o);
-  Vec3i fn25110(bool* flag);
-  Vec3i fn25160();
-  Vec3i fn25190(bool* flag);
-  Vec3i fn251f0();
-  Vec3i fn25240(bool* flag);
+  void fn25110(Vec3i* out, bool* flag);
+  void fn25160(Vec3i* o);
+  void fn25190(Vec3i* out, bool* flag);
+  Vec3i* fn251f0(Vec3i* o);
+  Vec3i* fn25240(Vec3i* o, bool* flag);
 
   int  fn252c0();
   int  fn252f0();
@@ -816,7 +813,7 @@ struct LayoutGlobal {        // 0x38-byte Simulator layout singleton
   LayoutTree worlds;         // +0x00
   LayoutTree collections;    // +0x1c
 };
-#define gLayoutManager (*(LayoutGlobal**)&DAT_016c8318)   /* 0x016c8318 */
+#define gLayoutManager (*(LayoutGlobal**)0x016c8318)   /* 0x016c8318 */
 void* FUN_00f473a0(unsigned size, const char* name, int a, int b,
                    const char* file, int line);      // 0x00f473a0
 void  FUN_00f47380(void* p);                         // 0x00f47380
@@ -1246,8 +1243,12 @@ void __cdecl FUN_00f20b20(int* self)
     V2cC* p = (V2cC*)self[1];
     if (p->q() != 1) {
         V0c* q = (V0c*)self[1];
-        PropData* d = q ? (PropData*)q->q(0xce9f6639) : 0;
-        d->flag1 = 0;
+        if (q) {
+            PropData* d = (PropData*)q->q(0xce9f6639);
+            d->flag1 = 0;
+        } else {
+            ((PropData*)0)->flag1 = 0;
+        }
     }
 }
 
@@ -1257,8 +1258,12 @@ void __cdecl FUN_00f20b60(int* self)
     V2cC* p = (V2cC*)self[1];
     if (p->q() != 1) {
         V0c* q = (V0c*)self[1];
-        PropData* d = q ? (PropData*)q->q(0xce9f6639) : 0;
-        d->flag0 = 0;
+        if (q) {
+            PropData* d = (PropData*)q->q(0xce9f6639);
+            d->flag0 = 0;
+        } else {
+            ((PropData*)0)->flag0 = 0;
+        }
     }
 }
 
@@ -1305,7 +1310,6 @@ void __cdecl FUN_00f20cb0(void* key, void* p)
     if ((void*)node == (void*)end) return;
     do {
         if (node->value == key) {
-            _ReadWriteBarrier();
             void* old = node->value;
             if (p != old) {
                 if (p) ((RefObj*)p)->v0();
@@ -1395,10 +1399,15 @@ void __cdecl FUN_00f20ef0(V4* self)
 // @ 0x00f20fe0
 void __cdecl FUN_00f20fe0(void)
 {
-    SimCtx* p = (SimCtx*)sub_new(0x1c, "Simulator", 0, 0, 0, 0);
-    SimCtx* s = p ? (p->ctor743b50(), p) : 0;
-    g_pSimCtor = s;
-    s->b72080(0x14, 0x80);
+    void* p = sub_new(0x1c, "Simulator", 0, 0, 0, 0);
+    if (p) {
+        ((SimCtx*)p)->ctor743b50();
+        g_pSimCtor = p;
+        ((SimCtx*)p)->b72080(0x14, 0x80);
+    } else {
+        g_pSimCtor = 0;
+        ((SimCtx*)0)->b72080(0x14, 0x80);
+    }
 }
 
 // @ 0x00f21080
@@ -1865,26 +1874,18 @@ void FUN_00f24200(void)
 }
 
 // @ 0x00f24390
-struct EventTreeHdr_s00f2_4390 {
-    int   mCompare;     // +0x00
-    int*  mpLeft;       // +0x04 anchor
-    int*  mpRight;      // +0x08
-    int*  mpParent;     // +0x0c root
-    uint8_t mColor;     // +0x10
-    int   mnSize;       // +0x14
-    void reset()
-    {
-        ((EventTree*)this)->Destroy(mpParent);
-        mpRight = (int*)&mpLeft;
-        mpLeft = (int*)&mpLeft;
-        mpParent = 0;
-        mColor = 0;
-        mnSize = 0;
-    }
-};
 void FUN_00f24390(void)
 {
-    ((EventTreeHdr_s00f2_4390*)DAT_016c8318)->reset();
+    EventTree* tree = (EventTree*)DAT_016c8318;
+    int* puVar1 = (int*)(DAT_016c8318 + 0xc);
+    int iVar3 = (int)tree;
+    tree->Destroy(*(int**)((char*)tree + 0xc));
+    int iVar2 = iVar3 + 4;
+    *(int*)(iVar3 + 8) = iVar2;
+    *(int*)iVar2 = iVar2;
+    *puVar1 = 0;
+    *(uint8_t*)(iVar3 + 0x10) = 0;
+    *(int*)(iVar3 + 0x14) = 0;
 }
 
 // @ 0x00f243c0
@@ -2023,7 +2024,7 @@ void FUN_00f243c0(int* ev, float dt)
 void FUN_00f24ae0(int* ev, int target, float dt)
 {
     if (dt != 0.0f) {
-        char cVar1 = FUN_00f20350((IVObj*)((void* (__thiscall*)(void*))*(void**)(*ev + 4))(ev), dt, (void (*)(UIEntry*))FUN_00f24a90);
+        char cVar1 = FUN_00f20350((IVObj*)((void* (__thiscall*)(void*))*(void**)(*ev + 4))(ev), dt, (void (*)(UIEntry*))0x00f24a90);
         if (cVar1 != 0)
             return;
     }
@@ -2127,70 +2128,65 @@ int Obj::fn25080(Obj* o)
 }
 
 // @ 0x00f25110
-Vec3i Obj::fn25110(bool* flag)
+void Obj::fn25110(Vec3i* out, bool* flag)
 {
   *flag = (f24 == 1);
-  Vec3i out;
-  out.x = 0; out.y = 0; out.z = 0;
+  out->x = 0; out->y = 0; out->z = 0;
   if (f24 == 2) {
-    out = *(Vec3i*)&f28;
+    out->x = (int)f28; out->y = (int)f2c; out->z = (int)f30;
   } else {
-    out = *(Vec3i*)this;
+    out->x = (int)f00; out->y = (int)f04; out->z = (int)f08;
   }
-  return out;
 }
 
 // @ 0x00f25160
-Vec3i Obj::fn25160()
+void Obj::fn25160(Vec3i* o)
 {
-  Vec3i o = *(Vec3i*)this;
-  if ((uint_s00f2_4b30)o.y == kTypeB1B104) o.z = (int)kType65928944;
-  o.y = (int)kType2F7D0004;
-  return o;
+  *o = *(Vec3i*)this;
+  if ((uint_s00f2_4b30)o->y == kTypeB1B104) o->z = (int)kType65928944;
+  o->y = (int)kType2F7D0004;
 }
 
 // @ 0x00f25190
-Vec3i Obj::fn25190(bool* flag)
+void Obj::fn25190(Vec3i* out, bool* flag)
 {
   *flag = (f24 == 1);
-  Vec3i out;
-  out.x = 0; out.y = 0; out.z = 0;
+  out->x = 0; out->y = 0; out->z = 0;
   if (f24 == 2) {
-    out = *(Vec3i*)&f28;
+    out->x = (int)f28; out->y = (int)f2c; out->z = (int)f30;
   } else {
-    out = *(Vec3i*)this;
+    out->x = (int)f00; out->y = (int)f04; out->z = (int)f08;
   }
-  if ((uint_s00f2_4b30)out.y == kTypeB1B104) out.z = (int)kType65928944;
-  out.y = (int)kType2F7D0004;
-  return out;
+  if ((uint_s00f2_4b30)out->y == kTypeB1B104) out->z = (int)kType65928944;
+  out->y = (int)kType2F7D0004;
 }
 
 // @ 0x00f251f0
-Vec3i Obj::fn251f0()
+Vec3i* Obj::fn251f0(Vec3i* o)
 {
-  Vec3i o;
-  o.x = 0; o.y = 0; o.z = 0;
+  o->x = 0; o->y = 0; o->z = 0;
   Vec3i tmp;
-  o = *(Vec3i*)sub_f21bb0(&tmp, this);
-  if ((uint_s00f2_4b30)o.y == kTypeB1B104) o.z = (int)kType65928944;
-  o.y = (int)kType2F7D0004;
+  Vec3i* r = (Vec3i*)sub_f21bb0(&tmp, this);
+  *o = *r;
+  if ((uint_s00f2_4b30)o->y == kTypeB1B104) o->z = (int)kType65928944;
+  o->y = (int)kType2F7D0004;
   return o;
 }
 
 // @ 0x00f25240
-Vec3i Obj::fn25240(bool* flag)
+Vec3i* Obj::fn25240(Vec3i* o, bool* flag)
 {
   *flag = (f48 == 1);
-  Vec3i o;
-  o.x = 0; o.y = 0; o.z = 0;
+  o->x = 0; o->y = 0; o->z = 0;
   if (f48 == 2) {
-    o = *(Vec3i*)&f50;
+    o->x = (int)f50; o->y = (int)f54; o->z = (int)f58;
   } else {
     Vec3i tmp;
-    o = *(Vec3i*)sub_f21bb0(&tmp, this);
+    Vec3i* r = (Vec3i*)sub_f21bb0(&tmp, this);
+    *o = *r;
   }
-  if ((uint_s00f2_4b30)o.y == kTypeB1B104) o.z = (int)kType65928944;
-  o.y = (int)kType2F7D0004;
+  if ((uint_s00f2_4b30)o->y == kTypeB1B104) o->z = (int)kType65928944;
+  o->y = (int)kType2F7D0004;
   return o;
 }
 
@@ -2336,17 +2332,16 @@ bool Obj::fn25560()
 // @ 0x00f25580
 bool Obj::fn25580()
 {
-  switch (sub_eece20(this)) {
-  case (int)0xcf56099a: {
-    bool off = fn254d0() == 0;
-    return off;
-  }
-  case (int)0x6031c03a:
-    if (sub_eecf10(this) == 0x167b1f54)
+  int v = sub_eece20(this);
+  if (v <= (int)0x6031c03a) {
+    if (v == (int)0x6031c03a) {
+      if (sub_eecf10(this) == 0x167b1f54) return true;
+    } else if (v == (int)0xb10e526f) {
       return true;
-    break;
-  case (int)0xb10e526f:
-  case (int)0x7998ce71:
+    } else if (v == (int)0xcf56099a) {
+      return fn254d0() == false;
+    }
+  } else if (v == (int)0x7998ce71) {
     return true;
   }
   return false;
@@ -2656,7 +2651,8 @@ void fn26ac0(void* param)
   int* p = ((int*(*)(void*))*(void**)((char*)param + 0x20))(param);
   if ((g016c8474 & 1) == 0) {
     g016c8474 |= 1;
-    g016c8470 = 0;
+    g016c8470 = *p = 0;
+    return;
   }
   *p = (int)g016c8470;
 }
@@ -2671,7 +2667,8 @@ void fn26c60(void* param)
   int* p = ((int*(*)(void*))*(void**)((char*)param + 0x20))(param);
   if ((g016c847c & 1) == 0) {
     g016c847c |= 1;
-    g016c8478 = 0;
+    g016c8478 = *p = 0;
+    return;
   }
   *p = (int)g016c8478;
 }

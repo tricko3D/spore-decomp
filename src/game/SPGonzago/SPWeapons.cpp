@@ -2,22 +2,6 @@
 // Object file: SPGonzago/SPWeapons.obj.  Function bodies keep the slice's code; types, members and virtual calls use the
 // canonical headers under src/game/include.  Each function keeps its '// @ 0xVA' marker.
 
-// addresses retail relocates here, named so the build relocates them too
-extern "C" char g_13eb938[];
-extern "C" char g_13ec458[];
-extern "C" char g_1475194[];
-extern "C" char g_14751a4[];
-extern "C" char g_14751b4[];
-extern "C" char g_14751e0[];
-extern "C" char g_14752a4[];
-extern "C" char g_14752b8[];
-extern "C" char g_145dca8[];
-extern "C" char g_1475eb4[];
-extern "C" char g_1475edc[];
-extern "C" char g_1475ee8[];
-extern "C" char g_1475fe4[];
-extern "C" char g_1475ff8[];
-
 #include "game/types.h"
 #include "SP/cArtilleryProjectile.h"
 #include "SP/cLocomotiveObject.h"
@@ -64,17 +48,6 @@ typedef void* (__thiscall *FnVp0)(void*);
 bool __cdecl EA_IO_WriteUint32(void* s, const void* p, uint32_t n, int endian); // 0x0093aa70
 bool __cdecl EA_IO_ReadInt32(void* s, void* p, uint32_t n, int endian);         // 0x0093a780
 struct IStream;
-struct ProjectileArchiveStreamHolder {
-    virtual void slot0(); virtual void slot1(); virtual void slot2();
-    virtual void slot3(); virtual void slot4(); virtual void slot5();
-    virtual void* GetStream(); // +0x18
-};
-struct ProjectileArchive {
-    virtual void slot0(); virtual void slot1(); virtual void slot2();
-    virtual void slot3(); virtual void slot4(); virtual void slot5();
-    virtual void slot6(); virtual void slot7();
-    virtual ProjectileArchiveStreamHolder* GetStreamHolder(); // +0x20
-};
 struct cGameData {
     void* mpVtbl;        // +0x00
     char  pad04[0x30];   // +0x04
@@ -2935,16 +2908,14 @@ void* CObj3760::Cast(int type)
 // @ 0x00cb37d0
 bool CArtilleryProjectile::Write(IStream* s)
 {
-    ProjectileArchiveStreamHolder* __restrict holder = reinterpret_cast<ProjectileArchive*>(s)->GetStreamHolder();
-    uint32_t id = 0x01428a48;
-    void* output = holder->GetStream();
-    EA_IO_WriteUint32(output, &id, 1, 0);
+    void* w = StreamWriter(s);
+    uint32_t id = 0x1428a48;
+    void* v = WriterValue(w);
+    EA_IO_WriteUint32(v, &id, 1, 0);
     mGameData.Write(s);
     mLoco.Write(s);
-    SP::cVarListSerializer serializer(this,
-        reinterpret_cast<SP::cDataSerializerGeneric*>(&g_157d398),
-        SP::cVarListSerializer::kSignature);
-    serializer.Serialize(*reinterpret_cast<SP::cIObjectDatabaseOStream*>(s));
+    cVarListSerializer ser(this, &g_157d398, 0x1a80d26);
+    ser.Serialize(s);
     return true;
 }
 
@@ -3142,7 +3113,7 @@ void __stdcall f00cb4670_ballistic_execute(Vector3* self)
     }
     Quaternion q;
     (*(cLocomotiveObject_s00cb_44b0**)((char*)self + 0x14))->SetOrientation(
-        QuaternionFromDirections(&q, (const Vector3*)&g_169a9e8, self));
+        QuaternionFromDirections(&q, (const Vector3*)0x0169a9e8, self));
 }
 
 // @ 0x00cb46f0
@@ -3549,11 +3520,11 @@ cSpaceDefenseMissileLocomotion* cSpaceDefenseMissileLocomotion::Construct(float 
                                                                          float turnRate,
                                                                          void* target)
 {
-    mpVtbl8 = (Vtbl*)g_13ec458;
+    mpVtbl8 = (Vtbl*)0x13ec458;
     m0c = 0;
     mSpeed = maxSpeed;
-    mpVtbl = (Vtbl*)g_14751a4;
-    mpVtbl8 = (Vtbl*)g_1475194;
+    mpVtbl = (Vtbl*)0x14751a4;
+    mpVtbl8 = (Vtbl*)0x1475194;
     mTurnRate = turnRate;
     mpTarget = target;
     if (target != 0)
@@ -3758,10 +3729,11 @@ void cDefaultBeamProjectile::FUN_00cb5930(f32* pos)
 // @ 0x00cb5980
 u32 cDefaultBeamProjectile::FUN_00cb5980()
 {
-    void*& slot = *(void**)((u8*)mpSub2c + 0x114);
-    if (slot != 0)
-        return ((u32 (__thiscall*)(void*, u32))VT(slot)[0xb8 / 4])(slot, 0x13f94d4);
-    return 0;
+    void** slot = (void**)((u8*)mpSub2c + 0x114);
+    void* p = *slot;
+    if (p == 0)
+        return 0;
+    return ((u32 (__thiscall*)(void*, u32))VT(p)[0xb8 / 4])(p, 0x13f94d4);
 }
 
 // @ 0x00cb59b0
@@ -3830,10 +3802,10 @@ u32 cDefaultBeamProjectile::FUN_00cb5b70()
 // @ 0x00cb5bd0
 void cDefaultAoEArea::FUN_00cb5bd0()
 {
-    mpVtbl = (void*)g_14752b8;
-    mpVtbl2 = (void*)g_14752a4;
-    mpSubVtbl = (void*)g_14751e0;
-    mpVtbl108 = (void*)g_14751b4;
+    mpVtbl = (void*)0x14752b8;
+    mpVtbl2 = (void*)0x14752a4;
+    mpSubVtbl = (void*)0x14751e0;
+    mpVtbl108 = (void*)0x14751b4;
 
     MOPS((u8*)this + 0x138)->FUN_00b638b0();
 
@@ -3841,7 +3813,7 @@ void cDefaultAoEArea::FUN_00cb5bd0()
     if (p != 0)
         ((void (__thiscall*)(void*))VT(p)[8 / 4])(p);
 
-    mpVtbl108 = (void*)&g_vft_145dca8;
+    mpVtbl108 = (void*)0x145dca8;
     MOPS((u8*)this + 0x34)->FUN_00c8a420();
     MOPS(this)->FUN_00b184c0();
 }
@@ -5274,19 +5246,17 @@ TObj* TObj::FUN_00cb94b0()
     ((TObj*)this)->F_18660();
     TObj* sub = (TObj*)((char*)this + 0x34);
     sub->F_c43860();
-    *(void**)((char*)this + 0x504) = g_145dca8;
+    *(uint32_t*)((char*)this + 0x504) = 0x145dca8;
     float zero = 0.0f;
     *(float*)((char*)this + 0x508) = zero;
     *(float*)((char*)this + 0x50c) = zero;
     *(float*)((char*)this + 0x510) = zero;
-    _ReadWriteBarrier();
     *(uint8_t*)((char*)this + 0x514) = 0;
-    *(void**)((char*)this + 0x000) = g_1475ff8;
-    *(void**)((char*)this + 0x004) = g_1475fe4;
-    *(void**)((char*)this + 0x034) = g_1475ee8;
-    *(void**)((char*)this + 0x108) = g_1475edc;
-    *(void**)((char*)this + 0x504) = g_1475eb4;
-    _ReadWriteBarrier();
+    *(uint32_t*)((char*)this + 0x000) = 0x1475ff8;
+    *(uint32_t*)((char*)this + 0x004) = 0x1475fe4;
+    *(uint32_t*)((char*)this + 0x034) = 0x1475ee8;
+    *(uint32_t*)((char*)this + 0x108) = 0x1475edc;
+    *(uint32_t*)((char*)this + 0x504) = 0x1475eb4;
     *(uint32_t*)((char*)this + 0x520) = 0;
     return this;
 }
@@ -5299,7 +5269,7 @@ void* TObj::_virtual_dtor(uint8_t param_2)
         ((void(__thiscall*)(uint32_t))VF(p, 0x64))(p);
     }
     TObj* sub = (TObj*)((char*)this + 0x34);
-    *(uint32_t*)((char*)this + 0x504) = (int)&g_vft_145dca8;
+    *(uint32_t*)((char*)this + 0x504) = 0x145dca8;
     sub->F_c432e0();
     ((TObj*)this)->F_184c0();
     if ((param_2 & 1) != 0) {
@@ -5479,8 +5449,8 @@ void* TObj::FUN_00cb9b90(uint8_t param_2)
     if (p != 0 && *(uint32_t*)(p - 4) != 0) {
         FUN_00f47380((void*)p);
     }
-    *(uint32_t*)((char*)this + 0x08) = (int)g_13ec458;
-    *(uint32_t*)((char*)this + 0x00) = (int)g_13eb938;
+    *(uint32_t*)((char*)this + 0x08) = 0x13ec458;
+    *(uint32_t*)((char*)this + 0x00) = 0x13eb938;
     if ((param_2 & 1) != 0) {
         FUN_00f47380(this);
     }

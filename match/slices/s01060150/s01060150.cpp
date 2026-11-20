@@ -35,8 +35,8 @@ struct Vector3 {
     bool operator!=(const Vector3& b) const { return x != b.x || y != b.y || z != b.z; }
     float Dot(const Vector3& b) const { return x * b.x + y * b.y + z * b.z; }
     float SquaredLength() const { return x * x + y * y + z * z; }
-    float Length() const { return sqrtf(x * x + y * y + z * z); }
-    Vector3 Normalized() const { float inv = 1.0f / Length(); return Vector3(x * inv, y * inv, z * inv); }
+    __forceinline float Length() const { return sqrtf(x * x + y * y + z * z); }
+    __forceinline Vector3 Normalized() const { float inv = 1.0f / Length(); return Vector3(x * inv, y * inv, z * inv); }
 };
 extern const Vector3 kZeroVector;                                    // 0x016e2114
 
@@ -45,7 +45,6 @@ template <class T, int N> struct fixed_vector {
     T* mpBegin;
     T* mpEnd;
     T* mpCapacity;
-    uint32_t mPad0c[2];
     uint32_t mnHeapFlag;
     T mBuffer[N];
     fixed_vector() : mpBegin(mBuffer), mpEnd(mBuffer), mpCapacity(mBuffer + N), mnHeapFlag(0) {}
@@ -229,6 +228,8 @@ public:
 static const float kMinPushLengthSq = 1.5258789e-05f;               // 0x0149bfc0
 static const float kMaxDistance = 3.402823466e+38F;                    // 0x0149bfbc
 
+// @ 0x01060150  Resolve planetary collisions for the UFO: push it out of the planet, other UFOs,
+// cities and tribes.
 void cUFOLocomotion::ResolvePlanetaryCollisions(cSpaceToolUFO* pUFO, float)
 {
     cPlanetModel* pPlanetModel = PlanetModel();
@@ -247,14 +248,13 @@ void cUFOLocomotion::ResolvePlanetaryCollisions(cSpaceToolUFO* pUFO, float)
             pushDir = toUFO * (1.0f / sqrtf(lenSq));
         else
             pushDir = -up;
-        Vector3 dir = pushDir;
-        Vector3 origin = center - up * ufoRadius - dir * (ufoRadius * 2.0f);
-        Vector3 hit = PlanetModel()->RayCast(origin, dir);
+        Vector3 origin = center - up * ufoRadius - pushDir * (ufoRadius * 2.0f);
+        Vector3 hit = PlanetModel()->RayCast(origin, pushDir);
         if (hit != kZeroVector) {
             Vector3 normal = PlanetModel()->GetNormal(hit);
             ApplyPush(pUFO, kZeroVector, normal, 1);
             pos = normal * ufoRadius + hit;
-            pUFO->mMotion.Apply(FUN_00c37360()->GetBounceStrength(), 0, 8, &dir, 0);
+            pUFO->mMotion.Apply(FUN_00c37360()->GetBounceStrength(), 0, 8, &pushDir, 0);
         } else {
             Vector3 offset = pos.Normalized() * ufoRadius;
             pos = PlanetModel()->ProjectToSurface(pos) + offset;

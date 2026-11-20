@@ -2,15 +2,6 @@
 // Object file: SPGonzago/SPCitizenBehaviorTree.obj.  Function bodies keep the slice's code; types, members and virtual calls use the
 // canonical headers under src/game/include.  Each function keeps its '// @ 0xVA' marker.
 
-// addresses retail relocates here, named so the build relocates them too
-extern "C" char g_14007f4[];
-extern "C" char g_1470f1c[];
-extern "C" char g_147b9f0[];
-extern "C" char g_147c0fc[];
-extern "C" char g_147c108[];
-extern "C" char g_14853e0[];
-extern "C" char g_1601760[];
-
 #include "game/types.h"
 #include "nSPBehaviorTree/behavior_memory_block.h"
 #include "EA/Random/RandomLinearCongruential.h"
@@ -1709,7 +1700,7 @@ bool FUN_00d91650(void* p0, u32 a1, u32 a2, u32 a3, u32 a4, AnimState* st)
     if (st->mb0C != 0) {
         if (((NearGoal*)&c->mC0)->Do()) {
             st->mb0C = 0;
-            st->mn14 = ((PlayAnim*)c)->Do(((u32*)g_147c0fc)[st->mn10], 1, 0xffffffff);
+            st->mn14 = ((PlayAnim*)c)->Do(((u32*)0x147c0fc)[st->mn10], 1, 0xffffffff);
         }
         return true;
     }
@@ -1752,8 +1743,8 @@ bool FUN_00d91770(void* p0, u32 a1, u32 a2, u32 a3, u32 a4, UfoState* st, u32 a6
     Creature* c = (Creature*)p0;
     if (((NearGoal*)&c->mC0)->Do()) {
         if (st->mb00 == 0) {
-            u32 idx = ((RandU32*)g_1601760)->Do(5);
-            ((Interrupt*)c)->Do(((u32*)g_147c108)[idx], 0xffffffff, 0);
+            u32 idx = ((RandU32*)0x1601760)->Do(5);
+            ((Interrupt*)c)->Do(((u32*)0x147c108)[idx], 0xffffffff, 0);
             st->mb00 = 1;
         }
         st->mf04 += dt;
@@ -1918,16 +1909,16 @@ bool FUN_00d921c0(void* p0, u32 a1, u32 a2, u32 flags, u32 a4, u32* out)
     if (pos.x == cur->x && pos.y == cur->y && pos.z == cur->z) {
         Vec3f* r = ((PlanetModel*)SP_PlanetModel())->MakeRandomWorldPosition(
             &tmp, (Vec3f*)((FnP)((void**)c->mC0.mpVtbl)[0x2c / 4])(&c->mC0),
-            *(f32*)g_1470f1c, *(f32*)g_14853e0);
+            *(f32*)0x1470f1c, *(f32*)0x14853e0);
         pos = *r;
     }
 
     Vec3f* r2 = ((PlanetModel*)SP_PlanetModel())->MakeRandomWorldPosition(
-        &tmp, &pos, 0.0f, *(f32*)g_14007f4);
+        &tmp, &pos, 0.0f, *(f32*)0x14007f4);
     pos = *r2;
 
     ((Interrupt*)c)->Do(0x2481db0, 0xffffffff, 0);
-    ((MoveTo*)c)->Do(2, &pos, 1.0f, *(f32*)g_147b9f0);
+    ((MoveTo*)c)->Do(2, &pos, 1.0f, *(f32*)0x147b9f0);
     return true;
 }
 
@@ -2246,7 +2237,7 @@ u8 __cdecl FUN_00d93230(cObj* a1, void* a2, void* a3, void* a4, void* a5, u32* a
     default:
         goto ret1;
     }
-    u32 r = MOPS((void*)g_1601760)->FUN_00a68fb0(3);
+    u32 r = MOPS((void*)0x1601760)->FUN_00a68fb0(3);
     switch (r) {
     case 0:
         MOPS(a1)->FUN_00c12190(0x2d5f9be, 1, -1);
@@ -2306,8 +2297,12 @@ u8 __cdecl FUN_00d933d0(cObj* a1)
     f32 c4 = g14853e0;
     f32 c2 = g1470f1c;
     MOPS(a1)->FUN_00c1c1d0(2, &g169ec74, c2, c4);
-    f32 r = MOPS((void*)g_1601760)->FUN_009360d0();
-    MOPS(a1)->FUN_00c1ad10(r < 0.5f ? true : false);
+    f32 r = MOPS((void*)0x1601760)->FUN_009360d0();
+    if (r < 0.5f) {
+        MOPS(a1)->FUN_00c1ad10(1);
+    } else {
+        MOPS(a1)->FUN_00c1ad10(0);
+    }
     return 1;
 }
 
@@ -2384,7 +2379,8 @@ f32 __cdecl FUN_00d935d0(cObj* a1)
         f64 dy = (f64)b[1] - a[1];
         f64 dz = (f64)b[2] - a[2];
         if (sqrt(dy * dy + (dz * dz + dx * dx)) < g140c6e8) {
-            if (MOPS(&a1->mFB8->m1bc)->FUN_00afad70((f32*)((void* (__thiscall*)(void*))VT(a1->mC0)[0x2c / 4])(a1->mC0)) != 0)
+            f32* c = (f32*)((void* (__thiscall*)(void*))VT(a1->mC0)[0x2c / 4])(a1->mC0);
+            if (MOPS(&a1->mFB8->m1bc)->FUN_00afad70(c) != 0)
                 return 1.0f;
         }
     }

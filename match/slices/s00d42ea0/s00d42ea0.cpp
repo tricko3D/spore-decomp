@@ -425,6 +425,7 @@ static __forceinline void AddHint(const ResourceKey& key, void* handler)
     HintManager()->AddLayer(key, handler, 0, -1.0f, -1.0f, 0.0f, 0, 0);
 }
 
+// @ 0x00d42ea0
 bool cCreatureModeStrategy::HandleMessage(uint32_t messageID, void* msg)
 {
     switch (messageID)

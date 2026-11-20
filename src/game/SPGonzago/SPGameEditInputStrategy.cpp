@@ -2,11 +2,6 @@
 // Object file: SPGonzago/SPGameEditInputStrategy.obj.  Function bodies keep the slice's code; types, members and virtual calls use the
 // canonical headers under src/game/include.  Each function keeps its '// @ 0xVA' marker.
 
-// addresses retail relocates here, named so the build relocates them too
-extern "C" char g_14771e0[];
-extern "C" char g_1667bac[];
-extern "C" char g_1667bae[];
-
 #include "game/types.h"
 #include "EA/ArgScript/cArgumentSpec.h"
 #include "EA/ArgScript/cArguments.h"
@@ -388,7 +383,7 @@ struct cGameNounManager_s00d1_5440 {
 Obj*  __cdecl SP_PlanetModel();                       // 0x00b3d350
 Obj*  __cdecl SP_PropertyManager();                   // 0x0067de30
 Obj*  __cdecl SP_GetGameTerrainCursor();              // 0x00b30d70
-cGameNounManager_s00d1_5440* __cdecl SP_NounManager();            // 0x00b3d300
+cGameNounManager_s00d1_5440* __cdecl SP_NounManager(void* pNoun); // 0x00b3d300
 void* __cdecl FUN_00d1bf00();                         // 0x00d1bf00  GetEditSelection
 u32   __cdecl EA_Hash_FNV1_String16(const wchar_t* p, u32 seed, int flag); // 0x00932f30
 void  __cdecl EA_Messaging_RemoveHandler(void*, void*, void*, void*, void*); // 0x00571db0
@@ -2404,7 +2399,7 @@ void* Simulator::cScenarioEditModeInputStrategy::Destroy(uint8_t flags)
 {
     cSub04& sub = mSub;
     cNested1c& nested = sub.mNested1c;
-    mpVtable = (void*)g_14771e0;
+    mpVtable = (void*)0x014771e0;
     nested.Release(nested.mpValue0c);
     sub.Release(sub.mpValue0c);
     if (flags & 1)
@@ -2417,8 +2412,8 @@ void __stdcall FUN_00d15100(int32_t nA, int32_t nB)
 {
     (void)nA;
     (void)nB;
-    if (*(uint8_t*)&g_169dc20) {
-        *(uint8_t*)&g_169dc20 = 0;
+    if (*(uint8_t*)0x0169dc20) {
+        *(uint8_t*)0x0169dc20 = 0;
         cTerraformingManager* pManager = (cTerraformingManager*)SP_TerraformingManager();
         if (pManager)
             pManager->SetMode(1);
@@ -2549,7 +2544,8 @@ void SP::cGameEditInputStrategy_s00d1_5440::FUN_00d15550()
     }
 
     if (mpNoun != 0) {
-        SP_NounManager()->RemoveNoun((Obj*)mpNoun);
+        cGameNounManager_s00d1_5440* m = SP_NounManager(mpNoun);
+        m->RemoveNoun((Obj*)mpNoun);
         mpNoun = 0;
     }
 
@@ -2704,14 +2700,13 @@ void SP::cGameEditInputStrategy_s00d1_5440::FUN_00d15980(void* a1, void* pObj)
     if (q != 0) {
         void* id = ((Fn_p_pi)VTSLOT(q, 0xc))(q, (int)0x01186577);
         if (id == mpField4C) {
-            _ReadWriteBarrier();
             Obj* f = (Obj*)mpField4C;
             if (f != 0) {
                 mpField4C = 0;
                 ((Fn_v_p)VTSLOT(f, 0xc0))(f);
             }
         }
-        SP_NounManager()->RemoveNoun(q);
+        SP_NounManager(q)->RemoveNoun(q);
         FUN_00ba1280();
     }
 }
@@ -2724,7 +2719,6 @@ void SP::cGameEditInputStrategy_s00d1_5440::FUN_00d15a10(void* p)
         Obj* q = (Obj*)((Fn_p_pi)VTSLOT(g, 0xc))(g, (int)0x01186577);
         if (q != 0)
             ((Fn_v_pp)VTSLOT(q, 0x94))(q, p);
-            _ReadWriteBarrier();
     }
 
     int* it = DAT_0169dc68;
@@ -2979,9 +2973,9 @@ void cGameEditInputStrategy::SetPlanet(const cVec3i* planet)
     mPlanetF8 = *planet;
     if (mpField7c != 0) {
         cWString str;
-        str.mpBegin = (void*)g_1667bac;
-        str.mpEnd = (void*)g_1667bac;
-        str.mpCap = (void*)g_1667bae;
+        str.mpBegin = (void*)0x01667bac;
+        str.mpEnd = (void*)0x01667bac;
+        str.mpCap = (void*)0x01667bae;
         if (planet->y != 0)
             VT_7C_2(ObjectError(), (void*)planet, &str);
         VT_60_1(mpField7c, str.mpBegin, 0);

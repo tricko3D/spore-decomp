@@ -2102,16 +2102,17 @@ void FUN_00d9b770(Creature** first, Creature** last)
     }
 }
 
-// Slot-0 view of the band held in each entry (its virtual release, called with 0).
-struct cSocialBandRelease { virtual void Release(int flags); };
-
 // @ 0x00d9b7f0
 char* FUN_00d9b7f0(char* first, char* last, char* out)
 {
     while (first != last) {
-        if (!(bool)((*(unsigned*)first >> 31) & 1))
-            ((cSocialBandRelease*)(first + 4))->Release(0);
-
+        unsigned f = *(unsigned*)first;
+        unsigned bit = f >> 31;
+        if (bit == 0) {
+            typedef void (__thiscall *RelFn)(void*, int);
+            void* obj = first + 4;
+            ((RelFn)(*(void***)obj)[0])(obj, 0);
+        }
         first += 0x210;
         out += 0x210;
     }
@@ -2919,7 +2920,7 @@ void Fd9f6f0(int* first, int* mid, int* last, Vector3 vec)
         char* ap = *p ? (char*)*p + 0xc0 : 0;
         if (((KeyCmp*)(void*)&vec)->Compare(ap, a0)) {
             int v = *p;
-            int f = *(volatile int*)first;
+            int f = *first;
             *p = f;
             Fd9da80(first, 0, (int)((char*)mid - (char*)first) >> 2, 0, v, vec);
         }
@@ -4234,11 +4235,8 @@ void* FUN_00da55c0(cSocialBandEntry* pFirst, cSocialBandEntry* pLast, cSocialBan
     while (pFirst != pLast) {
         if (pDest) {
             pDest->mSlotInfo = pFirst->mSlotInfo;
-            if (!(bool)((pFirst->mSlotInfo >> 31) & 1)) {
-                cSocialBand_s00da_49f0* pBand = &pDest->mBand;
-                if (pBand)
-                    pBand->CopyInit(&pFirst->mBand);
-            }
+            if (!pFirst->mIsEmpty)
+                pDest->mBand.CopyInit(&pFirst->mBand);
         }
         pFirst = (cSocialBandEntry*)((uint8_t*)pFirst + 0x210);
         pDest = (cSocialBandEntry*)((uint8_t*)pDest + 0x210);

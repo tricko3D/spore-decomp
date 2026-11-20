@@ -2,10 +2,6 @@
 // Object file: SPGonzago/_at_00b60000.obj.  Function bodies keep the slice's code; types, members and virtual calls use the
 // canonical headers under src/game/include.  Each function keeps its '// @ 0xVA' marker.
 
-// addresses retail relocates here, named so the build relocates them too
-extern "C" char g_1687348[];
-extern "C" char g_16c7aa4[];
-
 #include "game/types.h"
 #include "SP/cSPTimer.h"
 #include "SP/cGonzagoTimer.h"
@@ -53,6 +49,12 @@ struct cGonzagoTimer : CSBase {
     void Write(void* ser);          // 0x00b638d0
     uchar Read(void* ser);          // 0x00b63930
     void AddElapsed(int v);         // 0x00b638c0
+};
+struct cVarListSerializer {
+    char data[0xa14];
+    cVarListSerializer(void* obj, void* info, unsigned sig);  // 0x00692f90
+    void Serialize(void* ser);                                 // 0x00692900
+    uchar SerializeB(void* ser);                               // 0x00693e10
 };
 extern char gSig2;   // 0x0156ad88
 extern "C" __declspec(dllimport) unsigned __stdcall IsDlgButtonChecked(void* hwnd, int id);
@@ -1870,12 +1872,13 @@ static __forceinline unsigned int PackARGB(const Vec3& c) {
 // ---- items of slice s00b6e3d0 end
 
 // @ 0x00b63930
-bool SP::cGonzagoTimer::Read(SP::cIObjectDatabaseIStream& stream)
+uchar __thiscall cGonzagoTimer::Read(void* ser)
 {
-    SP::cVarListSerializer serializer(this, reinterpret_cast<SP::cDataSerializerGeneric*>(&gSig2), SP::cVarListSerializer::kSignature);
-    bool result = serializer.Serialize(stream);
-    mBaseTime = mGetMillisecondTime();
-    return result;
+    cVarListSerializer s((char*)this, &gSig2, 0x1a80d26);
+    uchar r = s.SerializeB(ser);
+    long long b = ((long long(__thiscall*)(void*))mGetMs)(this);
+    mBase = b;
+    return r;
 }
 
 // @ 0x00b639b0
@@ -2751,7 +2754,7 @@ int __cdecl FUN_00b67610(int key)
 // @ 0x00b676a0
 void __cdecl FUN_00b676a0(void)
 {
-    char* p = *(char**)g_1687348;
+    char* p = *(char**)0x1687348;
     if (p)
         p[0x30] = (char)(p[0x30] == 0);
 }
@@ -2760,7 +2763,7 @@ void __cdecl FUN_00b676a0(void)
 u32 __cdecl FUN_00b677a0(u32 key)
 {
     if (SP_GetCurrentGameMode() == (void*)0x01654c10) {
-        ModeObj* o = *(ModeObj**)g_16c7aa4;
+        ModeObj* o = *(ModeObj**)0x016c7aa4;
         ModeTable* t = (ModeTable*)o->m_table;
         u32 k = key;
         int icon = t->FUN_00f3e900(k);
@@ -4594,19 +4597,6 @@ void UpdateSimulatorUI(UICtx* pCtx, int a2, float* pOffset, int a4, float a5)
         pCtx->ShowSimulatorText(pOffset, a2, (const void*)textID, &pos, i1, i2);
     else
         RemoveUISlot(pCtx->mID);
-}
-
-// @ 0x00b6d160
-extern const float _HK_REAL_ONE;   // 0x01485720
-void FUN_00b6d160(int key, int index)
-{
-    UICtx* pCtx = ShowHealthBar(key);
-    if (!pCtx)
-        return;
-    float one = _HK_REAL_ONE;
-    pCtx->mIndex = index;
-    _ReadWriteBarrier();
-    pCtx->mTimer = one;
 }
 
 // @ 0x00b6d3c0

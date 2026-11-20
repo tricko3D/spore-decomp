@@ -2,13 +2,7 @@
 // Object file: SPGonzago/SPAudioNPCCityMusic.obj.  Function bodies keep the slice's code; types, members and virtual calls use the
 // canonical headers under src/game/include.  Each function keeps its '// @ 0xVA' marker.
 
-// addresses retail relocates here, named so the build relocates them too
-extern "C" char g_13ec458[];
-extern "C" char g_1488214[];
-extern "C" char g_1488224[];
-
 #include "game/types.h"
-#include "SP/cVarListSerializer.h"
 #include <intrin.h>
 #pragma intrinsic(_ReadWriteBarrier)
 #include "EA/Messaging/AutoHandler.h"
@@ -432,9 +426,25 @@ namespace Audio {
 cNPCCityMusicManager* GetMusicManager();               // 0x00b3d500
 }
 }
-
-
-
+namespace SP {
+namespace Audio {
+extern const char kMusicNamePrefix[];                  // 0x01a80d26
+}
+}
+namespace SP {
+namespace Audio {
+extern const char kMusicNameSuffix[];                  // 0x015a9018
+}
+}
+namespace SP {
+namespace Audio {
+struct MusicNameBuffer {
+    char mData[0xa14];
+    void Init(const void* owner, const char* a, const char* b);   // 0x00692f90
+    bool Parse(const char* name);                                 // 0x00693e10
+};
+}
+}
 namespace SP {
 namespace Audio {
 void __cdecl UpdateAudioPosition(void* handle, void* object, float x, float y, float z);  // 0x00571f80
@@ -462,7 +472,7 @@ public:
     cNPCCityMusic();                                    // 0x00eab4a0
     explicit cNPCCityMusic(uint32_t id);                // 0x00eab410
     cNPCCityMusic* Destroy(int flags);                  // 0x00eab4d0
-    bool Read(SP::cIObjectDatabaseIStream& stream);      // 0x00eab2e0
+    bool Load(const char* name);                        // 0x00eab2e0
     void SetPosition(const Vector3* position);          // 0x00eab340
     void ClearPosition();                               // 0x00eab390
     void SetEnabled(uint8_t enabled);                   // 0x00eab3b0
@@ -544,17 +554,13 @@ ChannelNode* ChannelMap::InsertNode(uint32_t key) {
 }
 // ---- items of slice s00eaa9a0 end
 
-namespace SP { namespace Audio {
-extern SP::cDataSerializerGeneric gNPCCityMusicSerializer;    // 0x015a9018
-}}
-
 // @ 0x00eab2e0
 namespace SP { namespace Audio {
-bool cNPCCityMusic::Read(SP::cIObjectDatabaseIStream& stream)
+bool cNPCCityMusic::Load(const char* name)
 {
-    SP::cVarListSerializer serializer(this, &gNPCCityMusicSerializer,
-        SP::cVarListSerializer::kSignature);
-    bool ok = serializer.Serialize(stream);
+    MusicNameBuffer buffer;
+    buffer.Init(this, kMusicNameSuffix, kMusicNamePrefix);
+    bool ok = buffer.Parse(name);
     if (ok)
         GetMusicManager()->AddChannelRef(mId, mHandle);
     return ok;
@@ -623,12 +629,12 @@ cNPCCityMusic::cNPCCityMusic(uint32_t id)
 namespace SP { namespace Audio {
 cNPCCityMusic::cNPCCityMusic()
 {
-    mpVtable1 = (void*)g_13ec458;
+    mpVtable1 = (void*)0x13ec458;
     // Keep the base-interface store ahead of zero materialization.
     _ReadWriteBarrier();
     mField08 = 0;
-    mpVtable0 = (void*)g_1488224;
-    mpVtable1 = (void*)g_1488214;
+    mpVtable0 = (void*)0x1488224;
+    mpVtable1 = (void*)0x1488214;
     mId = 0xffffffff;
     mHandle = 0;
     mpAudioObject = 0;
@@ -636,17 +642,17 @@ cNPCCityMusic::cNPCCityMusic()
 }
 }}  // namespace SP::Audio
 
-extern "C" char g_13eb938[];
 // @ 0x00eab4d0
 namespace SP { namespace Audio {
 cNPCCityMusic* cNPCCityMusic::Destroy(int flags)
 {
-    mpVtable0 = (void*)g_1488224;
-    mpVtable1 = (void*)g_1488214;
-    if (GetMusicManager())
-        GetMusicManager()->ReleaseChannel(mId, mHandle);
-    mpVtable1 = (void*)g_13ec458;
-    mpVtable0 = (void*)g_13eb938;
+    mpVtable0 = (void*)0x1488224;
+    mpVtable1 = (void*)0x1488214;
+    cNPCCityMusicManager* manager = GetMusicManager();
+    if (manager)
+        manager->ReleaseChannel(mId, mHandle);
+    mpVtable1 = (void*)0x13ec458;
+    mpVtable0 = (void*)0x13eb938;
     if (flags & 1)
         operator_delete_array(this);
     return this;

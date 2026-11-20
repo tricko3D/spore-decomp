@@ -2,15 +2,6 @@
 // Object file: SPGonzago/SPCommunityEditor.obj.  Function bodies keep the slice's code; types, members and virtual calls use the
 // canonical headers under src/game/include.  Each function keeps its '// @ 0xVA' marker.
 
-// addresses retail relocates here, named so the build relocates them too
-extern "C" char g_1479200[];
-extern "C" char g_1479218[];
-extern "C" char g_1479234[];
-extern "C" char g_1479250[];
-extern "C" char g_147926c[];
-extern "C" char g_1479288[];
-extern "C" char g_14792a4[];
-
 #include "game/types.h"
 #include <intrin.h>
 #include "EA/Random/RandomLinearCongruential.h"
@@ -696,7 +687,7 @@ struct IWindow {
   virtual void  Slot48();               // 0x48
   virtual void  Slot4c();               // 0x4c
   virtual void  Slot50();               // 0x50
-  virtual void  Slot54(void* def, void* community);  // 0x54
+  virtual void  Slot54();               // 0x54
   virtual void  Slot58(s32 v, void* p);  // 0x58
   virtual void  Slot5c(s32 v, void* p);  // 0x5c
   virtual void  Slot60();               // 0x60
@@ -4240,13 +4231,13 @@ void FUN_00d08930()
     void* mgr = SP_GameInputManager();
     if (mgr == 0)
         return;
-    ((Fn3S)(*(void***)mgr)[0x40 / 4])(mgr, 0x3e80, (const char*)g_14792a4);
-    ((Fn3S)(*(void***)mgr)[0x40 / 4])(mgr, 0x3e82, (const char*)g_1479288);
-    ((Fn3S)(*(void***)mgr)[0x40 / 4])(mgr, 0x3e81, (const char*)g_147926c);
-    ((Fn3S)(*(void***)mgr)[0x40 / 4])(mgr, 0x3e83, (const char*)g_1479250);
-    ((Fn3S)(*(void***)mgr)[0x40 / 4])(mgr, 0x3e84, (const char*)g_1479234);
-    ((Fn3S)(*(void***)mgr)[0x40 / 4])(mgr, 0x3e85, (const char*)g_1479218);
-    ((Fn3S)(*(void***)mgr)[0x40 / 4])(mgr, 0x3e86, (const char*)g_1479200);
+    ((Fn3S)(*(void***)mgr)[0x40 / 4])(mgr, 0x3e80, (const char*)0x14792a4);
+    ((Fn3S)(*(void***)mgr)[0x40 / 4])(mgr, 0x3e82, (const char*)0x1479288);
+    ((Fn3S)(*(void***)mgr)[0x40 / 4])(mgr, 0x3e81, (const char*)0x147926c);
+    ((Fn3S)(*(void***)mgr)[0x40 / 4])(mgr, 0x3e83, (const char*)0x1479250);
+    ((Fn3S)(*(void***)mgr)[0x40 / 4])(mgr, 0x3e84, (const char*)0x1479234);
+    ((Fn3S)(*(void***)mgr)[0x40 / 4])(mgr, 0x3e85, (const char*)0x1479218);
+    ((Fn3S)(*(void***)mgr)[0x40 / 4])(mgr, 0x3e86, (const char*)0x1479200);
 }
 
 // @ 0x00d089d0
@@ -5259,24 +5250,21 @@ u32 cCommunityEditor_s00d0_a160::UpdateVehiclePlacement()
   return 0;
 }
 
-struct NounMgr_d0b0 {
-  void  RemoveNoun(void* noun);   // 0x00b225d0
-  void* CreateNoun(u32 id);       // 0x00b20c60
-};
 // @ 0x00d0b010
 void cCommunityEditor_s00d0_a160::SetRotationRingVisibility(u8 bShow)
 {
   void* ring = mpRotationRing_bc;
   if (ring != 0) {
-    ((NounMgr_d0b0*)NounManagerObj())->RemoveNoun(ring);
+    NounMgr_RemoveNoun(NounManager(ring), ring);
     mpRotationRing_bc = 0;
   }
   if (bShow != 0 && mpRingDefinition_c4 != 0 && mpCommunity_40 != 0) {
-    NounMgr_d0b0* mgr = (NounMgr_d0b0*)NounManagerObj();
-    void* noun = mgr->CreateNoun(0x2ee8ce8);
-    IWindow* iface = noun ? (IWindow*)((IProperty*)noun)->Slot0c(0x2ee8eeb) : 0;
+    void* noun = NounMgr_CreateNoun(NounManagerObj(), 0x2ee8ce8);
+    IWindow* iface = 0;
+    if (noun != 0)
+      iface = (IWindow*)((IProperty*)noun)->Slot0c(0x2ee8eeb);
     mpRotationRing_bc = iface;
-    iface->Slot54(mpRingDefinition_c4, mpCommunity_40);
+    iface->Slot54();
   }
 }
 

@@ -2,16 +2,6 @@
 // Object file: SPGonzago/SPGalaxyGameEntry.obj.  Function bodies keep the slice's code; types, members and virtual calls use the
 // canonical headers under src/game/include.  Each function keeps its '// @ 0xVA' marker.
 
-// addresses retail relocates here, named so the build relocates them too
-extern "C" char g_13eb938[];
-extern "C" char g_147dba8[];
-extern "C" char g_147dd00[];
-extern "C" char g_147e3b0[];
-extern "C" char g_147e618[];
-extern "C" char g_15a2df8[];
-extern "C" char g_1667bac[];
-extern "C" char g_1667bae[];
-
 #include "game/types.h"
 #include "SP/cString.h"
 #include "EA/DateTime/DateTime.h"
@@ -560,9 +550,9 @@ struct Str16 {
 
     Str16()
     {
-        begin = (wchar_t*)g_1667bac;
-        end   = (wchar_t*)g_1667bac;
-        cap   = (wchar_t*)g_1667bae;
+        begin = (wchar_t*)0x1667bac;
+        end   = (wchar_t*)0x1667bac;
+        cap   = (wchar_t*)0x1667bae;
     }
 };
 struct cGameData {
@@ -615,13 +605,6 @@ struct RbFind56 {
 };
 struct Key2 { int a, b; };
 struct RbNode57 { char pad[0x10]; Key2 key; };
-// rbtree iterator, returned by value through the hidden result pointer
-struct RbIter57
-{
-    RbNode57* mpNode;
-    explicit RbIter57(RbNode57* p) : mpNode(p) {}
-    RbIter57(const RbIter57& o) : mpNode(o.mpNode) {}
-};
 struct RbTree57 {
     void*   root;       // +0x00 (this+0x04)
     char    pad[0x0c];
@@ -686,7 +669,7 @@ struct cGalaxyGameEntryImpl_s00de_5040 {
     void  FUN_00de53d0(char p);         // 0x00de53d0
     void  ShowGalaxy(char param2);      // 0x00de5470
     OutKey3* FUN_00de56f0(OutKey3& pOut, KeyNode* key); // 0x00de56f0
-    RbIter57 FUN_00de57b0(RbNode57* parent, Key2* key, char flag); // 0x00de57b0
+    void  FUN_00de57b0(RbNode57** pOut, RbNode57* parent, Key2* key, char flag); // 0x00de57b0
     void  FUN_00de4910(void);           // 0x00de4910
     void  FUN_00de41b0(void);           // 0x00de41b0
     void  FUN_00de5950(void);           // 0x00de5950
@@ -1489,7 +1472,7 @@ public:
     uint8_t  mb12;                              // +0x012
     uint8_t  mPad13;                            // +0x013
 
-    cPaintBaseB() { _ReadWriteBarrier(); ClearState(); }
+    cPaintBaseB() {}
     void ClearState()
     {
         mb0d = 0;
@@ -4975,11 +4958,9 @@ struct PropertyListRef {
     PropertyList* p;
     PropertyListRef() : p(0) {}
     void Reset() {
-        if (p) {
-            PropertyList* old = p;
-            p = 0;
-            old->Release();
-        }
+        PropertyList* old = p;
+        p = 0;
+        if (old) old->Release();
     }
 };
 struct PropertyManager_s00de_41b0 {
@@ -7427,7 +7408,7 @@ struct cEntryVector {
     cPollenEntry* mpCapacity;                // +08
     uint32_t mAllocator;                     // +0c
 
-    cPollenEntry* MoveTail(cPollenEntry* first, cPollenEntry* last);      // 0x00de97a0
+    cPollenEntry* MoveTail(cPollenEntry* first, cPollenEntry* dest);      // 0x00de97a0
     void insert(cPollenEntry* position, unsigned int count,
                 const cPollenEntry& value);                              // 0x00de97f0
     void DestroyRange(cPollenEntry* first, cPollenEntry* last);           // 0x00de5ee0
@@ -9986,9 +9967,9 @@ void GameEntry::FUN_de3300()
     ((Fn2)(*(void***)p)[0x60 / 4])(p, 0, 1);
     p = FUN_00df5f40();
     ((Fn1)(*(void***)p)[0x5c / 4])(p, 0);
-    ((GameEntry*)*(u32*)&g_16a1344)->ShowGalaxy(0);
-    ((GameEntry*)*(u32*)&g_16a1344)->ShowGalaxy(1);
-    ((GameEntry*)*(u32*)&g_16a1344)->mp198->Do();
+    ((GameEntry*)*(u32*)0x16a1344)->ShowGalaxy(0);
+    ((GameEntry*)*(u32*)0x16a1344)->ShowGalaxy(1);
+    ((GameEntry*)*(u32*)0x16a1344)->mp198->Do();
     mp48 = 0;
     p = FUN_00df5f40();
     return ((Root*)p)->FUN_df95d0();
@@ -9998,19 +9979,17 @@ void GameEntry::FUN_de3300()
 GameEntry* GameEntry::Ctor_de3370()
 {
     BaseCtor();
-    mpVtbl = g_147dd00;
+    mpVtbl = (void*)0x147dd00;
     mStopwatch.Ctor(0, 0);
-    mStr20.mpBegin = (u32)g_1667bac;
-    mStr20.mpEnd = (u32)g_1667bac;
-    _ReadWriteBarrier();
-    mStr20.mpCap = (u32)g_1667bae;
-    mStr30.mpCap = (u32)g_1667bae;
-    mStr30.mpBegin = (u32)g_1667bac;
-    mStr30.mpEnd = (u32)g_1667bac;
-    _ReadWriteBarrier();
+    mStr20.mpBegin = 0x1667bac;
+    mStr20.mpEnd = 0x1667bac;
+    mStr20.mpCap = 0x1667bae;
+    mStr30.mpCap = 0x1667bae;
+    mStr30.mpBegin = 0x1667bac;
+    mStr30.mpEnd = 0x1667bac;
     mp48 = 0;
     mStopwatch.SetUnits(4);
-    g_16a11b4 = (cUISingleton48*)this;
+    *(u32*)0x16a11b4 = (u32)this;
     return this;
 }
 
@@ -10074,15 +10053,15 @@ void GameEntry::OnModalWindowEnd(u32 a2, u32 a3)
 // @ 0x00de35d0
 void GameEntry::Dtor_de35d0()
 {
-    mpVtbl = (void*)g_147dd00;
-    *(u32*)&g_16a11b4 = 0;
+    mpVtbl = (void*)0x147dd00;
+    *(u32*)0x16a11b4 = 0;
     u32 p = mStr30.mpBegin;
     if ((s32)((mStr30.mpCap - p) & 0xfffffffe) > 2 && p != 0)
         op_del_array((void*)p);
     p = mStr20.mpBegin;
     if ((s32)((mStr20.mpCap - p) & 0xfffffffe) > 2 && p != 0)
         op_del_array((void*)p);
-    mpVtbl = (void*)g_147dba8;
+    mpVtbl = (void*)0x147dba8;
 }
 
 // @ 0x00de3650
@@ -10140,13 +10119,13 @@ void GameEntry::BlowSavedGameUpRealGood()
 // @ 0x00de38b0
 void GameEntry::FUN_de38b0(u32 id, u32 arg)
 {
-    if ((((u32*)&DAT_016a1848)[id >> 5] >> (id & 0x1f)) & 1)
+    if ((((u32*)0x16a1848)[id >> 5] >> (id & 0x1f)) & 1)
         return;
-    if (id == 0x1b && (*(GameEntry**)&g_16a1344)->mb1F1 == 0) {
+    if (id == 0x1b && (*(GameEntry**)0x16a1344)->mb1F1 == 0) {
         void* audio = EA_Audio_GetSystemAT();
         KillSetiEffects(0x5da7b944,
                         audio != 0 ? ((FnU)(*(void***)audio)[0x20 / 4])(audio) : 0);
-        ((GameEntry*)*(u32*)&g_16a1344)->FUN_de52d0();
+        ((GameEntry*)*(u32*)0x16a1344)->FUN_de52d0();
     }
     FUN_e00650(id, arg);
 }
@@ -10338,12 +10317,12 @@ void __cdecl FUN_00de3e40(u32 arg)
         prop = 0;
         ((FnV)(*(void***)old)[4 / 4])(old);
     }
-    char ok = ((FnQC)(*(void***)pm)[0x2c / 4])(pm, *(u32*)g_15a2df8, 0, &prop);
+    char ok = ((FnQC)(*(void***)pm)[0x2c / 4])(pm, *(u32*)0x15a2df8, 0, &prop);
     if (ok) {
         WString16 ws;
-        ws.mpBegin = (int)&gEmptyA_1667bac;
-        ws.mpEnd = (int)&gEmptyA_1667bac;
-        ws.mpCap = (int)&gEmptyB_1667bae;
+        ws.mpBegin = 0x1667bac;
+        ws.mpEnd = 0x1667bac;
+        ws.mpCap = 0x1667bae;
         if (SP_GetPropertyAsString16(prop, arg, &ws)) {
             void* app = SP_AppSystem();
             ((Fn1)(*(void***)app)[0x5c / 4])(app, ws.mpBegin);
@@ -10597,12 +10576,10 @@ void __thiscall cGalaxyGameEntryImpl_s00de_41b0::FUN_00de4630()
         mec = 1;
         me8 = 2;
         FUN_00809db0(&g_dw15a41d4, &g_dw15a3860);
-    } else if (mef != 0) {
-        med = 1;
-    } else {
-        _ReadWriteBarrier();
-        if (m1f1 != 0)
-            mee = 1;
+    } else if (mef != 0) {                  // re-read the member: this keeps cl from folding the clause away,
+        med = 1;                            // so the mef byte stays in al like the original
+    } else if (m1f1 != c) {
+        mee = 1;
     }
 }
 
@@ -10618,10 +10595,8 @@ int __thiscall cGalaxyGameEntryImpl_s00de_41b0::FUN_00de46e0()
 void __thiscall cGalaxyGameEntryImpl_s00de_41b0::OnActivate()
 {
     FUN_00ddd970();
-    if (m15c != 0) {
-        g_bGalaxyActive = 1;
-    } else {
-        g_bGalaxyActive = 1;
+    g_bGalaxyActive = 1;
+    if (m15c == 0) {
         void* pEM = FUN_0067ddd0();
         void* pWorld = ((void*(__thiscall*)(void*, uint32_t, const char*))VFN(pEM, 0x4c))(pEM, 0x2dda976, "GGE effects world");
         AssignRef_s00de_41b0(&m15c, pWorld, 0, 4);
@@ -10931,10 +10906,9 @@ void cGalaxyGameEntryImpl_s00de_5040::FUN_00de5260(void)
 // @ 0x00de52d0
 void cGalaxyGameEntryImpl_s00de_5040::FUN_00de52d0(void)
 {
-    if (mBegin != mEnd) {
-        _ReadWriteBarrier();
-        mCurrentDword = ((int*)mEnd)[-1];
-        _ReadWriteBarrier();
+    char* b = mBegin;
+    if (b != mEnd) {
+        mCurrentDword = *(int*)(mEnd - 4);
         mEnd -= 4;
         return;
     }
@@ -11064,19 +11038,17 @@ OutKey3* cGalaxyGameEntryImpl_s00de_5040::FUN_00de56f0(OutKey3& pOut, KeyNode* k
     return &pOut;
 }
 
-extern char g_13f09b4[];   // 0x013f09b4 "Simulator"
-extern char g_13ebb38[];   // 0x013ebb38 allocator name
 // @ 0x00de57b0
-RbIter57 cGalaxyGameEntryImpl_s00de_5040::FUN_00de57b0(RbNode57* parent, Key2* key, char flag)
+void cGalaxyGameEntryImpl_s00de_5040::FUN_00de57b0(RbNode57** pOut, RbNode57* parent, Key2* key, char flag)
 {
     int left = (flag == 0 && parent != (RbNode57*)&mTree4.root
                 && key->a >= parent->key.a) ? 1 : 0;
-    RbNode57* node = (RbNode57*)EAllocNew(0x18, g_13f09b4, 0, 0, g_13ebb38, 0xd1);
+    RbNode57* node = (RbNode57*)EAllocNew(0x18, (const char*)0x13f09b4, 0, 0, (void*)0x13ebb38, 0xd1);
     if (&node->key != 0)
         node->key = *key;
     RBTreeInsert57(node, parent, &mTree4.root, left);
+    *pOut = node;
     mTree4.count++;
-    return RbIter57(node);
 }
 
 // @ 0x00de58c0
@@ -11406,12 +11378,11 @@ void cEditorMessageTarget::OnEditorMessageReceived(void* pMessage)
 }
 
 // @ 0x00de97a0
-cPollenEntry* cEntryVector::MoveTail(cPollenEntry* first, cPollenEntry* last)
+cPollenEntry* cEntryVector::MoveTail(cPollenEntry* first, cPollenEntry* dest)
 {
-    // erase(first, last): slide the tail [last, end) down onto first, destroy the leftovers
-    cPollenEntry* const newEnd = CopyConstructEntries(last, mpEnd, first);
+    cPollenEntry* const newEnd = CopyConstructEntries(first, mpEnd, dest);
     DestroyRange(newEnd, mpEnd);
-    mpEnd -= last - first;
+    mpEnd += dest - first;
     return first;
 }
 
@@ -11698,20 +11669,19 @@ bool cGalaxyGameEntryImpl_s00de_9a00::FUN_00dea200()
     if (this->mn108 == 1)
         this->mn10c = 2;
 
-    void* pHandler = &this->mHandler08;
-    ((cUIObject*)MessageServer())->v20(pHandler, 0x4360e14);
-    ((cUIObject*)MessageServer())->v20(pHandler, 0x56bbd7f);
-    ((cUIObject*)MessageServer())->v20(pHandler, 0x44db12e);
-    ((cUIObject*)MessageServer())->v20(pHandler, 0x5bd6378);
-    ((cUIObject*)MessageServer())->v20(pHandler, 0x5dd52c7);
-    ((cUIObject*)MessageServer())->v20(pHandler, 0x6203fdc);
-    ((cUIObject*)MessageServer())->v20(pHandler, 0x4519b5f);
-    ((cUIObject*)MessageServer())->v20(pHandler, 0x625d27d);
-    ((cUIObject*)MessageServer())->v20(pHandler, 0x67c75bd6);
-    ((cUIObject*)MessageServer())->v20(pHandler, 0x634297ad);
-    ((cUIObject*)MessageServer())->v20(pHandler, 0x275a9c8c);
-    ((cUIObject*)MessageServer())->v20(pHandler, 0xeda117de);
-    ((cUIObject*)MessageServer())->v20(pHandler, 0x8085c4c);
+    ((cUIObject*)MessageServer())->v20(&this->mHandler08, 0x4360e14);
+    ((cUIObject*)MessageServer())->v20(&this->mHandler08, 0x56bbd7f);
+    ((cUIObject*)MessageServer())->v20(&this->mHandler08, 0x44db12e);
+    ((cUIObject*)MessageServer())->v20(&this->mHandler08, 0x5bd6378);
+    ((cUIObject*)MessageServer())->v20(&this->mHandler08, 0x5dd52c7);
+    ((cUIObject*)MessageServer())->v20(&this->mHandler08, 0x6203fdc);
+    ((cUIObject*)MessageServer())->v20(&this->mHandler08, 0x4519b5f);
+    ((cUIObject*)MessageServer())->v20(&this->mHandler08, 0x625d27d);
+    ((cUIObject*)MessageServer())->v20(&this->mHandler08, 0x67c75bd6);
+    ((cUIObject*)MessageServer())->v20(&this->mHandler08, 0x634297ad);
+    ((cUIObject*)MessageServer())->v20(&this->mHandler08, 0x275a9c8c);
+    ((cUIObject*)MessageServer())->v20(&this->mHandler08, 0xeda117de);
+    ((cUIObject*)MessageServer())->v20(&this->mHandler08, 0x8085c4c);
 
     cIEffectsWorld* pWorld = this->mp38;
     if (this->mb24c != 0)
@@ -11719,7 +11689,6 @@ bool cGalaxyGameEntryImpl_s00de_9a00::FUN_00dea200()
         if (pWorld != 0)
             pWorld->v48(this->mp250);
         this->mb24c = 0;
-        _ReadWriteBarrier();
         tRefObj* pEffect = this->mp250;
         if (pEffect != 0)
         {
@@ -11734,8 +11703,8 @@ bool cGalaxyGameEntryImpl_s00de_9a00::FUN_00dea200()
             pWorld->v4c();
     }
 
-    uint8_t* pCur = (uint8_t*)this->mp12c;
     uint8_t* pEnd = (uint8_t*)&this->mp128;
+    uint8_t* pCur = (uint8_t*)this->mp12c;
     for (; pCur != pEnd; pCur = (uint8_t*)RBTreeIncrement(pCur))
         ((cVisitNode*)pCur)->mp14->v38();
 
@@ -11765,7 +11734,7 @@ void cGalaxyGameEntryImpl_s00de_9a00::FUN_00dea420()
 // @ 0x00dea500
 cPaintSystem::cPaintSystem()
 {
-    _ReadWriteBarrier();
+    this->ClearState();
     this->mp14 = 0;
     this->mn28 = -1;
 }
@@ -12331,15 +12300,15 @@ void __fastcall FUN_00deb5d0(void* self)
 void* __fastcall FUN_00deb670(void* self)
 {
     FUN_00e00630_s00de_a870();
-    *(uint32_t*)self = (int)g_147e3b0;
-    *(void**)&g_16a1484 = self;
+    *(uint32_t*)self = 0x147e3b0;
+    *(void**)0x16a1484 = self;
     return self;
 }
 
 // @ 0x00deb6a0
 void* cGalaxyGameEntryDeb::DestroyDeb(unsigned int flags)
 {
-    *(void**)&g_16a1484 = 0;
+    *(void**)0x16a1484 = 0;
     *(int**)this = &g_vtbl_GalaxyGameEntryDeb;
     if (flags & 1)
         FUN_00f47380(this);
@@ -12353,10 +12322,10 @@ void __fastcall FUN_00deb6d0(void* self)
         return;
     *(uint32_t*)((char*)self + 0xc) = 0;
     if (PIP(0x198) != 0) {
-        ((CbObj*)PIP(0x198))->Stop();
-        Vec3g zero = {0.0f, 0.0f, 0.0f};
-        Vec3g dir = zero;
-        ((CbInner*)((char*)PIP(0x198) + 4))->Send(0x2ca298e9, &dir);
+        CbObj* p = (CbObj*)PIP(0x198);
+        p->Stop();
+        float zeros[3] = {0.0f, 0.0f, 0.0f};
+        ((CbInner*)((char*)p + 4))->Send(0x2ca298e9, zeros);
     }
     ((TrigMgrShim*)(void*)g_kPanelIDs)->Func(2, 0);
 }
@@ -13610,7 +13579,7 @@ void cGalaxyGameEntryUIStateMachine_s00de_d5a0::TearDownUI()
 cNotifyAttackListener::cNotifyAttackListener()
 : cNotifyAttackListenerBase()
 {
-    mpVTable = (void*)g_147e618;
+    mpVTable = (void*)0x147e618;
     *(uint32_t volatile*)&mField14 = 0;
     mField08 = 0;
     gNotifyListener = this;
@@ -14169,9 +14138,9 @@ namespace SP {
 NameString_s00df_fc80 __thiscall cGalaxyGameEntryUIStateMachine_s00de_f400::FUN_00defc00()
 {
     NameString_s00df_fc80 out;
-    out.mpBegin = (int)&gEmptyA_1667bac;
-    out.mpEnd = (int)&gEmptyA_1667bac;
-    out.mpCap = (int)&gEmptyB_1667bae;
+    out.mpBegin = 0x1667bac;
+    out.mpEnd = 0x1667bac;
+    out.mpCap = 0x1667bae;
     u32 text;
     do {
         WString16 key;
@@ -14224,9 +14193,9 @@ void __thiscall cGalaxyGameEntryUIStateMachine_s00de_f400::SetStateSummaryText(
     ((SummaryTextServices*)FUN_0067de40())->Slot20()->Slot34(pText, 0);
 
     NameString_s00df_fc80 detokenized;
-    detokenized.mpBegin = (int)&gEmptyA_1667bac;
-    detokenized.mpEnd = (int)&gEmptyA_1667bac;
-    detokenized.mpCap = (int)&gEmptyB_1667bae;
+    detokenized.mpBegin = 0x1667bac;
+    detokenized.mpEnd = 0x1667bac;
+    detokenized.mpCap = 0x1667bae;
     ((SummaryTextServices*)FUN_0067de40())->Slot20()->Slot2C(text.c_str(), &detokenized);
     FUN_00def750(nField, detokenized.mpBegin);
 }
@@ -15529,7 +15498,7 @@ void cDownloadDialog::FUN_00df5aa0(char b)
 // @ 0x00df5c80
 cDownloadDialog* __fastcall cDownloadDialog_ctor_5c80(cDownloadDialog* self)
 {
-    *(void* volatile*)((char*)self + 0x04) = (void*)vtbl_Resource_Async;
+    *(void**)((char*)self + 0x04) = (void*)vtbl_Resource_Async;
     self->mpVal_08 = 0;
     *(void**)self = (void*)vtbl_UI_cDownloadDialog_C;
     *(void**)((char*)self + 0x04) = (void*)vtbl_UI_cDownloadDialog_D;
@@ -16286,7 +16255,7 @@ void __fastcall FUN_00df82d0(Dtor_s00df_82d0* self)
         (*(void(__thiscall**)(void*))((char*)*(void**)self->mpObject34 + 4))(self->mpObject34);
 
     self->mode20.ReleaseOwned();
-    *(void* volatile*)((char*)self + 0x18) = (void*)g_13eb938;
+    *(void* volatile*)((char*)self + 0x18) = (void*)0x13eb938;
     _ReadWriteBarrier();
     ((cSPUILayout_s00df_5670*)self)->dtor();
 }
@@ -17202,15 +17171,14 @@ void UI_s00df_a5c0::FUN_a930()
 // @ 0x00dfaa40
 int F_dfa40(int a, int b, int c)
 {
-    if (a != b) {
-        do {
-            int p = *(int*)(a + 0x10);
-            if ((2 < (int)(*(int*)(a + 0x18) - p & 0xfffffffeU)) && p != 0)
-                operator_delete_((void*)p);
-            a += 0x24;
-            c += 0x24;
-        } while (a != b);
-    }
+    if (a == b) return c;
+    do {
+        int p = *(int*)(a + 0x10);
+        if ((2 < (int)(*(int*)(a + 0x18) - p & 0xfffffffeU)) && p != 0)
+            operator_delete_((void*)p);
+        a += 0x24;
+        c += 0x24;
+    } while (a != b);
     return c;
 }
 
@@ -17334,18 +17302,12 @@ UI_s00df_a5c0* UI_s00df_a5c0::FUN_ae00(void* other)
 {
     char* o = (char*)other;
     ((CStr_s00df_a5c0*)this)->Assign(other);
-    {
-        void** src = (void**)(o + 0x14);
-        if ((void*)src != (void*)((char*)this + 0x14))
-            ((WStrAssign*)((char*)this + 0x14))->assign(src[0], src[1]);
-    }
+    if ((void*)(o + 0x14) != (void*)((char*)this + 0x14))
+        ((WStrAssign*)((char*)this + 0x14))->assign(*(void**)(o + 0x14), *(void**)(o + 0x18));
     *(int*)((char*)this + 0x24) = *(int*)(o + 0x24);
     *(int*)((char*)this + 0x28) = *(int*)(o + 0x28);
-    {
-        void** src = (void**)(o + 0x2c);
-        if ((void*)src != (void*)((char*)this + 0x2c))
-            ((WStrAssign*)((char*)this + 0x2c))->assign(src[0], src[1]);
-    }
+    if ((void*)(o + 0x2c) != (void*)((char*)this + 0x2c))
+        ((WStrAssign*)((char*)this + 0x2c))->assign(*(void**)(o + 0x2c), *(void**)(o + 0x30));
     return this;
 }
 
@@ -18069,9 +18031,8 @@ char Big::Check()
 void Blob5b0::dtor()
 {
     if (mp20c && *(int*)((char*)mp20c - 4) != 0) operator_delete(mp20c);
-    Sub28Vec* v = (Sub28Vec*)((char*)this + 0x28);
-    v->sub_dfb850(*(void**)v, ((void**)v)[1]);
-    void* b = *(void**)v;
+    ((Sub28Vec*)((char*)this + 0x28))->sub_dfb850(mp28, mp2c);
+    void* b = *(void**)((char*)this + 0x28);
     if (b && *(int*)((char*)b - 4) != 0) operator_delete(b);
 }
 
@@ -18188,13 +18149,11 @@ Vec44& Vec44::assignFrom(const Vec44& o)
 // @ 0x00dfcc40
 void BlobC40::dtor()
 {
-    bool skip = (((unsigned)mField00 >> 31) & 1) != 0;
-    if (skip) return;
+    if (mField00 < 0) return;
     int a = mField210;
     if (a && *(int*)(a - 4) != 0) operator_delete((void*)a);
-    Sub28Vec* v = (Sub28Vec*)((char*)this + 0x2c);
-    v->sub_dfb850(*(void**)v, ((void**)v)[1]);
-    int b = *(int*)v;
+    ((Sub28Vec*)((char*)this + 0x2c))->sub_dfb850(mp2c, mp30);
+    int b = *(int*)((char*)this + 0x2c);
     if (b && *(int*)(b - 4) != 0) operator_delete((void*)b);
 }
 
@@ -19148,9 +19107,8 @@ void cUISpaceRes::Destroy()
         ((void (__thiscall*)(void*))(*(void***)mpTracer48)[1])(mpTracer48);
     mVec30.DestroyRangeVariant(mVec30.mpBegin, mVec30.mpEnd);      // 0x00685a30
     RawFree(mVec30.mpBegin);
-    mpVtbl18 = (void*)&g_13eb938;
-    _ReadWriteBarrier();
-    mpVtbl00 = (void*)g_13eb938;
+    mpVtbl00 = (void*)0x13eb938;
+    mpVtbl18 = (void*)0x13eb938;
 }
 
 // @ 0x00dff130
@@ -19639,54 +19597,43 @@ void __stdcall e00560(int dummy)
 {
     (void)dummy;
     void* ab = SP_AssetBrowser();
-    GObj* g = *(GObj**)&g_16a1344;
+    GObj* g = *(GObj**)0x16a1344;
     if (g->field108 == 7 &&
         *(char*)((char*)ab + 0x1c) == 0 &&
         g->b270 == 0) {
-        int* mm = *(int**)&DAT_016c7AA4;
+        int* mm = *(int**)0x16c7aa4;
         EC* ec = *(EC**)((char*)mm + 0x1c);
         if (!ec->sub_ec4320()) {
-            (*(GObj**)&g_16a1344)->sub_de52d0();
+            (*(GObj**)0x16a1344)->sub_de52d0();
         }
     }
 }
 
 // @ 0x00e005b0
-struct Scope_e005b0 {
-    char d0[0xc];
-    int* mp0c;
-    char d10[0x14];
-    char mb24;
-    char d25[0x23];
-    void Init();     // 0x00644b10
-    void Done();     // 0x00644b60
-};
 void __cdecl e005b0()
 {
-    Scope_e005b0 scope;
-    scope.Init();
+    char buf[0x48];
+    sub_644b10(buf);
     if ((int)SP_GetCurrentGameMode() == 0x2ccd1d2) {
-        scope.mb24 = 0;
-        int* q = (int*)operator_new(0x14, k_szSporepedia, 0, 0, 0, 0);
-        if (q) {
-            int* g = *(int**)&g_16a1344;
-            *(volatile int*)(q + 1) = (int)&vtbl_13ec458;
-            q[2] = 0;
-            q[0] = (int)&vtbl_147dc04;
-            q[1] = (int)&vtbl_FUN_0149bad8;
-            q[3] = (int)g;
-            *(u8*)(q + 4) = 0;
-            scope.mp0c = q;
-        } else scope.mp0c = 0;
-        sub_e02040(&scope);
+        int* p = (int*)operator_new(0x14, "Sporepedia", 0, 0, 0, 0);
+        if (p) {
+            int* g = *(int**)0x16a1344;
+            p[1] = 0x13ec458;
+            p[2] = 0;
+            p[0] = 0x147dc04;
+            p[1] = 0x149bad8;
+            p[3] = (int)g;
+            *(u8*)(p + 4) = 0;
+        }
+        sub_e02040(buf);
     }
-    scope.Done();
+    sub_644b60(buf);
 }
 
 // @ 0x00e00630
 VBase::VBase()
 {
-    vftable = (void**)g_147dba8;
+    vftable = (void**)0x147dba8;
     b4 = 0;
 }
 

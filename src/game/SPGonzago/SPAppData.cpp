@@ -2,11 +2,6 @@
 // Object file: SPGonzago/SPAppData.obj.  Function bodies keep the slice's code; types, members and virtual calls use the
 // canonical headers under src/game/include.  Each function keeps its '// @ 0xVA' marker.
 
-// addresses retail relocates here, named so the build relocates them too
-extern "C" char g_148256c[];
-extern "C" char g_16ad060[];
-extern "C" char g_16ad064[];
-
 #include "game/types.h"
 #include <math.h>
 #include <string.h>
@@ -63,28 +58,10 @@ struct IntRbNode {
     uint32_t   mColor;         // +0x0c
     int32_t    mKey;           // +0x10
 };
-struct IntRbIter {
-    IntRbNode* mpNode;
-    IntRbIter(IntRbNode* p) : mpNode(p) {}
-};
 struct IntRbTree {
     uint32_t  mnSize;          // +0x00
     IntRbNode mAnchor;         // +0x04
-    IntRbIter find(const int32_t* pKey);
-    __forceinline IntRbNode* DoLowerBound(const int32_t* pKey)
-    {
-        IntRbNode* pNode = mAnchor.mpParent;
-        IntRbNode* pResult = &mAnchor;
-        while (pNode) {
-            if (!(pNode->mKey < *pKey)) {
-                pResult = pNode;
-                pNode = pNode->mpRight;
-            } else {
-                pNode = pNode->mpLeft;
-            }
-        }
-        return pResult;
-    }
+    void find(IntRbNode** ppResult, const int32_t* pKey);
 };
 // ---- items of slice s00e39ab0 end
 
@@ -512,8 +489,7 @@ struct MapStrInt {                      // eastl::map<eastl::string,int>
     u8       mPad_11[3];                // +0x11
     int      mnSize_14;                 // +0x14
     uint     mPad_18;                   // +0x18
-    int*  at(const EaString* key);          // 0x00e4bda0  (int-keyed lookup/insert)
-    int*  FUN_00b1c220(const EaString* key); // 0x00b1c220  operator[]
+    int*  at(const EaString* key);          // 0x00b1c220  operator[]
     void* find(void** out, const void* key); // 0x00b20930  ?Find@MapStrFind
     void  NukeSubtree(void* root);          // 0x00e84940  DoNukeSubtree
 };
@@ -778,13 +754,24 @@ Matrix33_s005f_4310* Matrix3FromEulerXYZ(Matrix33_s005f_4310* out, const void* e
 }  // namespace SP
 
 // @ 0x00e39fb0
-IntRbIter IntRbTree::find(const int32_t* pKey)
+void IntRbTree::find(IntRbNode** ppResult, const int32_t* pKey)
 {
+    IntRbNode* pNode = mAnchor.mpParent;
     IntRbNode* pEnd = &mAnchor;
-    IntRbNode* pResult = DoLowerBound(pKey);
-    if (pResult != pEnd && !(*pKey < pResult->mKey))
-        return IntRbIter(pResult);
-    return IntRbIter(pEnd);
+    IntRbNode* pResult = pEnd;
+    while (pNode) {
+        if (pNode->mKey < *pKey) {
+            pNode = pNode->mpLeft;
+        } else {
+            pResult = pNode;
+            pNode = pNode->mpRight;
+        }
+    }
+    if (pResult != pEnd && !(*pKey < pResult->mKey)) {
+        *ppResult = pResult;
+        return;
+    }
+    *ppResult = pEnd;
 }
 
 // @ 0x00e4a7d0
@@ -818,12 +805,7 @@ int32_t FUN_00e4a8a0(int32_t type)
     if (type > 0xc)
         return ((const SP::cTypeDef_s00e4_9a40*)type)->mSize;
     switch (type) {
-    case 1: return 4;
-    case 2: return 4;
-    case 3: return 4;
-    case 5: return 4;
-    case 6: return 4;
-    case 7: return 4;
+    case 1: case 2: case 3: case 5: case 6: case 7: return 4;
     case 8:  return 0xc;
     case 10: return 0xa0;
     case 9:  return 0x24;
@@ -1291,7 +1273,7 @@ cMyMagicCommand_s00e4_ba40* cMyMagicCommand_s00e4_ba40::Command(void* field)
 // @ 0x00e4bad0
 void* cMyMagicCommand_s00e4_ba40::Destroy(uint flags)
 {
-    this->mpVptr_00 = (void*)g_148256c;
+    this->mpVptr_00 = (void*)0x148256c;
     this->mLock_1c.Release();
     void* buf = this->mpVecBegin_04;
     if (buf != 0 && *(int*)((char*)buf - 4) != 0)
@@ -1377,9 +1359,9 @@ void FUN_00e4bca0(void* param_1, void* param_2)
 // @ 0x00e4bd70
 void FUN_00e4bd70(void)
 {
-    void* p = *(void**)g_16ad064;
+    void* p = *(void**)0x16ad064;
     while (p != 0) {
-        void** list = *(void***)g_16ad060;
+        void** list = *(void***)0x16ad060;
         FUN_00e4bca0(list[8], p);
         p = *(void**)((char*)p + 0x28);
     }
@@ -1405,7 +1387,7 @@ int* MapStrInt::at(const EaString* key)
     if (pos == head || k < *(int*)((char*)pos + 0x10)) {
         EaString tmp;
         tmp.SetEmpty();
-        void* v = ::FUN_00b1c220();
+        void* v = FUN_00b1c220();
         (void)v;
         u8* n = (u8*)NewMapNode(this, pos, k);
         pos = (void**)n;
@@ -1472,7 +1454,7 @@ void FUN_00e4bff0(const char* key, int value)
     EaString& s = frame.s;
     s.SetEmpty();
     s.sprintf_(g_fmtPctS, key);
-    int* slot = gspAppDataGlobals_s00e4_ba40->mFieldMap_28.FUN_00b1c220(&s);
+    int* slot = gspAppDataGlobals_s00e4_ba40->mFieldMap_28.at(&s);
     *slot = value;
     s.FreeIfOwned();
 }

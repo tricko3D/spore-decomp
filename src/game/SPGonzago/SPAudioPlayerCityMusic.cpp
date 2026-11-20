@@ -817,12 +817,11 @@ struct PtrRange {
     void** mpBegin;      // +0x00
     void** mpEnd;        // +0x04
     void** mpCapacity;   // +0x08
-    void erase(void** first, void** last) {
-        memcpy_(first, last, (unsigned int)((char*)mpEnd - (char*)last));
-        mpEnd -= last - first;
-    }
     void clear() {
-        erase(mpBegin, mpEnd);
+        void** end = mpEnd;
+        void** begin = mpBegin;
+        move_range(begin, end, end);
+        mpEnd += begin - end;
     }
 };
 struct EventNode {
@@ -835,9 +834,9 @@ struct EventList {
         EventNode* sentinel = &mSentinel;
         EventNode* p = sentinel->mpNext;
         while (p != sentinel) {
-            EventNode* old = p;
-            p = p->mpNext;
-            operator_delete(old);
+            EventNode* next = p->mpNext;
+            operator_delete(p);
+            p = next;
         }
         sentinel->mpNext = sentinel;
         sentinel->mpPrev = sentinel;
@@ -1489,9 +1488,9 @@ void cPlayerCityMusic_s00ea_d1a0::Stop()
     if (mp_10c == 0) return;
     Reset(0);
     FUN_00572020(mp_10c, 0);
-    *(void* volatile*)&mp_10c = 0;
-    void* h = *(void* volatile*)&t->mp_208;
-    if (h != 0) {
+    mp_10c = 0;
+    if (t->mp_208 != 0) {
+        void* h = t->mp_208;
         t->mp_208 = 0;
         RemoveHandler(h, t->mp_20c, t->mp_210, (void*)t->mn_214, (void*)t->mn_218);
     }
@@ -2209,7 +2208,7 @@ ResMusic *ResMusic::ScalarDeletingDtor(u8 flags)
         operator_delete_array(mVec30.mpBegin);
     if (mVec1c.mpBegin != 0)
         operator_delete_array(mVec1c.mpBegin);
-    mpVtbl = (void *)&PTR_013eb938;
+    mpVtbl = (void *)0x013eb938;
     if ((flags & 1) != 0)
         operator_delete_array(this);
     return this;
@@ -2237,21 +2236,21 @@ void do_fill_Music(ResMusic *pDst, ResMusic *pEnd, const ResMusic *pSrc)
 // @ 0x00eaf410
 ResMusic *do_copy_Music(ResMusic *pBegin, ResMusic *pEnd, ResMusic *pDst)
 {
-    if (pBegin != pEnd) {
-        do {
-            pDst->mField08 = pBegin->mField08;
-            pDst->mField0c = pBegin->mField0c;
-            pDst->mField10 = pBegin->mField10;
-            pDst->mField14 = pBegin->mField14;
-            pDst->mField18 = pBegin->mField18;
-            Vec4fAssign(&pDst->mVec1c, &pBegin->mVec1c);
-            Vec4fAssign(&pDst->mVec30, &pBegin->mVec30);
-            Vec4fAssign(&pDst->mVec44, &pBegin->mVec44);
-            Vec4fAssign(&pDst->mVec58, &pBegin->mVec58);
-            pBegin = (ResMusic *)((char *)pBegin + 0x6c);
-            pDst = (ResMusic *)((char *)pDst + 0x6c);
-        } while (pBegin != pEnd);
-    }
+    if (pBegin == pEnd)
+        return pDst;
+    do {
+        pDst->mField08 = pBegin->mField08;
+        pDst->mField0c = pBegin->mField0c;
+        pDst->mField10 = pBegin->mField10;
+        pDst->mField14 = pBegin->mField14;
+        pDst->mField18 = pBegin->mField18;
+        Vec4fAssign(&pDst->mVec1c, &pBegin->mVec1c);
+        Vec4fAssign(&pDst->mVec30, &pBegin->mVec30);
+        Vec4fAssign(&pDst->mVec44, &pBegin->mVec44);
+        Vec4fAssign(&pDst->mVec58, &pBegin->mVec58);
+        pBegin = (ResMusic *)((char *)pBegin + 0x6c);
+        pDst = (ResMusic *)((char *)pDst + 0x6c);
+    } while (pBegin != pEnd);
     return pDst;
 }
 
@@ -2936,8 +2935,6 @@ void __fastcall FUN_00eb0870(void* vec_, int, char* pos, u32 count, void* value)
     FUN_00ead6a0(local);
 }
 
-extern SP::cDataSerializerGeneric gPlayerCityMusicSerializer; // 0x015a9198
-
 // @ 0x00eb0a60
 bool cPlayerCityMusic_s00ea_ffc0::Read(int stream)
 {
@@ -2949,9 +2946,10 @@ bool cPlayerCityMusic_s00ea_ffc0::Read(int stream)
     m1cc.clear();
     m1e0.clear();
 
-    SP::cVarListSerializer ser(this, &gPlayerCityMusicSerializer,
-        SP::cVarListSerializer::kSignature);
-    bool ok = ser.Serialize(*reinterpret_cast<SP::cIObjectDatabaseIStream*>(stream));
+    char buf[0xa14];
+    CVarListSerializer* ser = (CVarListSerializer*)buf;
+    ser->ctor(this, (void*)0x15a9198, 0x1a80d26);
+    bool ok = ser->Serialize((void*)stream);
     FUN_00eb05a0();
     if (m10c != 0)
         Reset(1);
@@ -2983,13 +2981,11 @@ void __fastcall FUN_00eb0c30(void* self_)
     CityMusic* self = (CityMusic*)self_;
     if (*(u32*)((char*)self + 0xec) == *(u32*)((char*)self + 0xfc))
         return;
-    _ReadWriteBarrier();
     u32* p = *(u32**)((char*)self + 0xf8);
     if (*(u32*)((char*)self + 0xfc) == p[0])
         *(u32*)((char*)self + 0xfc) = p[1];
     *(u32*)((char*)self + 0xfc) -= 0x6c;
-    void* cur = *(void**)((char*)self + 0xfc);
-    FUN_00eb0b70(self, (int)cur, cur);
+    FUN_00eb0b70(self, 0, *(void**)((char*)self + 0xfc));
 }
 
 // @ 0x00eb0c70
@@ -2998,17 +2994,11 @@ void __fastcall FUN_00eb0c70(void* self_)
     CityMusic* self = (CityMusic*)self_;
     if (*(u32*)((char*)self + 0xf0) == *(u32*)((char*)self + 0xfc))
         return;
-    _ReadWriteBarrier();
-    *(u32*)((char*)self + 0xfc) += 0x6c;
-    _ReadWriteBarrier();
-    u32 cur = *(u32*)((char*)self + 0xfc);
     u32* p = *(u32**)((char*)self + 0xf8);
-    if (cur == p[1]) {
-        cur = p[0];
-        *(u32*)((char*)self + 0xfc) = cur;
-    }
-    _ReadWriteBarrier();
-    FUN_00eb0b70(self, (int)cur, *(void**)((char*)self + 0xfc));
+    *(u32*)((char*)self + 0xfc) += 0x6c;
+    if (*(u32*)((char*)self + 0xfc) == p[1])
+        *(u32*)((char*)self + 0xfc) = p[0];
+    FUN_00eb0b70(self, 0, *(void**)((char*)self + 0xfc));
 }
 
 // @ 0x00eb0cb0

@@ -1,3 +1,4 @@
+// @ 0x00cf5540
 // s00cf5540: SP::cCityInputStrategy::HandleMessage (00cf5540, 6266 bytes).
 // Civ-stage city input strategy message handler. `this` is the IHandlerRC subobject at +0x3c of
 // cCityInputStrategy (member calls go through `lea ecx,[esi-0x3c]`). Retail layout differs from the
@@ -312,6 +313,14 @@ struct cCivModeStrategy {
     void OnEditorExit();                                                // 00cf9ba0
     void HandleCheat(IMessage* pMsg);                                   // 00cf7a10
 };
+
+// One-site message helper: retail inlines it at each call site, so every instance keeps its own
+// 16-byte string16 (four distinct slots at [esp+0x48/0x58/0x68/0x78], no tail merge).
+static __forceinline void ShowCivMessage(const wchar_t* pText)
+{
+    string16 s(pText);
+    cCivModeStrategy::Get()->GetUI()->ShowMessage(s);
+}
 
 // Editor launch data (0x9c bytes)
 struct cEditorLaunchData {
@@ -737,26 +746,20 @@ bool cCityInputStrategy::HandleMessage(uint32_t messageID, IMessage* pMessage)
         cTerrainCameraController* pCamera = TerrainCameraController();
         if (pCamera) {
             pCamera->mbEdgeScroll = !pCamera->mbEdgeScroll;
-            if (pCamera->mbEdgeScroll) {
-                string16 s(L"Edge Scroll ON");
-                cCivModeStrategy::Get()->GetUI()->ShowMessage(s);
-            } else {
-                string16 s(L"Edge Scroll OFF");
-                cCivModeStrategy::Get()->GetUI()->ShowMessage(s);
-            }
+            if (pCamera->mbEdgeScroll)
+                ShowCivMessage(L"Edge Scroll ON");
+            else
+                ShowCivMessage(L"Edge Scroll OFF");
         }
         break;
     }
     case 0x3702b35: {
         cGameTerrainCursor* pCursor = GetGameTerrainCursor();
         GetGameTerrainCursor()->SetRectangleSelect(!pCursor->IsRectangleSelect());
-        if (GetGameTerrainCursor()->IsRectangleSelect()) {
-            string16 s(L"Rectangle Select ON");
-            cCivModeStrategy::Get()->GetUI()->ShowMessage(s);
-        } else {
-            string16 s(L"Rectangle Select OFF");
-            cCivModeStrategy::Get()->GetUI()->ShowMessage(s);
-        }
+        if (GetGameTerrainCursor()->IsRectangleSelect())
+            ShowCivMessage(L"Rectangle Select ON");
+        else
+            ShowCivMessage(L"Rectangle Select OFF");
         break;
     }
     case 0x3702d53: {

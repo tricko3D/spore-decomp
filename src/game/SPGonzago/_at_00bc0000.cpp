@@ -2,20 +2,6 @@
 // Object file: SPGonzago/_at_00bc0000.obj.  Function bodies keep the slice's code; types, members and virtual calls use the
 // canonical headers under src/game/include.  Each function keeps its '// @ 0xVA' marker.
 
-// addresses retail relocates here, named so the build relocates them too
-extern "C" char g_1466890[];
-extern "C" char g_1466898[];
-extern "C" char g_15906f0[];
-extern "C" char g_1590778[];
-extern "C" char g_1590800[];
-extern "C" char g_1590888[];
-extern "C" char g_1590910[];
-extern "C" char g_1590998[];
-extern "C" char g_1590a20[];
-extern "C" char g_1590aa8[];
-extern "C" char g_1590b30[];
-extern "C" char g_15aa9e8[];
-
 #include "game/types.h"
 #include "SP/cGameNounManager.h"
 #include "SP/cPropertyList.h"
@@ -2009,7 +1995,6 @@ struct RawList {                // 0x28 bytes: sentinel + embedded FixedAllocato
     ListNode* mpPrev;           // +0x04
     FixedAllocatorBase mAlloc;  // +0x08
     void Clear();                                                               // 0x00bcaa00
-    void ClearList();                                                           // 0x00bcab00
     ListNode* AllocNode();                                                      // 0x00bcaab0
     void ConstructNode(ListEntry* p);                                           // 0x00bcab80
     RawList* Construct();                                                       // 0x00bcb590
@@ -2699,21 +2684,14 @@ uint8_t __thiscall Reg::isDisabled(int key)
 }
 
 // @ 0x00bc3e20
-struct LValue_bc3e20 {
-    int key;
-    char pad[0x7d0 - 4];
-    uint32_t f7d0;
-};
-static inline LValue_bc3e20* FindValue_bc3e20(Reg* r, int key)
-{
-    for (LNode* n = r->head; n != LIST_END(r); n = n->next)
-        if (n->key == key)
-            return (LValue_bc3e20*)&n->key;
-    return 0;
-}
 void __thiscall Reg::setFlag(int key, uint32_t v)
 {
-    FindValue_bc3e20(this, key)->f7d0 = v;
+    LNode* n = head;
+    while (n != LIST_END(this)) {
+        if (n->key == key) { n->f7d8 = v; return; }
+        n = n->next;
+    }
+    *(uint32_t*)0x7d0 = v;
 }
 
 // @ 0x00bc3ec0
@@ -3745,8 +3723,8 @@ void SimClass::ClearMap()
 void SimClass::Destroy()
 {
     HashMap* m = &map;
-    vtbl0 = (uint32_t)g_1466898;
-    vtbl1 = (uint32_t)g_1466890;
+    vtbl0 = (uint32_t)0x1466898;
+    vtbl1 = (uint32_t)0x1466890;
     m->ClearBuckets((void**)m->buckets, m->bucketCount);
     m->size = 0;
     if (m->bucketCount > 1)
@@ -3827,8 +3805,8 @@ void SubVec::Insert(Sub* pos, uint32_t n, const Sub& value)
 SimClass::SimClass()
 {
     BaseCtor();
-    vtbl0 = (uint32_t)g_1466898;
-    vtbl1 = (uint32_t)g_1466890;
+    vtbl0 = (uint32_t)0x1466898;
+    vtbl1 = (uint32_t)0x1466890;
     uint32_t zero = 0;
     FixedAlloc_s00bc_6360 fa(0x95c, 4, 0x20, zero, 0xffffffff, (void*)0x6abeb0, (void*)0xf47410, "Simulator/list");
     ListHead* l = &list;
@@ -4290,10 +4268,11 @@ WE** __fastcall FUN_00bc7f80(WE** param_1)
         puVar1->activeI = 0x3fffffff;
         puVar1->FUN_00bc7b70(0x32);
         cHierGrid_ctor((char*)puVar1 + 0x1c);
-    } else {
-        puVar1 = 0;
+        *param_1 = puVar1;
+        return param_1;
     }
-    *param_1 = puVar1;
+    WE* p = puVar1;
+    *param_1 = p;
     return param_1;
 }
 
@@ -4584,7 +4563,6 @@ bool __thiscall GridMask::FitsMask(unsigned m1, unsigned m2)
     return true;
 }
 
-template <class T> inline void SwapRef_s00bc87b0(T& a, T& b) { T t = a; a = b; b = t; }
 // @ 0x00bc87b0
 void __cdecl Grid_FlushPending(char flag, unsigned a2, char* obj, unsigned a4, double a5)
 {
@@ -4597,7 +4575,9 @@ void __cdecl Grid_FlushPending(char flag, unsigned a2, char* obj, unsigned a4, d
     }
     *(unsigned*)(obj + 0x55) = 0;
     if (flag) {
-        SwapRef_s00bc87b0(*(unsigned*)(obj + 0x51), *(unsigned*)(obj + 0x4d));
+        unsigned tmp = *(unsigned*)(obj + 0x51);
+        *(unsigned*)(obj + 0x51) = *(unsigned*)(obj + 0x4d);
+        *(unsigned*)(obj + 0x4d) = tmp;
         *(unsigned*)(obj + 0x55) = a2;
         return;
     }
@@ -5670,7 +5650,7 @@ cAgentOrder* cAgentOrderManager::FindNode(int key, bool (*pred)(void*, void*), v
 {
     for (char* node = *(char**)this; node != (char*)this; node = *(char**)node) {
         cAgentOrder* order = (cAgentOrder*)(node + 8);
-        if (*(int*)((char*)order + 8) == key && ((char*)order)[0x1c] == 0 && (pred == 0 || pred(order, ctx))) {
+        if (*(int*)(node + 0x10) == key && node[0x24] == 0 && (pred == 0 || pred(order, ctx))) {
             return order;
         }
     }
@@ -5681,13 +5661,11 @@ cAgentOrder* cAgentOrderManager::FindNode(int key, bool (*pred)(void*, void*), v
 void FUN_00bca670(void* p)
 {
     char* self = (char*)p;
-    if (*(int*)(self + 0x2c) != 0) {
-        _ReadWriteBarrier();
-        if (char* o = *(char**)(self + 0x2c)) {
-            char* qi = (char*)((IRefCount_s00bc_a040*)o)->QueryInterface(0xce9f6639);
-            if (qi != 0) {
-                *(u32*)(self + 0x30) = *(u32*)(qi + 0xe54);
-            }
+    if (*(int*)(self + 0x2c) != 0 && *(char**)(self + 0x2c) != 0) {
+        char* o = *(char**)(self + 0x2c);
+        char* qi = (char*)((IRefCount_s00bc_a040*)o)->QueryInterface(0xce9f6639);
+        if (qi != 0) {
+            *(u32*)(self + 0x30) = *(u32*)(qi + 0xe54);
         }
     }
 }
@@ -5717,16 +5695,16 @@ void FUN_00bca6f0(void)
 {
     g_0168B54C = &FUN_00bca670;
     g_0168B550 = &FUN_00bca6a0;
-    FUN_00bc8fa0((void*)g_1590800);
-    FUN_00bc8fa0((void*)g_1590888);
-    FUN_00bc8fa0((void*)g_15906f0);
-    FUN_00bc8fa0((void*)g_1590778);
-    FUN_00bc8fa0((void*)g_1590910);
-    FUN_00bc8fa0((void*)g_1590998);
-    FUN_00bc8fa0((void*)g_1590a20);
-    FUN_00bc8fa0((void*)g_1590aa8);
-    FUN_00bc8fa0((void*)g_1590b30);
-    FUN_00bc8fa0((void*)g_15aa9e8);
+    FUN_00bc8fa0((void*)0x1590800);
+    FUN_00bc8fa0((void*)0x1590888);
+    FUN_00bc8fa0((void*)0x15906f0);
+    FUN_00bc8fa0((void*)0x1590778);
+    FUN_00bc8fa0((void*)0x1590910);
+    FUN_00bc8fa0((void*)0x1590998);
+    FUN_00bc8fa0((void*)0x1590a20);
+    FUN_00bc8fa0((void*)0x1590aa8);
+    FUN_00bc8fa0((void*)0x1590b30);
+    FUN_00bc8fa0((void*)0x15aa9e8);
 }
 
 // @ 0x00bca7a0
@@ -6260,7 +6238,7 @@ void cVarListEditor::Reset()
     mpVecEnd = (Quad16_s00bc_b0b0*)((char*)mpVecEnd + (((char*)end - (char*)begin) >> 4) * -16);
     mpObject = 0;
     RawList* list = &mList1;
-    list->ClearList();
+    list->Clear();
     list->mpNext = (ListNode*)list;
     list->mpPrev = (ListNode*)list;
 }
@@ -6341,17 +6319,15 @@ void cVarListEditor::SetListObject(VarSource* item)
     }
 }
 
-// The var-list editor as an owned object: its destructor clears the list and then the embedded
-// fixed allocator, and the class-level delete forwards to the game allocator.
-struct OwnedVarList : RawList
-{
-    ~OwnedVarList() { Clear(); }
-    static void operator delete(void* p) { operator_delete(p); }
-};
 // @ 0x00bcb700
 void __cdecl DestroyVarList()
 {
-    delete (OwnedVarList*)g_pVarListEditor;
+    cVarListEditor* p = g_pVarListEditor;
+    if (p) {
+        ((RawList*)p)->Clear();
+        ((RawList*)p)->mAlloc.~FixedAllocatorBase();
+        operator_delete(p);
+    }
     g_pVarListEditor = 0;
 }
 

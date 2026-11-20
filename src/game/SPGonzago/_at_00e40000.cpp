@@ -456,10 +456,6 @@ struct RenderCtx {
     void  End2D();                                          // 0x0095bb20
 };
 struct IntVector { uint8_t pad00[0x0c]; int* begin; int* end; int* cap; void resize(uint32_t n); };
-struct ColorRGB_s00e4_61c0 {
-    float r, g, b;
-    ColorRGB_s00e4_61c0(float r_, float g_, float b_) : r(r_), g(g_), b(b_) {}
-};
 struct cSPUITimeline_s00e4_5760 {
     uint8_t       pad000[0x0c];             // +0x00
     cSPUILayout_s00e4_5760*  mpLayout0c;               // +0x0c
@@ -514,7 +510,7 @@ struct cSPUITimeline_s00e4_5760 {
     float FUN_00e460d0();                                   // 0x00e460d0
     void  FUN_00e46140(void* out);                          // 0x00e46140
     void  FUN_00e46180(void* out);                          // 0x00e46180
-    ColorRGB_s00e4_61c0 GetItemColor(uint32_t idx);         // 0x00e461c0
+    void  GetItemColor(void* out, uint32_t idx);            // 0x00e461c0
     void  SetItemColor(uint32_t idx, unsigned char on);    // 0x00e46210
 };
 struct cTimelinePanel {
@@ -571,7 +567,7 @@ typedef unsigned char  u8;
 typedef unsigned short u16;
 typedef unsigned int   u32;
 void  __cdecl operator_delete(void* p);                                      // 0xf47380  ??3
-struct CPL { void dtor(); void ctor(); };                                    // 0x828670 ??1CPL, 0x8286d0 ??0CPL
+struct CPL { void dtor(); };                                                 // 0x828670  ??1CPL
 struct Helper4b { void dtor(); };                                            // 0x4b5440
 struct EaVector { int dtor(); };                                             // 0xae6970
 struct PropObj {
@@ -2354,19 +2350,21 @@ void VisNode::SetVisibleRecursive(char on)
 }
 
 // @ 0x00e460d0
-struct TimelineD_s00e4_60d0 { double FUN_00e37d70(float v); };  // 0x00e37d70
 float cSPUITimeline_s00e4_5760::FUN_00e460d0()
 {
     if (mb_e0 != 0)
         return m_f_dc;
     float v;
-    if (*(int*)((char*)this + 0xa8) != 0)
-        v = *(float*)(*(int*)(*(int*)((char*)this + 0xa8) + 0xc) + 4);
-    else
+    if (*(int*)((char*)this + 0xa8) == 0)
         v = 0.0f;
+    else
+        v = *(float*)(*(int*)(*(int*)((char*)this + 0xa8) + 0xc) + 4);
 
-    if (FUN_00b3d410() != 0 && *(int*)((char*)this + 0xe4) != (int)0xbeb528cb)
-        return (float)((TimelineD_s00e4_60d0*)FUN_00b3d410())->FUN_00e37d70(v);
+    int iVar1 = (int)f_b3d410(0);
+    if (iVar1 != 0 && *(int*)((char*)this + 0xe4) != (int)0xbeb528cb) {
+        f_b3d410(0);
+        ((cTimelinePanel*)this)->FUN_00e37d70(v);
+    }
     return v;
 }
 
@@ -2397,12 +2395,16 @@ void cSPUITimeline_s00e4_5760::FUN_00e46180(void* out)
 }
 
 // @ 0x00e461c0
-ColorRGB_s00e4_61c0 cSPUITimeline_s00e4_5760::GetItemColor(uint32_t idx)
+void cSPUITimeline_s00e4_5760::GetItemColor(void* outv, uint32_t idx)
 {
-    ColorRGB_s00e4_61c0 color(DAT_015a5a88, DAT_015a5a8c, DAT_015a5a90);
-    if (idx <= 2)
-        color = ((ColorRGB_s00e4_61c0*)*(int*)((char*)this + 0x50))[idx];
-    return color;
+    float* out = (float*)outv;
+    out[0] = DAT_015a5a88;
+    out[1] = DAT_015a5a8c;
+    out[2] = DAT_015a5a90;
+    if (idx <= 2) {
+        Vector3* p = (Vector3*)(*(int*)((char*)this + 0x50) + idx * 0xc);
+        *(Vector3*)out = *p;
+    }
 }
 
 // @ 0x00e46210
@@ -2423,9 +2425,9 @@ void cSPUITimeline_s00e4_5760::SetItemColor(uint32_t idx, unsigned char on)
 cSPUIPropertyLayout_s00e4_5760* PropLayoutCtor::Construct()
 {
     cSPUIPropertyLayout_s00e4_5760* self = (cSPUIPropertyLayout_s00e4_5760*)this;
-    ((CPL*)self)->ctor();
-    *(void**)((char*)self + 0x00) = &PTR_AddRef_01482370;
-    *(void**)((char*)self + 0x04) = &PTR_FUN_01482360;
+    CPL_ctor(self);
+    *(uint32_t*)((char*)self + 0x00) = 0x1482370;
+    *(uint32_t*)((char*)self + 0x04) = 0x1482360;
     *(uint32_t*)((char*)self + 0x78) = 0;
     *(uint32_t*)((char*)self + 0x7c) = 0;
     *(uint32_t*)((char*)self + 0x80) = 0;
@@ -3579,7 +3581,7 @@ void C::Setup()
 {
     if (!*(u8*)((char*)this + 0x6d)) {
         if (*(void**)((char*)this + 0x1c) && *(void**)((char*)this + 0x18)) {
-            void* mem = EAAllocate(0x18, (const char*)&DAT_013f6b3c, 0, 0, 0, 0);
+            void* mem = EAAllocate(0x18, (const char*)0x13f6b3c, 0, 0, 0, 0);
             CSpuiLayout* lay = mem ? (CSpuiLayout*)LayoutCtor(mem) : 0;
             ((LayoutRef*)((char*)this + 0xc))->Set(lay);
 
@@ -4081,7 +4083,6 @@ void cKeyQueue::FUN_00e49df0(Key12* key)
     mppBackSlot = slot;
     mpBackPage = *slot;
     mpBackEnd = mpBackPage + 16;
-    _ReadWriteBarrier();
     mpBack = mpBackPage;
 }
 

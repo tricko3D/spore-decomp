@@ -2,9 +2,6 @@
 // Object file: SPGonzago/SPOrnamentView.obj.  Function bodies keep the slice's code; types, members and virtual calls use the
 // canonical headers under src/game/include.  Each function keeps its '// @ 0xVA' marker.
 
-// addresses retail relocates here, named so the build relocates them too
-extern "C" char g_13f6b3c[];
-
 #include "game/types.h"
 #include "SP/cGameDataView.h"
 #include "SP/cModelInstance.h"
@@ -707,31 +704,30 @@ cTotemPoleView* __cdecl CreateTotemPoleView(cSimulatorObject* pOwner)
 // @ 0x00e8eb90
 bool __stdcall GetOrnamentModelKey(const cSimulatorObject* pObject, cModelKey* pOutKey)
 {
-    bool result = true;
+    cModelKey key;
     switch (pObject->mState) {
-    case 0: {
-        cModelKey key = { 0x1e42e0c6, 0, 0xf37c24e6 };
-        *pOutKey = key;
+    case 0:
+        key.mType = 0x1e42e0c6;
         break;
-    }
     case 1:
     case 2:
     case 3:
-    case 4: {
-        cModelKey key = { 0x1e42e0c5, 0, 0xf37c24e6 };
-        *pOutKey = key;
+    case 4:
+        key.mType = 0x1e42e0c5;
         break;
-    }
-    case 5: {
-        cModelKey key = { 0, 0, 0 };
+    case 5:
+        key.mType = 0;
+        key.mGroup = 0;
+        key.mInstance = 0;
         *pOutKey = key;
-        break;
-    }
+        return true;
     default:
-        result = false;
-        break;
+        return false;
     }
-    return result;
+    key.mGroup = 0;
+    key.mInstance = 0xf37c24e6;
+    *pOutKey = key;
+    return true;
 }
 
 // @ 0x00e8ec30
@@ -828,7 +824,7 @@ cSPUIMeter_e8f0* cMineralView_e8f0::UpdateLoyaltyBar(cSPUIMeter_e8f0* p, char bS
     }
     if (p == 0) {
       cSPUIMeter_e8f0* np;
-      void* mem = operator_new(0x50, (const char*)g_13f6b3c, 0, 0, 0, 0);
+      void* mem = operator_new(0x50, (const char*)0x013f6b3c, 0, 0, 0, 0);
       if (mem) {
         np = (cSPUIMeter_e8f0*)((cSPUIMeter_e8f0*)mem)->Init(hdr, 0x3ffb28c, 0x4d428c1, L"CivConversionBar", 0xe9f70df9);
       } else {

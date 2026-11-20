@@ -33,6 +33,10 @@ struct ListHead {            // eastl::list node base, 0x10 bytes (only 8 used)
     uint32_t mPad0;          // 0x0c
 };
 
+struct ModelDefaults {        // 36-byte per-instance default block
+    uint32_t m[9];
+};
+
 // model-world instance (SP::cMWModel)
 class cMWModel {
 public:
@@ -44,7 +48,7 @@ public:
     int32_t  field_10;        // 0x10
     int32_t  field_14;        // 0x14
     float    field_18;        // 0x18
-    uint32_t mData_1c[9];     // 0x1c  (9 dwords copied from DAT_016dc0a4)
+    ModelDefaults mData_1c;   // 0x1c  (9 dwords copied from DAT_016dc0a4)
     int32_t  mRefCount;       // 0x40
     uint32_t pad_44[8];       // 0x44
     void*    mpOwner_64;      // 0x64  (bound cCivData*)
@@ -160,7 +164,7 @@ void*  FUN_00b3d390(void* a, void* b);        // 0xb3d390
 void   FUN_01000660(void* begin, void* end, float x, float y, float z); // 0x1000660
 
 void*  VecDoCopy(void* first, void* last, void* dest);           // 0x5f4e10
-void   CountedPtrVecDoInsert(void* end, void* value);           // 0x423c40
+void __stdcall CountedPtrVecDoInsert(void* end, void* value);   // 0x423c40
 void   EAllocDelete(void* p);                 // 0xf47380
 void*  EAllocNew(uint32_t size, const char* name, uint32_t a, uint32_t b,
                  const char* file, uint32_t line);               // 0xf473a0
@@ -177,18 +181,26 @@ void*  EAllocNew(uint32_t size, const char* name, uint32_t a, uint32_t b,
 class cSPSimulatorPlayerUFO;                       // fwd
 
 extern uint32_t g_016dc004;                        // 0x016dc004
-extern uint32_t g_016dc0a4[9];                     // 0x016dc0a4
+extern ModelDefaults g_016dc0a4;                    // 0x016dc0a4
 extern int32_t  g_016dba18;                        // 0x016dba18
 extern int32_t  g_016dba1c;                        // 0x016dba1c
 extern int32_t  g_016dba20;                        // 0x016dba20
 extern float    g_013ef548;                        // 0x013ef548
 extern float    g_014950e0;                        // 0x014950e0
+extern float    g_01485720;                        // 1.0f  (field_B8 default)
+extern float    g_01485544;                        // 0.75f (field_BC default)
 
 extern cSPSimulatorPlayerUFO* g_016dba14;          // 0x016dba14
 
 // ===========================================================================
 // the player-UFO simulator (layout ASSERT_SIZE 0xE0)
 // ===========================================================================
+// Primary base class; only its constructor is needed by this slice.
+class cGonzagoSimulator {
+public:
+    void ctor();                             // 0xb5b6c0  (its constructor)
+};
+
 class cSPSimulatorPlayerUFO {
 public:
     // ---- behaviour implementing this slice ----
@@ -327,11 +339,11 @@ static void ModelSlot16c(void* m, int flag)
 
 static void ModelReleaseTmp(cMWModel* m)
 {
-    if (m->mRefCount <= 1) {
-        int flag = (int)((uint32_t)m->field_04 >> 31);
-        ((void(__thiscall*)(void*, void*, int))(*(void***)(*(void***)m))[0x170 / 4])(*(void**)m, m, flag);
-    } else {
+    if (m->mRefCount > 1) {
         m->mRefCount -= 1;
+    } else {
+        ((void(__thiscall*)(void*, void*, bool))(*(void***)(*(void***)m))[0x170 / 4])
+            (*(void**)m, m, (bool)(((uint32_t)m->field_04 >> 31) & 1));
     }
 }
 
@@ -383,11 +395,14 @@ void FUN_01000dc0(void)
 // ===========================================================================
 // ctor @ 0x01000740
 // ===========================================================================
+// @ 0x01000740  ctor: base cGonzagoSimulator, three vftables, StarPickingSpheres
+//              model world, then the tunable properties.
 cSPSimulatorPlayerUFO::cSPSimulatorPlayerUFO()
 {
-    ((void(__thiscall*)(void*))0xb5b6c0)(this);        // cGonzagoSimulator::cGonzagoSimulator
+    reinterpret_cast<cGonzagoSimulator*>(this)->ctor();
 
-    mpVftable2 = 0x13eb394;
+    // secondary base: its constructor installs the PaintSystem vtable at +0x10
+    *(volatile uint32_t*)&mpVftable2 = 0x13eb394;
     mpVftable0 = 0x14951c4;
     mpVftable1 = 0x14951a0;
     mpVftable2 = 0x1495198;
@@ -412,12 +427,14 @@ cSPSimulatorPlayerUFO::cSPSimulatorPlayerUFO()
     field_54 = 0;
     field_55 = 0;
     field_56 = 1;
-    mHitSpheres.mpBegin = 0;
-    mHitSpheres.mpEnd = 0;
-    mHitSpheres.mpCapacity = 0;
+    Vec* hitSpheres = &mHitSpheres;
+    hitSpheres->mpBegin = 0;
+    hitSpheres->mpEnd = 0;
+    hitSpheres->mpCapacity = 0;
     mpModelWorld_6C = 0;
-    mPosseUFOList.mpNext = &mPosseUFOList.mpNext;
-    mPosseUFOList.mpPrev = &mPosseUFOList.mpNext;
+    ListHead* posse = &mPosseUFOList;
+    posse->mpNext = posse;
+    posse->mpPrev = posse;
     mIdleTimer.ctor();
     field_A0 = 0;
     field_A4 = 0;
@@ -425,8 +442,8 @@ cSPSimulatorPlayerUFO::cSPSimulatorPlayerUFO()
     field_AC = 0;
     field_B0 = 0;
     field_B4 = 0;
-    field_B8 = 1.0f;
-    field_BC = 0.75f;
+    field_B8 = g_01485720;
+    field_BC = g_01485544;
     field_C0 = 50.0f;
     field_C4 = 50.0f;
     field_C8 = 50.0f;
@@ -442,7 +459,12 @@ cSPSimulatorPlayerUFO::cSPSimulatorPlayerUFO()
     void* mm = SP_ModelManager();
     cMWModel* world = ((cMWModel*(__thiscall*)(void*, uint32_t, const char*, uint32_t))VT(mm)[0x14 / 4])
                           (mm, 0x56723400, "StarPickingSpheres", 0);
-    RefAssign(&mpModelWorld_6C, world);
+    void* oldWorld = mpModelWorld_6C;
+    if (world != oldWorld) {
+        if (world) ((void(__thiscall*)(void*))VT(world)[0])(world);
+        mpModelWorld_6C = world;
+        if (oldWorld) ((void(__thiscall*)(void*))VT(oldWorld)[1])(oldWorld);
+    }
 
     VecClear(&mHitSpheres);
     mHitSpheres.Reserve(1000);
@@ -450,24 +472,27 @@ cSPSimulatorPlayerUFO::cSPSimulatorPlayerUFO()
     for (int remaining = 1000; remaining != 0; --remaining) {
         cMWModel* m = ((cMWModel*(__thiscall*)(void*, uint32_t, uint32_t, uint32_t))
                            VT(mpModelWorld_6C)[0x0c / 4])(mpModelWorld_6C, 0x2e81370, g_016dc004, 0x10);
-        for (int k = 0; k < 9; ++k) m->mData_1c[k] = g_016dc0a4[k];
+        m->mData_1c = g_016dc0a4;
         m->field_18 = 1.0f;
         m->field_0c = g_016dba18;
         m->field_10 = g_016dba1c;
-        m->field_08 = 0;
         m->field_14 = g_016dba20;
+        m->field_08 = 0;
         m->field_0a = 0;
 
         ModelSlot16c(m, 0);
         m->mRefCount += 1;
 
-        if ((char*)mHitSpheres.mpEnd < (char*)mHitSpheres.mpCapacity) {
-            *(cMWModel**)mHitSpheres.mpEnd = m;
-            mHitSpheres.mpEnd = (char*)mHitSpheres.mpEnd + 4;
-            m->mRefCount += 1;
+        cMWModel** slot = (cMWModel**)hitSpheres->mpEnd;
+        cMWModel* tmp = m;
+        if (slot < (cMWModel**)hitSpheres->mpCapacity) {
+            hitSpheres->mpEnd = (char*)(slot + 1);
+            if (slot != 0) {
+                *slot = m;
+                m->mRefCount += 1;
+            }
         } else {
-            cMWModel* tmp = m;
-            CountedPtrVecDoInsert(mHitSpheres.mpEnd, &tmp);
+            CountedPtrVecDoInsert(hitSpheres->mpEnd, &tmp);
             m = tmp;
         }
         if (m) ModelReleaseTmp(m);
@@ -475,59 +500,70 @@ cSPSimulatorPlayerUFO::cSPSimulatorPlayerUFO()
 
     mIdleTimer.Start();
 
-    // --- read tunable properties ---
-    void* holder1 = 0;
-    void* holder2 = 0;
-    cProperty* prop = 0;
+    // Properties are read in their own scope so the compiler can colour the
+    // property locals into stack slots the model-world loop no longer needs.
+    {
+        void* holder1 = 0;
+        void* holder2;
+        cProperty* prop = 0;
 
-    void* pm = SP_PropertyManager();
-    ((IPropertyManager*)pm)->GetProperty(0xc63dfdba, 0x522de06, &holder1);
-    if (holder1 != 0) {
-        if (((IPropertyHolder*)holder1)->GetValue(0x5a71ab3, (void**)&prop) && prop->mType == 9) {
-            cProperty* p = prop;
-            if (p->mFlags & 0x30) p = (cProperty*)p->mValue;
-            field_A0 = (int32_t)p->mValue;
+        void* pm = SP_PropertyManager();
+        if (holder1 != 0) {
+            void* c = holder1;
+            holder1 = 0;
+            ((void(__thiscall*)(void*))VT(c)[1])(c);
         }
-    }
-    field_A0 = field_A0 * 1000;
+        ((IPropertyManager*)pm)->GetProperty(0xc63dfdba, 0x522de06, &holder1);
+        if (holder1 != 0) {
+            if (((IPropertyHolder*)holder1)->GetValue(0x5a71ab3, (void**)&prop) && prop->mType == 9) {
+                cProperty* p = prop;
+                if (p->mFlags & 0x30) p = (cProperty*)p->mValue;
+                field_A0 = (int32_t)p->mValue;
+            }
+        }
+        field_A0 = field_A0 * 1000;
 
-    pm = SP_PropertyManager();
-    if (field_A4 != 0) {
-        void* c = field_A4;
-        field_A4 = 0;
-        ((void(__thiscall*)(void*))VT(c)[1])(c);
-    }
-    ((IPropertyManager*)pm)->GetProperty(0x521d0174, 0x2ae0c7e, &field_A4);
+        pm = SP_PropertyManager();
+        if (field_A4 != 0) {
+            void* c = field_A4;
+            field_A4 = 0;
+            ((void(__thiscall*)(void*))VT(c)[1])(c);
+        }
+        ((IPropertyManager*)pm)->GetProperty(0x521d0174, 0x2ae0c7e, &field_A4);
 
-    pm = SP_PropertyManager();
-    if (holder2 != 0) {
-        void* c = holder2;
         holder2 = 0;
-        ((void(__thiscall*)(void*))VT(c)[1])(c);
-    }
-    ((IPropertyManager*)pm)->GetProperty(0x272ddeda, 0x2ae0c7e, &holder2);
-
-    if (holder2 != 0) {
-        if (((IPropertyHolder*)holder2)->GetValue(0x5dffaa8, (void**)&prop) && prop->mType == 0xd) {
-            cProperty* p = prop;
-            if (p->mFlags & 0x30) p = (cProperty*)p->mValue;
-            field_B8 = *(float*)&p->mValue;
+        pm = SP_PropertyManager();
+        if (holder2 != 0) {
+            void* c = holder2;
+            holder2 = 0;
+            ((void(__thiscall*)(void*))VT(c)[1])(c);
         }
-        if (((IPropertyHolder*)holder2)->GetValue(0x5dffabe, (void**)&prop) && prop->mType == 0xd) {
-            cProperty* p = prop;
-            if (p->mFlags & 0x30) p = (cProperty*)p->mValue;
-            field_BC = *(float*)&p->mValue;
-        }
-    }
-    SP_GetPropertyAsVector3(holder2, 0x5dffb15, &field_C0);
+        ((IPropertyManager*)pm)->GetProperty(0x272ddeda, 0x2ae0c7e, &holder2);
 
-    if (prop != 0) {
-        void* c = prop;
-        ((void(__thiscall*)(void*))VT(c)[1])(c);
-    }
-    if (holder1 != 0) {
-        void* c = holder1;
-        ((void(__thiscall*)(void*))VT(c)[1])(c);
+        if (holder2 != 0) {
+            if (((IPropertyHolder*)holder2)->GetValue(0x5dffaa8, (void**)&prop) && prop->mType == 0xd) {
+                cProperty* p = prop;
+                if (p->mFlags & 0x30) p = (cProperty*)p->mValue;
+                field_B8 = *(float*)&p->mValue;
+            }
+        }
+        if (holder2 != 0) {
+            if (((IPropertyHolder*)holder2)->GetValue(0x5dffabe, (void**)&prop) && prop->mType == 0xd) {
+                cProperty* p = prop;
+                if (p->mFlags & 0x30) p = (cProperty*)p->mValue;
+                field_BC = *(float*)&p->mValue;
+            }
+        }
+        SP_GetPropertyAsVector3(holder2, 0x5dffb15, &field_C0);
+
+        if (prop != 0) {
+            void* c = prop;
+            ((void(__thiscall*)(void*))VT(c)[1])(c);
+        }
+        if (holder1 != 0) {
+            void* c = holder1;
+            ((void(__thiscall*)(void*))VT(c)[1])(c);
+        }
     }
 }
 

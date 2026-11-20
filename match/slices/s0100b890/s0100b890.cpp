@@ -1,3 +1,4 @@
+// @ 0x0100b890
 // SP::cSPSimulatorSpaceGame::HandleMessage (0x0100b890, 6206 bytes).
 //
 // The space game's EA::Messaging::IHandler override: one big dispatch on the
@@ -1079,8 +1080,7 @@ bool cSPSimulatorSpaceGame::HandleMessage(uint32_t messageID, void* pMessage)
                         CameraModeManager()->SetMode(0xebb801);
                         cTerrainCameraController* camera =
                             CastToTerrainCamera(App()->GetCameraManager()->GetActiveCameraController());
-                        Matrix3 rotation(frame);
-                        camera->SetOrientation(MatrixToQuaternion(rotation, true));
+                        camera->SetOrientation(MatrixToQuaternion(Matrix3(frame), true));
                         camera->SetOrientation(building->mOrientation.GetOrientation(0));
                         camera->ResetInterpolation(Vector3(0.0f, 0.0f, 0.0f));
                     }

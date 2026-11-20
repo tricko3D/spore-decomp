@@ -2,15 +2,6 @@
 // Object file: SPGonzago/SPBuildings.obj.  Function bodies keep the slice's code; types, members and virtual calls use the
 // canonical headers under src/game/include.  Each function keeps its '// @ 0xVA' marker.
 
-// addresses retail relocates here, named so the build relocates them too
-extern "C" char g_1485544[];
-extern "C" char g_156d770[];
-extern "C" char g_156dab8[];
-extern "C" char g_156db6c[];
-extern "C" char g_156dba8[];
-extern "C" char g_156dbe4[];
-extern "C" char g_157a1f8[];
-
 #include "game/types.h"
 #include "SP/cCity.h"
 #include "SP/cCombatant.h"
@@ -38,32 +29,6 @@ extern "C" char g_157a1f8[];
 #include "SP/cGonzagoSubsystem.h"
 #include "SP/cInteractionTarget.h"
 #include "EA/Random/RandomLinearCongruential.h"
-
-// Retail stream interfaces used by the building serializers.
-struct BuildingArchiveStreamHolder {
-    virtual void slot0(); virtual void slot1(); virtual void slot2();
-    virtual void slot3(); virtual void slot4(); virtual void slot5();
-    virtual void* GetStream(); // +0x18
-};
-struct BuildingArchive {
-    virtual void slot0(); virtual void slot1(); virtual void slot2();
-    virtual void slot3(); virtual void slot4(); virtual void slot5();
-    virtual void slot6(); virtual void slot7();
-    virtual BuildingArchiveStreamHolder* GetStreamHolder(); // +0x20
-};
-extern SP::cDataSerializerGeneric gBuildingCityHallSerializerList[]; // 0x0156dab8
-
-extern SP::cDataSerializerGeneric gBuildingWrite2SerializerList[]; // 0x156db6c
-
-extern SP::cDataSerializerGeneric gBuildingWrite3SerializerList[]; // 0x156dba8
-
-extern SP::cDataSerializerGeneric gBuildingWrite4SerializerList[]; // 0x156dbe4
-
-extern SP::cDataSerializerGeneric gSerializableNounSerializerList[]; // 0x156d770
-
-extern SP::cDataSerializerGeneric gBuildingWrite5SerializerList[]; // 0x156dc20
-
-extern SP::cDataSerializerGeneric gBuildingGatedSerializerList[]; // 0x0156deb4
 
 // ---- items of slice s00bcc010 begin (TODO(rewrite): local stubs, replace by canonical classes)
 #define VF(obj, slot) (*(void**)((char*)*(void**)(obj) + (slot) * 4))
@@ -157,6 +122,7 @@ class cTribeTool : public cSerializableNoun {
 };
 class cVehicle : public cSerializableNoun {
  public:
+    void __thiscall Write1(void* s);                           // 0x00bcc8b0
     void __thiscall Read1(void* s);                            // 0x00bcc920
     void __thiscall Write2(void* s);                           // 0x00bcc9f0
     void __thiscall Read2(void* s);                            // 0x00bcca60
@@ -1472,15 +1438,16 @@ void FUN_00bd40a0(void* p);   // 0x00bd40a0
 // @ 0x00bcc350
 char __thiscall cSerializableNoun::WriteBase(void* s)
 {
-    BuildingArchiveStreamHolder* __restrict holder = static_cast<BuildingArchive*>(s)->GetStreamHolder();
+    void* x = ((void*(__thiscall*)(void*))VF(s, 8))(s);
     int   ver = 0xe9cb8ba;
-    void* w = holder->GetStream();
+    void* w = ((void*(__thiscall*)(void*))VF(x, 6))(x);
     FUN_0093aa70(w, &ver, 1, 0);
     ((cGameData*)this)->Write(s);
     bool ok = ((cSpatialObject*)((char*)this + 0x34))->Write(s) != 0 &&
               ((cCombatant*)((char*)this + 0x120))->Write(s) != 0;
-    SP::cVarListSerializer vl(this, gSerializableNounSerializerList, SP::cVarListSerializer::kSignature);
-    if (ok && vl.Serialize(*static_cast<SP::cIObjectDatabaseOStream*>(s)) != 0)
+    cVarListSerializer vl;
+    vl.Construct(this, 0x156d770, 0x1a80d26);
+    if (ok && vl.Serialize(s) != 0)
         return 1;
     return 0;
 }
@@ -1562,7 +1529,7 @@ void __thiscall cSpatialObject::bcc5e0(int a, float f)
 float __thiscall cSpatialObject::bcc640()
 {
     float c = ((float(__thiscall*)(void*))VF(this, 0x5c / 4))(this);
-    return c * *(float*)g_1485544;
+    return c * *(float*)0x1485544;
 }
 
 // @ 0x00bcc650
@@ -1641,16 +1608,16 @@ void __thiscall cTribeTool::bcc860(int unused)
 }
 
 // @ 0x00bcc8b0
-bool SP::cBuildingCityHall::Write(SP::cIObjectDatabaseOStream& stream) const
+void __thiscall cVehicle::Write1(void* s)
 {
-    BuildingArchiveStreamHolder* __restrict holder = reinterpret_cast<BuildingArchive*>(&stream)->GetStreamHolder();
-    uint32_t version = 0x1007ae63;
-    void* output = holder->GetStream();
-    FUN_0093aa70(output, &version, 1, 0);
-    ((cSerializableNoun*)this)->WriteBase(&stream);
-    SP::cVarListSerializer serializer(this, gBuildingCityHallSerializerList,
-                                     SP::cVarListSerializer::kSignature);
-    return serializer.Serialize(stream);
+    void* x = ((void*(__thiscall*)(void*))VF(s, 8))(s);
+    int   ver = 0x1007ae63;
+    void* w = ((void*(__thiscall*)(void*))VF(x, 6))(x);
+    FUN_0093aa70(w, &ver, 1, 0);
+    ((cSerializableNoun*)this)->WriteBase(s);
+    cVarListSerializer vl;
+    vl.Construct(this, 0x156dab8, 0x1a80d26);
+    vl.Serialize(s);
 }
 
 // @ 0x00bcc920
@@ -1662,21 +1629,21 @@ void __thiscall cVehicle::Read1(void* s)
     FUN_0093a780(w, &ver, 1, 0);
     ((cSerializableNoun*)this)->ReadBase(s);
     cVarListSerializer vl;
-    vl.Construct(this, (int)g_156dab8, 0x1a80d26);
+    vl.Construct(this, 0x156dab8, 0x1a80d26);
     vl.Deserialize(s);
 }
 
 // @ 0x00bcc9f0
 void __thiscall cVehicle::Write2(void* s)
 {
-    BuildingArchiveStreamHolder* __restrict holder = static_cast<BuildingArchive*>(s)->GetStreamHolder();
-    uint32_t version = 0xecade42;
-    void* output = holder->GetStream();
-    FUN_0093aa70(output, &version, 1, 0);
+    void* x = ((void*(__thiscall*)(void*))VF(s, 8))(s);
+    int   ver = 0xecade42;
+    void* w = ((void*(__thiscall*)(void*))VF(x, 6))(x);
+    FUN_0093aa70(w, &ver, 1, 0);
     ((cSerializableNoun*)this)->WriteBase(s);
-    SP::cVarListSerializer serializer(this, gBuildingWrite2SerializerList,
-                                     SP::cVarListSerializer::kSignature);
-    serializer.Serialize(*static_cast<SP::cIObjectDatabaseOStream*>(s));
+    cVarListSerializer vl;
+    vl.Construct(this, 0x156db6c, 0x1a80d26);
+    vl.Serialize(s);
 }
 
 // @ 0x00bcca60
@@ -1688,21 +1655,21 @@ void __thiscall cVehicle::Read2(void* s)
     FUN_0093a780(w, &ver, 1, 0);
     ((cSerializableNoun*)this)->ReadBase(s);
     cVarListSerializer vl;
-    vl.Construct(this, (int)g_156db6c, 0x1a80d26);
+    vl.Construct(this, 0x156db6c, 0x1a80d26);
     vl.Deserialize(s);
 }
 
 // @ 0x00bccb30
 void __thiscall cVehicle::Write3(void* s)
 {
-    BuildingArchiveStreamHolder* __restrict holder = static_cast<BuildingArchive*>(s)->GetStreamHolder();
-    uint32_t version = 0xff10521;
-    void* output = holder->GetStream();
-    FUN_0093aa70(output, &version, 1, 0);
+    void* x = ((void*(__thiscall*)(void*))VF(s, 8))(s);
+    int   ver = 0xff10521;
+    void* w = ((void*(__thiscall*)(void*))VF(x, 6))(x);
+    FUN_0093aa70(w, &ver, 1, 0);
     ((cSerializableNoun*)this)->WriteBase(s);
-    SP::cVarListSerializer serializer(this, gBuildingWrite3SerializerList,
-                                     SP::cVarListSerializer::kSignature);
-    serializer.Serialize(*static_cast<SP::cIObjectDatabaseOStream*>(s));
+    cVarListSerializer vl;
+    vl.Construct(this, 0x156dba8, 0x1a80d26);
+    vl.Serialize(s);
 }
 
 // @ 0x00bccba0
@@ -1714,21 +1681,22 @@ void __thiscall cVehicle::Read3(void* s)
     FUN_0093a780(w, &ver, 1, 0);
     ((cSerializableNoun*)this)->ReadBase(s);
     cVarListSerializer vl;
-    vl.Construct(this, (int)g_156dba8, 0x1a80d26);
+    vl.Construct(this, 0x156dba8, 0x1a80d26);
     vl.Deserialize(s);
 }
 
 // @ 0x00bccc70
 bool __thiscall cVehicle::Write4(void* s)
 {
-    BuildingArchiveStreamHolder* __restrict holder = static_cast<BuildingArchive*>(s)->GetStreamHolder();
+    void* x = ((void*(__thiscall*)(void*))VF(s, 8))(s);
     int   ver = 0x1a55e4d;
-    void* w = holder->GetStream();
+    void* w = ((void*(__thiscall*)(void*))VF(x, 6))(x);
     FUN_0093aa70(w, &ver, 1, 0);
     bool ok = ((cSerializableNoun*)this)->WriteBase(s) != 0 &&
               ((cSerializableNoun*)this)->WriteBase(s) != 0;
-    SP::cVarListSerializer vl(this, gBuildingWrite4SerializerList, SP::cVarListSerializer::kSignature);
-    if (ok && vl.Serialize(*static_cast<SP::cIObjectDatabaseOStream*>(s)) != 0)
+    cVarListSerializer vl;
+    vl.Construct(this, 0x156dbe4, 0x1a80d26);
+    if (ok && vl.Serialize(s) != 0)
         return true;
     return false;
 }
@@ -1743,7 +1711,7 @@ bool __thiscall cVehicle::Read4(void* s)
     bool ok = ((cSerializableNoun*)this)->ReadBase(s) != 0 &&
               ((cSerializableNoun*)this)->ReadBase(s) != 0;
     cVarListSerializer vl;
-    vl.Construct(this, (int)g_156dbe4, 0x1a80d26);
+    vl.Construct(this, 0x156dbe4, 0x1a80d26);
     if (ok && vl.Deserialize(s) != 0)
         return true;
     return false;
@@ -1795,15 +1763,16 @@ void __thiscall cVehicle::bccf20()
 // @ 0x00bccf80
 bool __thiscall cVehicle::Write5(void* s)
 {
-    BuildingArchiveStreamHolder* __restrict holder = static_cast<BuildingArchive*>(s)->GetStreamHolder();
+    void* x = ((void*(__thiscall*)(void*))VF(s, 8))(s);
     int   ver = 0x436f315;
-    void* w = holder->GetStream();
+    void* w = ((void*(__thiscall*)(void*))VF(x, 6))(x);
     FUN_0093aa70(w, &ver, 1, 0);
     ((cGameData*)this)->Write(s);
     bool ok = ((cLocomotiveObject*)((char*)this + 0x34))->Write(s) != 0 &&
               ((cCombatant*)((char*)this + 0x588))->Write(s) != 0;
-    SP::cVarListSerializer vl(this, gBuildingWrite5SerializerList, SP::cVarListSerializer::kSignature);
-    if (ok && vl.Serialize(*static_cast<SP::cIObjectDatabaseOStream*>(s)) != 0)
+    cVarListSerializer vl;
+    vl.Construct(this, 0x156dc20, 0x1a80d26);
+    if (ok && vl.Serialize(s) != 0)
         return true;
     return false;
 }
@@ -1814,11 +1783,11 @@ void __thiscall cVehicle::WriteAsText(void* s)
     ((cGameData*)this)->WriteAsText(s);
     cVarListSerializer v1;
     cVarListSerializer v2;
-    v1.Construct((char*)this + 0x34, (int)g_157a1f8, 0x1a80d26);
+    v1.Construct((char*)this + 0x34, 0x157a1f8, 0x1a80d26);
     v1.GetFields(s);
-    v1.Construct((char*)this + 0x120, (int)&DAT_01570858, 0x1a80d26);
+    v1.Construct((char*)this + 0x120, 0x1570858, 0x1a80d26);
     v1.GetFields(s);
-    v2.Construct(this, (int)g_156d770, 0x1a80d26);
+    v2.Construct(this, 0x156d770, 0x1a80d26);
     v2.GetFields(s);
 }
 
@@ -1863,30 +1832,40 @@ int __thiscall cVehicle::bcd250()
 // @ 0x00bcd2a0
 bool cGameData_s00bc_d2a0::Write(void* pArchive)
 {
-    BuildingArchiveStreamHolder* __restrict holder = static_cast<BuildingArchive*>(pArchive)->GetStreamHolder();
-    uint32_t version = 0x070704db;
-    void* stream = holder->GetStream();
-    FUN_0093aa70(stream, &version, 1, 0);
-    bool ok = ((cSerializableNoun*)this)->WriteBase(pArchive) != 0 &&
-              ((cSerializableNoun*)this)->WriteBase(pArchive) != 0;
-    SP::cVarListSerializer serializer(this, gBuildingGatedSerializerList, SP::cVarListSerializer::kSignature);
-    if (ok && serializer.Serialize(*static_cast<SP::cIObjectDatabaseOStream*>(pArchive)))
-        return true;
+    void* v1 = ((void* (__thiscall*)(void*))vc(pArchive, 0x20))(pArchive);
+    u32 id = 0x70704db;
+    u32 handle = ((u32 (__thiscall*)(void*))vc(v1, 0x18))(v1);
+    FUN_0093aa70((void*)handle, &id, (void*)1, 0);
+
+    bool b = ((bool (__thiscall*)(void*))FUN_00bcc350)(pArchive) != 0;
+    if (b) {
+        b = ((bool (__thiscall*)(void*))FUN_00bcc350)(pArchive) != 0;
+    }
+    VarListSerializer ser;
+    FUN_00692f90(&ser, this, &PTR_s_field_name_0156deb4, (void*)0x1a80d26);
+    if (b) {
+        if (FUN_00692900(&ser, pArchive)) return true;
+    }
     return false;
 }
 
 // @ 0x00bcd340
 bool cGameData_s00bc_d2a0::Read(void* pArchive)
 {
-    BuildingArchiveStreamHolder* __restrict holder = static_cast<BuildingArchive*>(pArchive)->GetStreamHolder();
-    uint32_t version;
-    void* stream = holder->GetStream();
-    FUN_0093a780(stream, &version, 1, 0);
-    bool ok = ((cSerializableNoun*)this)->ReadBase(pArchive) != 0 &&
-              ((cSerializableNoun*)this)->ReadBase(pArchive) != 0;
-    SP::cVarListSerializer serializer(this, gBuildingGatedSerializerList, SP::cVarListSerializer::kSignature);
-    if (ok && serializer.Serialize(*static_cast<SP::cIObjectDatabaseIStream*>(pArchive)))
-        return true;
+    void* v1 = ((void* (__thiscall*)(void*))vc(pArchive, 0x20))(pArchive);
+    u32 id;
+    u32 handle = ((u32 (__thiscall*)(void*))vc(v1, 0x18))(v1);
+    FUN_0093a780((void*)handle, &id, (void*)1, 0);
+
+    bool b = ((bool (__thiscall*)(void*))FUN_00bcc400)(pArchive) != 0;
+    if (b) {
+        b = ((bool (__thiscall*)(void*))FUN_00bcc400)(pArchive) != 0;
+    }
+    VarListSerializer ser;
+    FUN_00692f90(&ser, this, &PTR_s_field_name_0156deb4, (void*)0x1a80d26);
+    if (b) {
+        if (FUN_00693e10(&ser, pArchive)) return true;
+    }
     return false;
 }
 
@@ -1996,24 +1975,22 @@ void cOwnerT::RemoveOwner()
     }
 }
 
-extern char g_018c43e8[];   // 0x018c43e8 city type id object
-
 // @ 0x00bcd630
 void* cOwnerT::GetOwnerCivilization()
 {
     if (mpOwner_1f0 == 0) return 0;
-    void* pCity = ((void* (__thiscall*)(void*))((void**)*(void**)this)[0x30 / 4])(this);
+    void* pCity = ((void* (__thiscall*)(void*))vc(this, 0x30))(this);
     if (pCity != 0) {
-        void* type = ((void* (__thiscall*)(void*))((void**)*(void**)pCity)[0x20 / 4])(pCity);
-        if (type != (void*)g_018c43e8) pCity = 0;
+        void* type = ((void* (__thiscall*)(void*))vc(pCity, 0x20))(pCity);
+        if (type != (void*)0x018c43e8) pCity = 0;
     } else {
         pCity = 0;
     }
-    int id = ((int (__thiscall*)(void*))((void**)*(void**)this)[0x4c / 4])(this);
+    int id = ((int (__thiscall*)(void*))vc(this, 0x4c))(this);
     if (id == -1) {
         return ((void* (__thiscall*)(void*))FUN_00bd9bf0)(pCity);
     }
-    int id2 = ((int (__thiscall*)(void*))((void**)*(void**)this)[0x4c / 4])(this);
+    int id2 = ((int (__thiscall*)(void*))vc(this, 0x4c))(this);
     return ((void* (__thiscall*)(void*, void*))FUN_00b25f40)(FUN_00b3d300(), (void*)id2);
 }
 

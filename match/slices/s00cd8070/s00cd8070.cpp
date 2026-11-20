@@ -1,8 +1,10 @@
+// @ 0x00cd8070
 // Slice s00cd8070 -- SP::cTribeModeStrategy::HandleMessage (tribe-stage strategy message handler).
 // Module flags: /O2 /MD /Gy /TP /arch:SSE /fp:fast (no /EHsc: the event-payload temporaries get no EH frame).
 // HandleMessage overrides the IHandler at +8 of the retail cTribeModeStrategy, so `this` inside it is
 // the +8 subobject and calls on the strategy itself go through `lea ecx,[this-8]`.
 #include "types.h"
+#include "sse_helpers.h"
 
 // ------------------------------------------------------------------ small helper types
 struct Vector3 {
@@ -19,8 +21,6 @@ struct ResourceKey {
     ResourceKey() {}
     ResourceKey(uint32_t i, uint32_t t, uint32_t g) : instanceID(i), typeID(t), groupID(g) {}
 };
-
-__forceinline int RoundToInt(float f) { __asm cvtss2si eax, f }
 
 template <class T> __forceinline const T& min_ref(const T& a, const T& b) { return (b < a) ? b : a; }
 
@@ -519,7 +519,7 @@ bool cTribeModeStrategy::HandleMessage(uint32_t messageID, void* msgData)
             const float& lo = min_ref(sphere->m10f0, sphere->m10f4);
             if (lo / sphere->m10f4 >= 1.0f) {
                 mpDisplayStrategy->FUN_00cc8aa0(1);
-                sphere->FUN_00c79f00(0x566cdf0, RoundToInt(sphere->m10f4));
+                sphere->FUN_00c79f00(0x566cdf0, SseRoundToInt(sphere->m10f4));
                 if (ConfigManager()->GetValue(0x4ea96cb)) {
                     { cGameTimeManager* timeMgr = GameTimeManager(); timeMgr->IncPauseGate(0x4bf38a7); }
                     ShowHint(DAT_0157f0fc, 0);

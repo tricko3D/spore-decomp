@@ -8,6 +8,7 @@
 //   +0xb0 ornament (intrusive +4), +0xb8 model instance sets [2] (stride 0x60)
 //   +0x2b8 swatch, +0x2bc window (both refcount via vt0/vt1), +0x4f0/+0x4f4 UI helpers
 #include "types.h"
+#include <string.h>
 
 typedef unsigned int u32;
 typedef unsigned short u16;
@@ -138,7 +139,7 @@ struct UIHelper {
 
 struct Xform {
     u16 a, b;
-    float pos[3];
+    Vec3 pos;
     float scale;
     float m[9];
 };
@@ -192,10 +193,10 @@ struct TribeDisplay : DispBase, IHandler {
     UIHelper* helperB;     // +0x4f4
 
     void MakeTribeIcons();   // 0xccd8a0
-    // @ 0x00ccdd70
     void Activate();
 };
 
+// @ 0x00ccdd70
 void TribeDisplay::Activate()
 {
     Server* srv = GetServer();
@@ -348,9 +349,9 @@ void TribeDisplay::Activate()
         if (s.vec.b == s.vec.e) s.vec.Resize(0x28);
         for (u32 i = 0; i < (u32)(s.vec.e - s.vec.b); ++i) {
             Xform* t = &s.vec.b[i];
-            for (int j = 0; j < 9; ++j) t->m[j] = g_xfMat[j];
+            memcpy(t->m, g_xfMat, sizeof(t->m));
             t->scale = 1.0f;
-            t->pos[0] = g_xfPos.x; t->pos[1] = g_xfPos.y; t->pos[2] = g_xfPos.z;
+            t->pos = g_xfPos;
             t->a = 0;
             t->b = 0;
         }

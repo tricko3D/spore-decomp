@@ -442,10 +442,7 @@ bool __cdecl c8b520(int k)
     }
     return false;
 }
-extern "C" void _ReadWriteBarrier(void);
-#pragma intrinsic(_ReadWriteBarrier)
-extern "C" char g_1473990[];   // Simulator::cStar vftable
-extern "C" char g_147397c[];   // Simulator::cStar second vftable
+#pragma optimize("", off)
 
 // @ 0x00c8b640
 cStar_s00c8_aa60::cStar_s00c8_aa60()
@@ -454,9 +451,8 @@ cStar_s00c8_aa60::cStar_s00c8_aa60()
     mField34 = 0;
     mField38 = 0;
     mFlag3c = 0;
-    vftable = (void**)g_1473990;
-    vftable2 = (void**)g_147397c;
-    _ReadWriteBarrier();
+    vftable = (void**)0x1473990;
+    vftable2 = (void**)0x147397c;
     mpSolarSystem = 0;
     mpStarRecord = 0;
     mFlag44 = 1;

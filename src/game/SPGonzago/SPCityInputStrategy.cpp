@@ -2,11 +2,6 @@
 // Object file: SPGonzago/SPCityInputStrategy.obj.  Function bodies keep the slice's code; types, members and virtual calls use the
 // canonical headers under src/game/include.  Each function keeps its '// @ 0xVA' marker.
 
-// addresses retail relocates here, named so the build relocates them too
-extern "C" char g_147875c[];
-extern "C" char g_1478774[];
-extern "C" char g_1478788[];
-
 #include "game/types.h"
 #include <math.h>
 #include <intrin.h>
@@ -154,7 +149,7 @@ struct cCityInputStrategy
     void  FUN_00cf14d0();
     void  FUN_00cf1500(u32 a);
     u32   FUN_00cf1540();
-    u32   FUN_00cf1630(void* a, u32 b);
+    u32   FUN_00cf1630(void* a);
     u32   FUN_00cf16f0(void* a, void* b);
     u32   FUN_00cf17b0(void* a, void* b);
     void  FUN_00cf1810(void* a, u8 b);
@@ -1201,8 +1196,6 @@ void __cdecl FUN_00cf1380(void** param_1, i32 param_2, i32 param_3, void* param_
         Release(param_4);
 }
 
-struct Obj80_cf1440 { void FUN_00d12fc0(); };   // 0x00d12fc0 (thiscall)
-
 // @ 0x00cf1440
 void cCityInputStrategy::FUN_00cf1440()
 {
@@ -1210,7 +1203,7 @@ void cCityInputStrategy::FUN_00cf1440()
     ((void (__thiscall*)(void*, void*))VT(mgr)[0x40 / 4])(mgr, mFielde4);
     if (mpField80)
     {
-        ((Obj80_cf1440*)mpField80)->FUN_00d12fc0();
+        FUN_00d12fc0();
         void* p = mpField80;
         if (p)
         {
@@ -1263,15 +1256,13 @@ u32 cCityInputStrategy::FUN_00cf1540()
 }
 
 // @ 0x00cf1560
-struct BoolArg_cf1560 { bool b; };
 u32 __stdcall FUN_00cf1560(void* param_1, u32 param_2)
 {
-    BoolArg_cf1560 uVar3;
-    uVar3.b = false;
+    volatile bool uVar3 = 0;
     switch (param_2)
     {
     case 0:
-        uVar3.b = true;
+        uVar3 = 1;
         break;
     case 1:
         MOPS(FUN_00b30d70())->FUN_00b2fba0(2);
@@ -1287,7 +1278,7 @@ u32 __stdcall FUN_00cf1560(void* param_1, u32 param_2)
     }
     u32 uVar1 = param_1 ? ((u32 (__thiscall*)(void*, void*))VT(param_1)[0x0c / 4])(param_1, (void*)0x01186577) : 0;
     void* cur = FUN_00b30d70();
-    ((void (__thiscall*)(void*, BoolArg_cf1560, u32))VT(cur)[0xa0 / 4])(cur, uVar3, uVar1);
+    ((void (__thiscall*)(void*, u32, u32))VT(cur)[0xa0 / 4])(cur, uVar3, uVar1);
     return 0;
 }
 
@@ -1304,22 +1295,16 @@ u32 __stdcall FUN_00cf15e0(void* param_1, u32 param_2)
     return 0;
 }
 
-struct Vec3C_cf1630 {
-    f32 x, y, z;
-    Vec3C_cf1630() {}
-    Vec3C_cf1630(const Vec3C_cf1630& o) : x(o.x), y(o.y), z(o.z) {}
-};
-
 // @ 0x00cf1630
-u32 cCityInputStrategy::FUN_00cf1630(void* param_1, u32)
+u32 cCityInputStrategy::FUN_00cf1630(void* param_1)
 {
     u32 uVar1 = param_1 ? ((u32 (__thiscall*)(void*, void*))VT(param_1)[0x0c / 4])(param_1, (void*)0x01186577) : 0;
     mpField104 = (void*)uVar1;
     FUN_008d2f30((void*)&gCursorPosB, (void*)&gCursorPosA);
     void* pm = FUN_00b3d240();
-    Vec3C_cf1630 tmp;
-    f32* out = (f32*)((u32* (__thiscall*)(void*, Vec3C_cf1630*, u32, Vec3C_cf1630))VT(pm)[0x38 / 4])(
-        pm, &tmp, 0, *(Vec3C_cf1630*)&gEditorCursor[0]);
+    Vec3 tmp;
+    f32* out = (f32*)((u32* (__thiscall*)(void*, Vec3*, u32, Vec3))VT(pm)[0x38 / 4])(
+        pm, &tmp, 0, *(Vec3*)&gEditorCursor[0]);
     gTmpVecA[0] = ((u32*)out)[0];
     gTmpVecA[1] = ((u32*)out)[1];
     gTmpVecA[2] = ((u32*)out)[2];
@@ -1396,7 +1381,6 @@ void cCityInputStrategy::FUN_00cf1810(void* param_1, u8 param_2)
         mFieldc4 = 0;
         mFieldc8 = 0;
         mFieldcc = 0;
-        _ReadWriteBarrier();
         if (mpFieldd8)
         {
             void* p = mpFieldd8;
@@ -2597,16 +2581,16 @@ void CityInputStrategy::Reset(u32 mode)
 
     ArgCmd local;
     local.Ctor(&mTreeBase04);
-    local.SetName((const char*)g_1478788);
+    local.SetName((const char*)0x1478788);
     switch (mode) {
     case 0:
-        local.SetName((const char*)g_147875c);
+        local.SetName((const char*)0x147875c);
         break;
     case 1:
-        local.SetName((const char*)g_1478774);
+        local.SetName((const char*)0x1478774);
         break;
     default:
-        local.SetName((const char*)g_147875c);
+        local.SetName((const char*)0x147875c);
         break;
     }
     local.Finish();

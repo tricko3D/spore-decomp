@@ -554,3 +554,337 @@ void __fastcall FUN_00ca72a0(Self72a0* self)
 
     circle.Destroy();
 }
+
+#include "sse_helpers.h"     // reviewed fld/fistp 64-bit rounding (X87RoundToInt64)
+
+// ---------------------------------------------------------------------------
+// SP::cVehicle::Init -- 0x00ca6630, 1917 bytes, ret 0x14
+//
+// Init(locomotion, purpose, model): clears the behaviour-tree flag word at
+// +0x5fc and restarts both combat timers; when the vehicle-type property list
+// exists it samples the locomotion table for the turn rate (+0x218) and reads
+// the default weapon cycle time; then it either loads the given model key or
+// asks the object-template database for the first match of the
+// locomotion/purpose pair (tables 0x014749ec / 0x01474a28), sets the purpose
+// flag bits, creates the default tool, applies the stance bits and the
+// player-owned bit, runs SetupFlags, attaches the hit sphere (all modes but
+// 0x1654c10) and finally, in mode 0x1654c10, loads ten tunables from property
+// list 0xf14790c7 plus a second attached object.
+//
+// Retail cVehicle layout used below:
+//   +0x034 spatial sub-object (vtable: 0x2c position, 0x58 player-owned,
+//          0x70 bounding radius, 0x94 load model)
+//   +0x218 turn rate         +0x2a0 max speed
+//   +0xaf0 behaviour-tree data (flags at +0x5fc)
+//   +0xb1c locomotion        +0xb20 purpose        +0xb24 stance
+//   +0xc7c default weapon cycle time (ms)
+//   +0xc88 / +0xca8 combat timers
+//   +0xcfc hit sphere
+//   +0xd6c..+0xd88 integer tunables, +0xd8c/+0xd90 float tunables
+//   +0xd94 extra attached object
+// ---------------------------------------------------------------------------
+
+struct VehVec {
+    float x, y, z;
+    explicit VehVec(float v) : x(v), y(v), z(v) {}
+    VehVec(const VehVec& o) { x = o.x; y = o.y; z = o.z; }
+};
+
+struct VehKey { unsigned int instanceID, typeID, groupID; };
+
+struct VehRefObj {
+    virtual void AddRef();                              // +0
+    virtual void Release();                             // +4
+};
+
+struct VehNoun : VehRefObj {
+    virtual void s2();
+    virtual VehRefObj* Cast(unsigned int id);           // +0xc
+};
+
+struct VehProperty {
+    char pad[0x12];
+    unsigned short type;                                // +0x12 (10 = uint, 13 = float)
+    float* GetFloat();                                  // 0x0041ea70
+    unsigned int* GetUInt();                            // 0x0041ea00
+};
+
+struct VehPropertyList {
+    virtual void AddRef();
+    virtual void Release();                             // +4
+    virtual void v2(); virtual void v3(); virtual void v4(); virtual void v5();
+    virtual void v6(); virtual void v7(); virtual void v8();
+    virtual bool GetProperty(unsigned int id, VehProperty*& prop);   // +0x24
+};
+
+struct VehPropertyMgr {
+    virtual void v0(); virtual void v1(); virtual void v2(); virtual void v3();
+    virtual void v4(); virtual void v5(); virtual void v6(); virtual void v7();
+    virtual void v8(); virtual void v9(); virtual void v10();
+    virtual bool GetPropertyList(unsigned int instanceID, VehPropertyList** ppList);                  // +0x30
+    virtual bool GetPropertyList(unsigned int instanceID, unsigned int groupID,
+                                 VehPropertyList** ppList);                                          // +0x2c
+};
+
+// EA::AutoRefCount<VehPropertyList> local: taking its address releases/clears.
+struct VehPropRef {
+    VehPropertyList* p;
+    VehPropRef() : p(0) {}
+    ~VehPropRef() { if (p) p->Release(); }
+    VehPropertyList** Out() {
+        if (p) { VehPropertyList* t = p; p = 0; t->Release(); }
+        return &p;
+    }
+};
+
+// Functional-match constraint: 0x24 bytes, child vector at +0x10.
+namespace VehFM {
+enum Sentinel { kEndConstraint = 0 };
+enum EqualConstraint { kEquals = 0 };
+struct Constraint {
+    unsigned int mParameter, mType, mA, mB;
+    Constraint* mpBegin;
+    Constraint* mpEnd;
+    Constraint* mpCapacity;
+    const char* mpName;
+    unsigned int mFlags;
+    Constraint(Sentinel);                                           // 0x00558830
+    Constraint(unsigned int param, EqualConstraint, int value);      // 0x00558960
+    ~Constraint()                                                   // out-of-line copy at 0x006066f0
+    {
+        for (Constraint* c = mpBegin; c < mpEnd; ++c)
+            c->~Constraint();
+        if (mpBegin && ((int*)mpBegin)[-1])
+            FUN_00f47380(mpBegin);
+    }
+};
+}
+
+struct VehKeyVec {                                     // eastl::vector<VehKey>
+    VehKey* mpBegin;
+    VehKey* mpEnd;
+    VehKey* mpCapacity;
+    VehKeyVec() : mpBegin(0), mpEnd(0), mpCapacity(0) {}
+    ~VehKeyVec() { if (mpBegin && ((int*)mpBegin)[-1]) FUN_00f47380(mpBegin); }
+};
+
+struct VehTemplateDB {
+    virtual void s0(); virtual void s1(); virtual void s2(); virtual void s3(); virtual void s4();
+    virtual void s5(); virtual void s6(); virtual void s7(); virtual void s8(); virtual void s9();
+    virtual void __cdecl Find(VehKeyVec* out, int one, VehFM::Constraint a, VehFM::Constraint b);  // +0x28
+    virtual void s11(); virtual void s12(); virtual void s13(); virtual void s14(); virtual void s15();
+    virtual void s16(); virtual void s17(); virtual void s18(); virtual void s19(); virtual void s20();
+    virtual void s21();
+    virtual void Register(VehKey* key, int one);                                                   // +0x58
+};
+
+struct VehNounMgr {
+    VehNoun* CreateNoun(unsigned int id);               // 0x00b20c60, ret 4
+};
+
+struct VehLocoTable {
+    // loco, the three floats of the sample point, then three float results
+    void Lookup(unsigned int loco, float x, float y, float z,
+                float* c, float* b, float* a);                                  // 0x00ceec10, ret 0x1c
+};
+
+struct VehSub34 {                                       // spatial sub-object at vehicle+0x34
+    virtual void s0(); virtual void s1(); virtual void s2(); virtual void s3(); virtual void s4();
+    virtual void s5(); virtual void s6(); virtual void s7(); virtual void s8(); virtual void s9();
+    virtual void s10();
+    virtual VehVec* GetPosition();                      // +0x2c
+    virtual void s12(); virtual void s13(); virtual void s14(); virtual void s15(); virtual void s16();
+    virtual void s17(); virtual void s18(); virtual void s19(); virtual void s20(); virtual void s21();
+    virtual bool IsPlayerOwned();                       // +0x58
+    virtual void s23(); virtual void s24(); virtual void s25(); virtual void s26(); virtual void s27();
+    virtual float GetBoundingRadius();                  // +0x70
+    virtual void s29(); virtual void s30(); virtual void s31(); virtual void s32(); virtual void s33();
+    virtual void s34(); virtual void s35(); virtual void s36();
+    virtual void LoadModel(VehKey* key);                // +0x94
+};
+
+struct VehHitSphere : VehRefObj {
+    void SetPositionRadius(VehVec* pos, float radius);  // 0x00c3f160, ret 8
+    void SetRange(float lo, float hi);                  // 0x00c3f1b0, ret 8
+    void Attach(void* v);                               // 0x00c3f2d0, ret 4
+};
+
+struct VehTimer {
+    unsigned int pad[8];
+    void Restart();                                     // 0x00bc3130
+};
+
+struct VehBtData { char pad[0x5fc]; unsigned int flags; };
+
+struct Vehicle {
+    char pad0[0x34];
+    VehSub34 sub34;                                     // +0x34
+    char pad38[0x218 - 0x38];
+    float f218;
+    char pad21c[0x2a0 - 0x21c];
+    float f2a0;
+    char pad2a4[0xaf0 - 0x2a4];
+    VehBtData* mpBehaviorTreeData;                      // +0xaf0
+    char padaf4[0xb1c - 0xaf4];
+    unsigned int mLocomotion;                           // +0xb1c
+    unsigned int mPurpose;                              // +0xb20
+    unsigned int mStance;                               // +0xb24
+    char padb28[0xc7c - 0xb28];
+    unsigned int mDefaultWeaponCycleTimeMS;             // +0xc7c
+    char padc80[0xc88 - 0xc80];
+    VehTimer mCombatStatusTimer;                        // +0xc88
+    VehTimer mCombatVoxTimer;                           // +0xca8
+    char padcc8[0xcfc - 0xcc8];
+    VehHitSphere* mpHitSphere;                          // +0xcfc
+    char padd00[0xd6c - 0xd00];
+    unsigned int mTunable[8];                           // +0xd6c .. +0xd88
+    float mTunableF[2];                                 // +0xd8c, +0xd90
+    VehRefObj* mpExtra;                                 // +0xd94
+
+    void CreateDefaultTool();                           // 0x00ca2ae0
+    void SetupFlags();                                  // 0x00ca2e80
+
+    __forceinline void SetStance(unsigned int stance)
+    {
+        mStance = stance;
+        mpBehaviorTreeData->flags &= 0xfffffcff;
+        switch (mStance) {
+        case 0:
+            mpBehaviorTreeData->flags |= 0x100;
+            break;
+        case 1:
+            mpBehaviorTreeData->flags |= 0x200;
+            break;
+        }
+    }
+
+    void Init(unsigned int locomotion, unsigned int purpose, VehKey model);
+};
+
+extern unsigned int   VehGetCurrentGameMode();          // 0x00b5b800
+extern VehNounMgr*    VehNounManager();                 // 0x00b3d300
+extern VehPropertyMgr* VehGetPropertyManager();         // 0x0067de30
+extern VehTemplateDB* VehObjectTemplateDB();            // 0x0067cb40
+extern void           VehAttach(Vehicle* v);            // 0x00dc4b70 (cdecl)
+extern VehLocoTable   gVehLocoTable;                    // 0x0169c9c8
+extern unsigned int   gVehTemplateIDsByLoco[];          // 0x01474a28 (mode 0x1654c05)
+extern unsigned int   gVehTemplateIDs[];                // 0x014749ec ([loco + 3 * purpose])
+extern unsigned int   gVehTunablesGroup;                // 0x0157c904
+
+static __forceinline void VehReadUInt(VehPropRef& l, unsigned int id, unsigned int& out)
+{
+    VehProperty* p;
+    if (l.p && l.p->GetProperty(id, p) && p->type == 10)
+        out = *p->GetUInt();
+}
+static __forceinline void VehReadFloat(VehPropRef& l, unsigned int id, float& out)
+{
+    VehProperty* p;
+    if (l.p && l.p->GetProperty(id, p) && p->type == 13)
+        out = *p->GetFloat();
+}
+
+// @ 0x00ca6630
+void Vehicle::Init(unsigned int locomotion, unsigned int purpose, VehKey model)
+{
+    mLocomotion = locomotion;
+    mPurpose = purpose;
+    mpBehaviorTreeData->flags = 0;
+    mCombatStatusTimer.Restart();
+    mCombatVoxTimer.Restart();
+
+    VehPropRef list;
+    bool haveType = VehGetPropertyManager()->GetPropertyList(0xb6a5c63d, list.Out());
+    float zero = 0.0f;
+    if (haveType) {
+        float a, b, c;
+        gVehLocoTable.Lookup(mLocomotion, zero, zero, zero, &c, &b, &a);
+        f218 = a;
+        float cycle = 2.0f;
+        if (list.p) {
+            VehProperty* p;
+            if (list.p->GetProperty(0x3a36e7c, p) && p->type == 13)
+                cycle = *p->GetFloat();
+        }
+        mDefaultWeaponCycleTimeMS = (unsigned int)X87RoundToInt64(cycle * 1000.0f);
+    }
+
+    if (model.instanceID != 0xffffffff && model.instanceID != 0) {
+        sub34.LoadModel(&model);
+    } else {
+        unsigned int loco = mLocomotion;
+        unsigned int purp = mPurpose;
+        unsigned int templateID;
+        if (VehGetCurrentGameMode() == 0x1654c05)
+            templateID = gVehTemplateIDsByLoco[loco];
+        else
+            templateID = gVehTemplateIDs[loco + purp * 3];
+        VehKeyVec keys;
+        VehObjectTemplateDB()->Find(&keys, 1, VehFM::Constraint(0x2dc9d1e, VehFM::kEquals, templateID),
+                                    VehFM::Constraint(VehFM::kEndConstraint));
+        if (keys.mpBegin != keys.mpEnd) {
+            model = *keys.mpBegin;
+            sub34.LoadModel(&model);
+            VehObjectTemplateDB()->Register(&model, 1);
+        }
+    }
+
+    if (mPurpose == 0)
+        mpBehaviorTreeData->flags |= 1;
+    else if (mPurpose == 1)
+        mpBehaviorTreeData->flags |= 2;
+    else if (mPurpose == 2)
+        mpBehaviorTreeData->flags |= 4;
+    else
+        mpBehaviorTreeData->flags |= 8;
+
+    CreateDefaultTool();
+    f2a0 = 32.0f;
+    SetStance(0);
+    if (!sub34.IsPlayerOwned()) {
+        mpBehaviorTreeData->flags |= 0x10;
+        if (mPurpose == 2)
+            SetStance(1);
+    }
+    SetupFlags();
+
+    if (VehGetCurrentGameMode() != 0x1654c10) {
+        VehNounMgr* nm = VehNounManager();
+        VehNoun* n = nm->CreateNoun(0x2e72cae);
+        VehHitSphere* hs = n ? (VehHitSphere*)n->Cast(0x2e71a5a) : 0;
+        VehHitSphere* old = mpHitSphere;
+        if (hs != old) {
+            if (hs) hs->AddRef();
+            mpHitSphere = hs;
+            if (old) old->Release();
+        }
+        mpHitSphere->SetPositionRadius(sub34.GetPosition(), sub34.GetBoundingRadius());
+        mpHitSphere->SetRange(0.0f, 3.402823466e+38f);
+        mpHitSphere->Attach(this);
+    }
+    VehAttach(this);
+
+    if (VehGetCurrentGameMode() == 0x1654c10) {
+        VehPropRef tun;
+        if (VehGetPropertyManager()->GetPropertyList(0xf14790c7, gVehTunablesGroup, tun.Out()) && tun.p) {
+            VehReadUInt(tun, 0xbf5cb754, mTunable[0]);
+            VehReadUInt(tun, 0x56a51680, mTunable[1]);
+            VehReadUInt(tun, 0x28dc8e73, mTunable[2]);
+            VehReadUInt(tun, 0xdc7e88d7, mTunable[3]);
+            VehReadUInt(tun, 0x302f343d, mTunable[4]);
+            VehReadUInt(tun, 0x54c2dd99, mTunable[5]);
+            VehReadUInt(tun, 0x3170db50, mTunable[6]);
+            VehReadUInt(tun, 0x4dfb4144, mTunable[7]);
+            VehReadFloat(tun, 0x5d43cab4, mTunableF[0]);
+            VehReadFloat(tun, 0x44aeb188, mTunableF[1]);
+        }
+        VehNoun* n = VehNounManager()->CreateNoun(0x21ffa3f);
+        VehRefObj* extra = n ? n->Cast(0xb075dec5) : 0;
+        VehRefObj* old = mpExtra;
+        if (extra != old) {
+            if (extra) extra->AddRef();
+            mpExtra = extra;
+            if (old) old->Release();
+        }
+    }
+}

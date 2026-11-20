@@ -60,7 +60,6 @@ struct tPairNode {                      // rbtree node holding pair<const unsign
     uint32_t mKey;                      // +0x10
     uint32_t mValue;                    // +0x14
 };
-struct tPairIterator { tPairNode* mpNode; };
 class tU32Tree {
 public:
     uint32_t    mBase00;                // +0x00
@@ -68,7 +67,6 @@ public:
     uint32_t    mnSize;                 // +0x14
     uint32_t    mAllocator18;           // +0x18
     tPairNode** find(tPairNode** ppOut, const uint32_t* pKey) const; // 0x00e5c780
-    tPairIterator find(const uint32_t* pKey) const; // 0x00e5c780
     void        DoNukeSubtree(tRBNode* pNode);                       // 0x009a9600
     tPairNode*  begin() const { return (tPairNode*)mAnchor.mpNodeLeft; }
     tPairNode*  end() const { return (tPairNode*)&mAnchor; }
@@ -79,11 +77,11 @@ public:
     void clear()                                                     // inline in the original
     {
         DoNukeSubtree(mAnchor.mpNodeParent);
-        mAnchor.mpNodeRight = &mAnchor;
         mAnchor.mpNodeLeft = &mAnchor;
         mAnchor.mpNodeParent = 0;
-        reinterpret_cast<eastl::rbtree_node_base*>(&mAnchor)->mColor = 0;
+        mAnchor.mColor = 0;
         mnSize = 0;
+        mAnchor.mpNodeRight = &mAnchor;
     }
 };
 class tBadgeTree {
@@ -125,7 +123,6 @@ struct tHashNode {
     tHashNode*   mpNext;                // +0x00
     eastlWString mValue;                // +0x04
 };
-struct tHashIterator { tHashNode* mpNode; tHashNode** mpBucket; };
 class tHintTable {
 public:
     uint32_t    mBase00;                // +0x00
@@ -133,7 +130,6 @@ public:
     uint32_t    mnBucketCount;          // +0x08
     uint32_t    mnElementCount;         // +0x0c
     tHashNode** find(tHashNode** ppOut, const uint32_t* pKey) const; // 0x00a3b2c0
-    tHashIterator* find(tHashIterator* pOut, const uint32_t* pKey) const; // 0x00a3b2c0
     tHashNode*  end() const { return mpBucketArray[mnBucketCount]; }
     ~tHintTable()                                                    // inline in the original
     {
@@ -210,7 +206,6 @@ class cUIMissionCardPanel {
 public:
     void RemoveBadgeCard(void* pCard);                               // 0x00e15d30
     void AddBadgeCard(void* pCard);                                  // 0x00e18150
-    void FUN_00e17470(void* pCard);                                  // 0x00e17470
 };
 cUIMissionCardPanel* __cdecl FUN_00b3d400();                         // 0x00b3d400
 class cStringContext {
@@ -243,7 +238,6 @@ virtual void v03();
 };
 class cSPBadgeManager : public cContentValidationSummarizer, public cISerializableObject {
 public:
-    virtual void Read(cOutStream* pStream); // 0x00fe40a0
     tBadgeTree  mBadgeMap;              // +0x10
     tU32Tree    mEventCounts;           // +0x2c
     tU32Tree    mPropList;              // +0x48
@@ -636,9 +630,10 @@ struct EventMap {
 // @ 0x00fe3c40
 void cISerializableObject::Write(cOutStream* pStream)
 {
-    cSaveStream* __restrict pSaveStream = pStream->GetStream();
-    uint32_t nVersion = 0x2cb0ede;
+    uint32_t nVersion;
+    cSaveStream* pSaveStream = pStream->GetStream();
     EA::IO::IStream_s00fe_3b10* pIStream = pSaveStream->GetIStream();
+    nVersion = 0x2cb0ede;
     EA::IO::WriteUint32(pIStream, &nVersion, 1, 0);
     cVarListSerializer serializer((const char*)this - 8, g_serializedFieldName, 0x1a80d26);
     serializer.Serialize(pStream);
@@ -709,26 +704,14 @@ int32_t __stdcall FUN_00fe3e50(uint32_t nId)
 // @ 0x00fe3e80
 void FUN_00fe3e80(cOutStream* pStream, tU32Tree* pMap)
 {
-    {
-        uint32_t count = pMap->mnSize;
-        cSaveStream* __restrict holder = pStream->GetStream();
-        uint32_t value = count;
-        EA::IO::IStream_s00fe_3b10* output = holder->GetIStream();
-        EA::IO::WriteUint32(output, &value, 1, 0);
-    }
+    uint32_t nValue = pMap->mnSize;
+    EA::IO::WriteUint32(pStream->GetStream()->GetIStream(), &nValue, 1, 0);
     for (tPairNode* p = pMap->begin(); p != pMap->end(); p = (tPairNode*)RBTreeIncrement(&p->mBase)) {
-        cSaveStream* __restrict holder = pStream->GetStream();
-        uint32_t value = p->mKey;
-        EA::IO::IStream_s00fe_3b10* output = holder->GetIStream();
-        EA::IO::WriteUint32(output, &value, 1, 0);
+        nValue = p->mKey;
+        EA::IO::WriteUint32(pStream->GetStream()->GetIStream(), &nValue, 1, 0);
         pStream->EndElement();
-        {
-            uint32_t item = p->mValue;
-            cSaveStream* __restrict holder = pStream->GetStream();
-            value = item;
-            EA::IO::IStream_s00fe_3b10* output = holder->GetIStream();
-            EA::IO::WriteUint32(output, &value, 1, 0);
-        }
+        nValue = p->mValue;
+        EA::IO::WriteUint32(pStream->GetStream()->GetIStream(), &nValue, 1, 0);
         pStream->EndElement();
     }
     pStream->EndElement();
@@ -760,45 +743,31 @@ uint32_t cSPBadgeManager::FUN_00fe3f80(uint32_t nValue, uint32_t nIndex) const
 }
 
 // @ 0x00fe3fd0
-void FUN_00fe3fd0(cOutStream* pStream, tU32Tree* pMap)
+void FUN_00fe3fd0(tU32Tree* pMap, cOutStream* pStream)
 {
-    {
-        uint32_t count = pMap->mnSize;
-        cSaveStream* __restrict holder = pStream->GetStream();
-        uint32_t value = count;
-        EA::IO::IStream_s00fe_3b10* output = holder->GetIStream();
-        EA::IO::WriteUint32(output, &value, 1, 0);
-    }
+    uint32_t nValue = pMap->mnSize;
+    EA::IO::WriteUint32(pStream->GetStream()->GetIStream(), &nValue, 1, 0);
     for (tPairNode* p = pMap->begin(); p != pMap->end(); p = (tPairNode*)RBTreeIncrement(&p->mBase)) {
-        uint32_t key = p->mKey;
-        cSaveStream* __restrict holder = pStream->GetStream();
-        uint32_t value = key;
-        EA::IO::IStream_s00fe_3b10* output = holder->GetIStream();
-        EA::IO::WriteUint32(output, &value, 1, 0);
+        nValue = p->mKey;
+        EA::IO::WriteUint32(pStream->GetStream()->GetIStream(), &nValue, 1, 0);
         pStream->EndElement();
-        {
-            cSaveStream* __restrict holder = pStream->GetStream();
-            value = p->mValue;
-            EA::IO::IStream_s00fe_3b10* output = holder->GetIStream();
-            EA::IO::WriteUint32(output, &value, 1, 0);
-        }
+        nValue = p->mValue;
+        EA::IO::WriteUint32(pStream->GetStream()->GetIStream(), &nValue, 1, 0);
         pStream->EndElement();
     }
     pStream->EndElement();
 }
 
 // @ 0x00fe40a0
-void cSPBadgeManager::Read(cOutStream* pStream)
+void cISerializableObject::Read(cOutStream* pStream)
 {
     uint32_t nUnused;
-    EA::IO::IStream_s00fe_3b10* rawStream = pStream->GetStream()->GetIStream();
-    EA::IO::ReadInt32(rawStream, &nUnused, 1, 0);
-    mEventCounts.clear();
-    mHintMap.clear();
-    SP::cVarListSerializer serializer(this,
-        reinterpret_cast<SP::cDataSerializerGeneric*>((char*)g_serializedFieldName),
-        SP::cVarListSerializer::kSignature);
-    serializer.Serialize(*reinterpret_cast<SP::cIObjectDatabaseIStream*>(pStream));
+    EA::IO::ReadInt32(pStream->GetStream()->GetIStream(), &nUnused, 1, 0);
+    cSPBadgeManager* pOwner = (cSPBadgeManager*)((char*)this - 8);
+    pOwner->mEventCounts.clear();
+    pOwner->mHintMap.clear();
+    cVarListSerializer serializer((const char*)this - 8, g_serializedFieldName, 0x1a80d26);
+    serializer.Serialize(pStream);
 }
 
 // @ 0x00fe4150
@@ -816,12 +785,8 @@ bool cSPBadgeManager::FUN_00fe4180(uint32_t nBadge) const
 {
     tPairNode* pFound;
     tPairNode** ppFound = mEventCounts.find(&pFound, &nBadge);
-    if (*ppFound != mEventCounts.end()) {
-        uint32_t value = (*ppFound)->mValue;
-        _ReadWriteBarrier();
-        if (value <= 1)
-            return true;
-    }
+    if (*ppFound != mEventCounts.end() && (*ppFound)->mValue <= 1)
+        return true;
     return false;
 }
 
@@ -841,20 +806,19 @@ uint32_t cSPBadgeManager::GetReplacement(uint32_t nBadge) const
 // @ 0x00fe4230
 uint32_t cSPBadgeManager::FUN_00fe4230(uint32_t nBadge) const
 {
-    uint32_t result = 0;
-    tPairNode* node;
-    {
-        uint32_t key = nBadge;
-        tPairNode* found;
-        node = *mBadgeMap.find(&found, &key);
-    }
-    if (node != mBadgeMap.end()) {
-        cPropertyList* pList = (cPropertyList*)node->mValue;
-        tVariant* pValue;
-        if (pList && pList->GetProperty(0x043333dd, &pValue) && pValue->mType == 9)
-            result = *pValue->GetInt();
-    }
-    return result;
+    tVariant* pValue;
+    tPairNode* pFound;
+    tPairNode** ppFound = mBadgeMap.find(&pFound, &nBadge);
+    if (*ppFound == mBadgeMap.end())
+        return 0;
+    cPropertyList* pList = (cPropertyList*)(*ppFound)->mValue;
+    if (pList == 0)
+        return 0;
+    if (!pList->GetProperty(0x043333dd, &pValue))
+        return 0;
+    if (pValue->mType != 9)
+        return 0;
+    return *pValue->GetInt();
 }
 
 // @ 0x00fe42a0
@@ -945,13 +909,13 @@ const wchar_t* cSPBadgeManager::FUN_00fe45f0(uint32_t nBadge, bool bIgnoreStatus
 bool cSPBadgeManager::FUN_00fe46a0(uint32_t nBadge) const
 {
     uint32_t nKey = nBadge;
-    tPairNode* node = mEventCounts.find(&nKey).mpNode;
-    if (node != mEventCounts.end() && node->mValue <= 1) {
-        tHashIterator hit;
-        mHintStrings.find(&hit, &nBadge);
-        tHashNode* pHit = hit.mpNode;
-        if (pHit != mHintStrings.end())
-            return pHit->mValue.mpBegin == pHit->mValue.mpEnd;
+    tPairNode* pFound;
+    tPairNode** ppFound = mEventCounts.find(&pFound, &nKey);
+    if (*ppFound != mEventCounts.end() && (*ppFound)->mValue <= 1) {
+        tHashNode* pHit;
+        tHashNode** ppHit = mHintStrings.find(&pHit, &nKey);
+        if (*ppHit != mHintStrings.end())
+            return (*ppHit)->mValue.mpBegin == (*ppHit)->mValue.mpEnd;
     }
     return false;
 }
@@ -976,9 +940,8 @@ void cSPBadgeManager::GetBadgeName(uint32_t nBadge, eastlWString& strOut) const
 // @ 0x00fe47a0
 void cSPBadgeManager::GetBadgeDescription(uint32_t nBadge, eastlWString& strOut) const
 {
-    uint32_t key = nBadge;
     tPairNode* pFound;
-    tPairNode** ppFound = mBadgeMap.find(&pFound, &key);
+    tPairNode** ppFound = mBadgeMap.find(&pFound, &nBadge);
     if (*ppFound == mBadgeMap.end())
         return;
     cPropertyList* pList = (cPropertyList*)(*ppFound)->mValue;
@@ -1014,9 +977,8 @@ void cSPBadgeManager::GetBadgeHintActionString(uint32_t nBadge, eastlWString& st
 // @ 0x00fe4900
 void cSPBadgeManager::FUN_00fe4900(uint32_t nBadge, eastlWString& strOut) const
 {
-    uint32_t key = nBadge;
     tPairNode* pFound;
-    tPairNode** ppFound = mBadgeMap.find(&pFound, &key);
+    tPairNode** ppFound = mBadgeMap.find(&pFound, &nBadge);
     if (*ppFound == mBadgeMap.end())
         return;
     cPropertyList* pList = (cPropertyList*)(*ppFound)->mValue;
@@ -1111,7 +1073,7 @@ void __thiscall cSPBadgeManager_s00fe_4be0::FUN_00fe5430(uint32_t nBadge, int nC
     cUIMissionCardPanel* pUI = FUN_00b3d400();
     if (mpCurrentCard != 0 && pUI != 0) {
         if (((cSPBadgeManager*)this)->FUN_00fe43c0(mpCurrentCard, nBadge))
-            pUI->FUN_00e17470(mpCurrentCard);
+            pUI->RemoveBadgeCard(mpCurrentCard);
     }
 }
 }  // namespace SP
@@ -1467,11 +1429,11 @@ int FeedbackScoreForMode2(uint32 id)
 // @ 0x00fe67b0
 long double EventMap::GetWeightedScore()
 {
-    int step = GetEventIndex();
+    uint32 step = (uint32)GetEventIndex();
     float base = (float)step;
-    if ((uint32)step < 10)
-        return ((float)GetScore(g_eventSteps[step]) + base) * 0.1f;
-    return base * 0.1f;
+    if (step < 10)
+        return (GetScore(g_eventSteps[step]) + (long double)base) * (long double)0.1f;
+    return (long double)base * (long double)0.1f;
 }
 
 // @ 0x00fe6800

@@ -2,10 +2,6 @@
 // Object file: SPGonzago/_at_00bf0000.obj.  Function bodies keep the slice's code; types, members and virtual calls use the
 // canonical headers under src/game/include.  Each function keeps its '// @ 0xVA' marker.
 
-// addresses retail relocates here, named so the build relocates them too
-extern "C" char g_1464450[];
-extern "C" char g_1465d54[];
-
 #include "game/types.h"
 #include "SP/cCity.h"
 
@@ -719,7 +715,6 @@ int   __fastcall FUN_00bd9b60(void* self);                                     /
 int*  __fastcall cCity_GetPositionPtr(void* self);                             // 0x00fa0e00
 void  __fastcall FUN_00ae6970(void* self);                                     // 0x00ae6970
 void  __fastcall FUN_00aed92d0(void* self);                                    // 0x00ad92d0
-void  __fastcall FUN_005c7f10(void* self);                                    // 0x005c7f10
 void  __fastcall cGonzagoTimer_dtor(void* self);                               // 0x00b638b0
 void  __fastcall FUN_00b6edf0(void* self);                                     // 0x00b6edf0
 void  __fastcall cGameData_dtor(void* self);                                   // 0x00b184c0
@@ -864,7 +859,6 @@ public:
     int mCount;                     // 0x18
 
     Vec3_s00bf_4170* FindOrInsert(const int* pKey);   // 0x00bf5050
-    Vec3_s00bf_4170* FUN_00bf3cb0(const int* pKey);   // 0x00bf3cb0
 };
 class cCommunityEditor : public cEditorObject {
 public:
@@ -2210,8 +2204,6 @@ struct Container {
     V4    FUN_00c95660(Iter iter);
     void  FUN_00c92b70();
     void  FUN_00c92bd0(RefObj** p);
-    bool  empty() const { return begin.cur == end.cur; }
-    int&  front() { return *begin.cur; }
 };
 struct CommodityNode {
     void* vt0;                    // +0x000
@@ -2597,7 +2589,8 @@ void CStub::FUN_00bf0a60(RefObj* p)
 // @ 0x00bf0b00
 void CStub::FUN_00bf0b00(RefObj* p)
 {
-    int* list = (int*)((NounMgrStub*)SP_NounManager())->FUN_00b25ca0();
+    NounMgrStub* nm = (NounMgrStub*)SP_NounManager();
+    int* list = (int*)nm->FUN_00b25ca0();
     int* it = (int*)*list;
     int* end = (int*)list[1];
     for (; it != end; ++it)
@@ -2615,7 +2608,8 @@ void CStub::FUN_00bf0b00(RefObj* p)
 // @ 0x00bf0b70
 void CStub::FUN_00bf0b70(RefObj* p)
 {
-    int* list = (int*)((NounMgrStub*)SP_NounManager())->FUN_00b25ca0();
+    NounMgrStub* nm = (NounMgrStub*)SP_NounManager();
+    int* list = (int*)nm->FUN_00b25ca0();
     int* it = (int*)*list;
     int* end = (int*)list[1];
     for (; it != end; ++it)
@@ -3120,15 +3114,12 @@ void cCivilization_s00bf_1ba0::FUN_00bf1f40(void* music)
 
     UpdateCityMusicPosition((void*)this);
 
-    void* m = mpCityMusic;
-    if (m != 0)
+    if (mpCityMusic != 0 && mp454 != 0)
     {
-        if (void* p = mp454)
-        {
-            int* sub = (int*)((char*)p + 0x120);
-            void (__thiscall** slot)(void*, int) = (void(__thiscall**)(void*, int))((char*)*(int*)m + 0x24);
-            (*slot)(m, (*(int(__thiscall**)(void*))((char*)*sub + 0x2c))(sub));
-        }
+        int* sub = (int*)((char*)mp454 + 0x120);
+        int arg = (*(int(__fastcall**)(void*))((char*)*sub + 0x2c))(sub);
+        int vt = *(int*)mpCityMusic;
+        (*(void(__fastcall**)(void*, int))((char*)vt + 0x24))(mpCityMusic, arg);
     }
 }
 
@@ -3411,7 +3402,7 @@ void StarFillN(void* dst, uint n, void* src)
         StarRecord* rec = (StarRecord*)((char*)d - 8);
         if (rec != 0)
         {
-            rec->vptr = (int)g_1465d54;
+            rec->vptr = 0x01465d54;
             rec->pad04 = 0;
             rec->f08 = s->f08;
             rec->f0c = s->f0c;
@@ -3419,7 +3410,7 @@ void StarFillN(void* dst, uint n, void* src)
             rec->f14 = s->f14;
             rec->f18 = s->f18;
             rec->f1c = s->f1c;
-            rec->vptr = (int)g_1464450;
+            rec->vptr = 0x01464450;
         }
         --n;
         d = (StarRecord*)((char*)d + 0x20);
@@ -3433,7 +3424,7 @@ StarRecord* StarCopyCtorRange2(StarRecord* first, StarRecord* last, StarRecord* 
     {
         if (dst != 0)
         {
-            *(int*)((char*)dst + 0) = (int)g_1465d54;
+            *(int*)((char*)dst + 0) = 0x01465d54;
             *(int*)((char*)dst + 4) = 0;
             *(int*)((char*)dst + 8) = *(int*)((char*)first + 8);
             *(int*)((char*)dst + 0xc) = *(int*)((char*)first + 0xc);
@@ -3441,7 +3432,7 @@ StarRecord* StarCopyCtorRange2(StarRecord* first, StarRecord* last, StarRecord* 
             *(int*)((char*)dst + 0x14) = *(int*)((char*)first + 0x14);
             *(byte*)((char*)dst + 0x18) = *(byte*)((char*)first + 0x18);
             *(int*)((char*)dst + 0x1c) = *(int*)((char*)first + 0x1c);
-            *(int*)((char*)dst + 0) = (int)g_1464450;
+            *(int*)((char*)dst + 0) = 0x01464450;
         }
     }
     return dst;
@@ -3869,7 +3860,7 @@ void __fastcall FUN_00bf36f0(int* self)
 	if (q != 0)
 		(*(T0*)(*(int*)q + 4))((void*)q);
 	FUN_00bf1b60((void*)((char*)self + 0x490));
-	FUN_005c7f10((void*)((char*)self + 0x470));
+	FUN_00aed92d0((void*)((char*)self + 0x470));
 
 	if ((int*)self[0x11b] != 0)
 		(*(T0*)(*(int*)self[0x11b] + 4))((void*)self[0x11b]);
@@ -4436,7 +4427,7 @@ void cCommunityEditor::NotifySubEditor(cCommunityEditor* pSub)
 void __fastcall SetModelTypeKey(void* pMap, int edx, int* pKey, const Vec3_s00bf_4170* pValue)
 {
     Vec3_s00bf_4170 value = *pValue;
-    Vec3_s00bf_4170* pSlot = ((cVector3Map*)pMap)->FUN_00bf3cb0((const int*)&pKey);
+    Vec3_s00bf_4170* pSlot = ((cVector3Map*)pMap)->FindOrInsert((const int*)&pKey);
     *pSlot = value;
 }
 
@@ -4497,21 +4488,6 @@ void cCommunityEditor::RebuildCityFromTerrainSphere()
     SetModelTypeKey((void*)0x168caf0, 0, (int*)0x99e92f05, &stored);
 }
 
-extern char g_168caf0[];   // 0x0168caf0: the model-type -> position map (cVector3Map) the vehicle editor keeps
-
-__forceinline static void StoreVehicleModelKey(Vec3_s00bf_4170* pPosition, int nModel)
-{
-    int y = *(int*)&pPosition->mY;
-    int key = nModel;
-    int x = *(int*)&pPosition->mX;
-    int z = *(int*)&pPosition->mZ;
-    Vec3_s00bf_4170* pSlot =
-        ((Vec3_s00bf_4170* (__thiscall*)(void*, int*))FUN_00bf3cb0)(g_168caf0, &key);
-    *(int*)&pSlot->mX = x;
-    *(int*)&pSlot->mY = y;
-    *(int*)&pSlot->mZ = z;
-}
-
 // @ 0x00bf4fc0
 void cCommunityEditor::CreateVehicleFromTerrainSphere()
 {
@@ -4531,7 +4507,10 @@ void cCommunityEditor::CreateVehicleFromTerrainSphere()
     }
 
     CreateVehicleFromModelType((cCity_s00bf_4170*)(intptr_t)nModel, pPosition);
-    StoreVehicleModelKey(pPosition, nModel);
+
+    Vec3_s00bf_4170 stored = *pPosition;
+    Vec3_s00bf_4170* pSlot = ((cVector3Map*)0x168caf0)->FindOrInsert(&nModel);
+    *pSlot = stored;
 }
 
 // @ 0x00bf5050
@@ -4728,44 +4707,29 @@ void TimerVec::insertOne(GonzagoTimer* pos, const GonzagoTimer* value)
     m_cap   = (GonzagoTimer*)((char*)block + (newCap << 5));
 }
 
-// The two global SPUI layout rbtrees (0x1c-byte headers at 0x0168cb0c..0x0168cb44).
-struct LayoutTreeNode_bf55d0 {
-    void* mpLeft;                       // +0x0
-    LayoutTreeNode_bf55d0* mpNext;      // +0x4
-};
-struct LayoutTree_bf55d0 {
-    void* mpAllocator;                  // +0x0
-    void* mpLeftmost;                   // +0x4  anchor
-    void* mpRightmost;                  // +0x8
-    LayoutTreeNode_bf55d0* mpRoot;      // +0xc
-    char mColor;                        // +0x10
-    int mnSize;                         // +0x14
-    int m18;                            // +0x18
-    void DoNukeSubtree(void* node) { ((void (__thiscall*)(void*, void*))FUN_009a9600)(this, node); }
-    __forceinline void clear() {
-        LayoutTreeNode_bf55d0* node = mpRoot;
-        while (node != 0) {
-            DoNukeSubtree(node->mpLeft);
-            LayoutTreeNode_bf55d0* next = node->mpNext;
-            FUN_00f47380(node);
-            node = next;
-        }
-        mpRightmost = &mpLeftmost;
-        mpRoot = 0;
-        mColor = 0;
-        mnSize = 0;
-        mpLeftmost = &mpLeftmost;
-    }
-};
-
 // @ 0x00bf55d0
 void FUN_00bf55d0()
 {
-    ((void (__thiscall*)(void*))FUN_00bf4a90)(g_168caf0);
+    ((void (__thiscall*)(void*))FUN_00bf4a90)((void*)0x0168caf0);
 
-    LayoutTree_bf55d0* trees = (LayoutTree_bf55d0*)DAT_0168cb0c;
-    for (int i = 0; i < 2; ++i)
-        trees[i].clear();
+    unsigned char* tree = (unsigned char*)0x0168cb0c;
+    do {
+        unsigned char* node = *(unsigned char**)(tree + 0x0c);
+        while (node != 0) {
+            unsigned char* next = *(unsigned char**)(node + 4);
+            ((void (__thiscall*)(void*, void*))FUN_009a9600)(tree, *(void**)node);
+            FUN_00f47380(node);
+            node = next;
+        }
+
+        unsigned char* head = tree + 4;
+        *(void**)(tree + 0x08) = head;
+        *(void**)(tree + 0x0c) = 0;
+        *(unsigned char*)(tree + 0x10) = 0;
+        *(int*)(tree + 0x14) = 0;
+        tree += 0x1c;
+        *(void**)head = head;
+    } while ((int)tree < 0x0168cb44);
 }
 
 // @ 0x00bf5630
@@ -5483,7 +5447,8 @@ u8_s00bf_6cb0 AI::FUN_00bf7050()
   for (int i = 0; i < n; ++i) {
     void* obj = *(void**)(PI(this, 0x9c) + i * 4);
     int local_c[3];
-    if (FUN_00bf5720(((int(__thiscall*)(void*, void*))(*(void***)obj)[0x5c / 4])(obj, local_c))) return 1;
+    int uVar2 = ((int(__thiscall*)(void*, void*))(*(void***)obj)[0x5c / 4])(obj, local_c);
+    if (FUN_00bf5720(uVar2)) return 1;
   }
   return 0;
 }
@@ -5523,7 +5488,8 @@ void AI::FUN_00bf71d0()
   mTick4b4 += 1;
   if (mTick4b4 >= 6) {
     mTick4b4 -= 6;
-    FUN_00befd80(FUN_00bf6fa0(1) * 0.1f, 1);
+    float f = FUN_00bf6fa0(1);
+    FUN_00befd80(f * 0.1f, 1);
   }
 }
 
@@ -7120,8 +7086,7 @@ void* cCommunity_s00bf_d9f0::Front()
   View* v = (View*)this;
   int* a = v->a;
   if (a == v->b) return 0;
-  eastl::deque<void*>* d = (eastl::deque<void*>*)((char*)this + 0x230);
-  return *d->mItBegin.mpCurrent;
+  return (void*)*a;
 }
 
 // @ 0x00bfec30
@@ -7283,11 +7248,12 @@ bool __cdecl FUN_00bff220(Container* c, int* key)
 // @ 0x00bff290
 void CommodityNode::FUN_00bff290(int key)
 {
-    if (!m230.empty() && key == m230.front()) {
-        m230.FUN_00c92b70();
+    Container* c = &m230;
+    if (m230.begin.cur != m230.end.cur && key == *m230.begin.cur) {
+        c->FUN_00c92b70();
         return;
     }
-    FUN_00bff220(&m230, &key);
+    FUN_00bff220(c, &key);
 }
 
 // @ 0x00bff2d0

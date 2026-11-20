@@ -2,11 +2,6 @@
 // Object file: SPGonzago/SPRotationRingView.obj.  Function bodies keep the slice's code; types, members and virtual calls use the
 // canonical headers under src/game/include.  Each function keeps its '// @ 0xVA' marker.
 
-// addresses retail relocates here, named so the build relocates them too
-extern "C" char g_1455648[];
-extern "C" char g_1486a80[];
-extern "C" char g_1486b1c[];
-
 #include <intrin.h>
 #include "game/types.h"
 #include <math.h>
@@ -262,7 +257,7 @@ cViewA::cViewA()
 {
     mField08 = 0;
     mField04 = 0;
-    *(void**)this = (void*)g_1486a80;
+    *(void**)this = (void*)0x1486a80;
     mpObject = 0;
     mpField10 = 0;
     mModel = 0;
@@ -273,7 +268,7 @@ cViewA::cViewA()
 cViewA::~cViewA()
 {
     cModel* m = mModel;
-    *(void**)this = (void*)g_1486a80;
+    *(void**)this = (void*)0x1486a80;
     _ReadWriteBarrier();
     ((void(__thiscall*)(void*, void*, int))VF(m->mpObj, 0x16c))(m->mpObj, m, 0);
 
@@ -304,7 +299,7 @@ cViewA::~cViewA()
     cSpatialObject* o = mpObject;
     if (o != 0)
         ((void(__thiscall*)(void*))VF(o, 4))(o);
-    *(void**)this = (void*)g_1455648;
+    *(void**)this = (void*)0x1455648;
 }
 
 // @ 0x00e91ba0
@@ -348,7 +343,7 @@ cRotationRingView::cRotationRingView()
 {
     mField08 = 0;
     mField04 = 0;
-    *(void**)this = (void*)g_1486b1c;
+    *(void**)this = (void*)0x1486b1c;
     mpObject = 0;
     mpGameDataView = 0;
     mModel = 0;
@@ -360,7 +355,7 @@ cRotationRingView::cRotationRingView()
 cRotationRingView::~cRotationRingView()
 {
     cModel* m = mModel;
-    *(void**)this = (void*)g_1486b1c;
+    *(void**)this = (void*)0x1486b1c;
     _ReadWriteBarrier();
     ((void(__thiscall*)(void*, void*, int))VF(m->mpObj, 0x16c))(m->mpObj, m, 0);
 
@@ -391,7 +386,7 @@ cRotationRingView::~cRotationRingView()
     cSpatialObject* o = mpObject;
     if (o != 0)
         ((void(__thiscall*)(void*))VF(o, 4))(o);
-    *(void**)this = (void*)g_1455648;
+    *(void**)this = (void*)0x1455648;
 }
 
 // @ 0x00e91ce0

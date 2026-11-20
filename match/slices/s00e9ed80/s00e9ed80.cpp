@@ -4,6 +4,7 @@
 #include "types.h"
 #include <math.h>
 #include <new.h>
+#include <intrin.h>
 
 struct Vector3 {
     float x, y, z;
@@ -23,8 +24,10 @@ struct Vector3Vec {
     void push_back(const Vector3& v)
     {
         if (mpEnd < mpCapacity) {
-            ::new ((void*)mpEnd) Vector3(v);
-            ++mpEnd;
+            Vector3* slot = mpEnd;
+            mpEnd = slot + 1;
+            if (slot)
+                *slot = v;
         } else {
             DoInsertValue(mpEnd, v);
         }
@@ -77,6 +80,7 @@ struct SamplePoints {
 
 static const float kEps = 1e-8f;
 
+// @ 0x00e9ed80
 void SamplePoints::Rebuild()
 {
     mPoints.erase(mPoints.mpBegin, mPoints.mpEnd);
@@ -90,15 +94,20 @@ void SamplePoints::Rebuild()
     cViewer* viewer = cm->GetViewer();
     if (!viewer) return;
 
-    Vector3 dir, up, right;
+    Vector3 up, right, dir, axis;
     viewer->GetCameraLocationInfo(0, &dir, &up, &right);
     float inv = 1.0f / sqrtf(dir.x * dir.x + dir.y * dir.y + dir.z * dir.z + kEps);
-    dir = Vector3(dir.x * inv, dir.y * inv, dir.z * inv);
+    _ReadWriteBarrier();
+    dir.x *= inv;
+    dir.y *= inv;
+    dir.z *= inv;
     inv = 1.0f / sqrtf(right.x * right.x + right.y * right.y + right.z * right.z + kEps);
-    right = Vector3(right.x * inv, right.y * inv, right.z * inv);
+    _ReadWriteBarrier();
+    right.x *= inv;
+    right.y *= inv;
+    right.z *= inv;
 
     // Rotation axis: the direction from the planet centre to the sample centre.
-    Vector3 axis;
     float len = sqrtf(mCentre.x * mCentre.x + mCentre.y * mCentre.y + mCentre.z * mCentre.z);
     if (len > 0.01f) {
         float k = 1.0f / len;
@@ -110,7 +119,7 @@ void SamplePoints::Rebuild()
     // First ring direction: axis x right, normalised.
     Vector3 c(axis.y * right.z - axis.z * right.y,
               axis.z * right.x - axis.x * right.z,
-              axis.x * right.y - axis.y * right.x);
+              right.y * axis.x - right.x * axis.y);
     float cinv = 1.0f / sqrtf(c.x * c.x + c.y * c.y + c.z * c.z + kEps);
 
     float ringsF = (float)ceil((double)(mfRadius / mfRingStep));
@@ -128,14 +137,32 @@ void SamplePoints::Rebuild()
             float h = angle * 0.5f;
             float s = sinf(h);
             float w = cosf(h);
-            float qx = s * axis.x, qy = s * axis.y, qz = s * axis.z;
+            float qx = s * axis.x;
+            float qy = s * axis.y;
+            float qz = s * axis.z;
+            float xx = qx * qx;
+            float yy = qy * qy;
+            float zz = qz * qz;
+            float xy = qx * qy;
+            float xz = qx * qz;
+            float yz = qy * qz;
+            float wx = w * qx;
+            float wy = w * qy;
+            float wz = w * qz;
+            float m00 = 1.0f - 2.0f * (yy + zz);
+            float m11 = 1.0f - 2.0f * (xx + zz);
+            volatile float unusedM11 = m11;
+            float m22 = 1.0f - 2.0f * (xx + yy);
+            float m01 = xy - wz;
+            float m02 = xz + wy;
+            float m10 = xy + wz;
+            float m12 = yz - wx;
+            float m20 = xz - wy;
+            float m21 = yz + wx;
             Vector3 p;
-            p.x = mCentre.x + ((w * qy + qz * qx) * vz + (qy * qx - w * qz) * vy) * 2.0f
-                  + (1.0f - (qz * qz + qy * qy) * 2.0f) * vx;
-            p.y = mCentre.y + ((w * qz + qy * qx) * vx + (qz * qy - w * qx) * vz) * 2.0f
-                  + (1.0f - (qz * qz + qx * qx) * 2.0f) * vy;
-            p.z = mCentre.z + ((qz * qx - w * qy) * vx + (w * qx + qz * qy) * vy) * 2.0f
-                  + (1.0f - (qx * qx + qy * qy) * 2.0f) * vz;
+            p.x = mCentre.x + m00 * vx + 2.0f * (m01 * vy + m02 * vz);
+            p.y = mCentre.y + 2.0f * (m10 * vx + m12 * vz) + s * vy;
+            p.z = mCentre.z + 2.0f * (m20 * vx + m21 * vy) + m22 * vz;
             Vector3 out;
             pm->ProjectToSurface(&out, &p);
             mPoints.push_back(out);

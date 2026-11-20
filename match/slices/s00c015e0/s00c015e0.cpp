@@ -1,9 +1,4 @@
 // s00c015e0: obstacle/steering avoidance pass (0xc015e0). Module flags: /O2 /MD /Gy /EHsc /TP /arch:SSE /fp:fast.
-
-// addresses retail relocates here, named so the build relocates them too
-extern "C" char g_1570f10[];
-extern "C" char g_1571000[];
-
 #include "types.h"
 #include <math.h>
 #include <stdlib.h>
@@ -23,7 +18,8 @@ struct SteerVec {
     SteerEntry* mpEnd;
     SteerEntry* mpCap;
     void DoInsertValue(SteerEntry* pos, const SteerEntry& v);
-    inline void push_back() {
+    void push_back();                 // out of line at 0x00b48e00
+    inline void push_back_inline() {
         if (mpEnd < mpCap) {
             ::new (mpEnd++) SteerEntry();
         } else {
@@ -105,6 +101,7 @@ struct Avoider {
 
 static inline float len3(float x, float y, float z) { return sqrtf(x * x + z * z + y * y); }
 
+// @ 0x00c015e0
 void Avoider::Avoid(SteerCtx* ctx)
 {
     Vec3 A, B, dir, an;
@@ -131,12 +128,14 @@ void Avoider::Avoid(SteerCtx* ctx)
                 float fx = ox - B.x, fy = oy - B.y, fz = oz - B.z;
                 float d2b = fx * fx + fz * fz + fy * fy;
                 float db = sqrtf(d2b);
-                if (db >= 1.0f) {
+                if (db >= orad) {
                     bool skip = false;
                     if (db < orad + 4.0f) {
                         float i1 = 1.0f / sqrtf(d2b + 1e-8f);
                         float i0 = 1.0f / sqrtf(d2 + 1e-8f);
-                        if ((ez * i0) * (fz * i1) + (ey * i0) * (fy * i1) + (i0 * ex) * (i1 * fx) > 0.9f)
+                        float nx = ex * i0, ny = ey * i0, nz = ez * i0;
+                        float mx = fx * i1, my = fy * i1, mz = fz * i1;
+                        if (nx * mx + ny * my + nz * mz > 0.9f)
                             skip = true;
                     }
                     if (!skip) {
@@ -160,7 +159,7 @@ void Avoider::Avoid(SteerCtx* ctx)
         } else {
             float fx = ox - B.x, fy = oy - B.y, fz = oz - B.z;
             if (orad < sqrtf(fx * fx + fy * fy + fz * fz)) {
-                ctx->out.push_back();
+                ctx->out.push_back_inline();
                 SteerEntry* e = ctx->out.mpEnd - 1;
                 e->type = 4;
                 e->x = ox; e->y = oy; e->z = oz;
@@ -172,8 +171,9 @@ void Avoider::Avoid(SteerCtx* ctx)
 
     Zone* zone = GetZone();
     if (!zone) return;
-    Vec3 tmp;
-    Vec3* pos = GetPosition(&tmp);
+    // an is dead once the obstacle loop is over, so its stack slot is reused
+    // for the GetPosition output (as the original does).
+    Vec3* pos = GetPosition(&an);
     float r1 = zone->rMin;
     float pdx = A.x - pos->x, pdy = A.y - pos->y, pdz = A.z - pos->z;
     float dist = sqrtf(pdx * pdx + pdz * pdz + pdy * pdy);
@@ -195,16 +195,15 @@ void Avoider::Avoid(SteerCtx* ctx)
         } while (j < n);
     }
     if (j == n) {
-        ctx->out.push_back();
+        ctx->out.push_back_inline();
         SteerEntry* e = ctx->out.mpEnd - 1;
         e->type = 4;
-        Vec3* q = GetPosition(&tmp);
-        e->x = tmp.x; e->y = tmp.y; e->z = tmp.z;
-        (void)q;
+        GetPosition(&an);
+        e->x = an.x; e->y = an.y; e->z = an.z;
         if (r1 > dist) {
             e->w = (4.0f - (r1 - dist)) * 0.25f;
         } else if (dist > r2) {
-            e->w = (4.0f - (r2 - dist)) * 0.25f;
+            e->w = (dist - r2) * 0.25f;
         } else {
             e->w = -1.0f;
         }
@@ -385,7 +384,7 @@ void FUN_00c01ce0(ISerializableObject* object, EmptyBubbleVec* vec)
         value.mW = 0.0f;
         value.mFlags = 0;
         cVarListSerializer serializer;
-        serializer.Construct(&value, (int)g_1570f10, 0x1a80d26);
+        serializer.Construct(&value, 0x1570f10, 0x1a80d26);
         serializer.Serialize(object);
 
         if (vec->mpEnd < vec->mpCap) {
@@ -476,7 +475,7 @@ void FUN_00c024f0(ISerializableObject* object, LaneRecVec* vec)
         value.mPad10[0] = 0;
         value.mPad10[1] = 0;
         cVarListSerializer serializer;
-        serializer.Construct(&value, (int)g_1571000, 0x1a80d26);
+        serializer.Construct(&value, 0x1571000, 0x1a80d26);
         serializer.Serialize(object);
 
         if (vec->mpEnd < vec->mpCap) {

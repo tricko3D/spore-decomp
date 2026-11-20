@@ -1387,16 +1387,19 @@ bool FUN_00ce0b60(WorkerList* pWorkers, int iPlanId)
 // @ 0x00ce0d90
 int FUN_00ce0d90(char* pBegin, char* pEnd, char* pOut)
 {
-    for (; pBegin != pEnd; pBegin += 0x58, pOut += 0x58) {
+    while (pBegin != pEnd) {
         cTribePlanData* pData = (cTribePlanData*)pBegin;
-        void** ppEnd = (void**)pData->mWorkers.mpEnd;
-        for (void** ppIter = (void**)pData->mWorkers.mpBegin; ppIter < ppEnd; ++ppIter) {
+        int** ppIter = (int**)&pData->mWorkers.mpBegin;
+        int** ppEnd = (int**)&pData->mWorkers.mpEnd;
+        for (ppIter = (int**)&pData->mWorkers.mpBegin; ppIter < ppEnd; ++ppIter) {
             if (*ppIter)
                 (*(void (__thiscall**)(void*))(*(int*)*ppIter + 4)) (*ppIter);
         }
         void* pBlock = pData->mWorkers.mpBegin;
         if (pBlock && *(int*)((char*)pBlock - 4) != 0)
-            operator_delete_array(pBlock);
+            operator_delete((char*)pBlock - 4);
+        pBegin += 0x58;
+        pOut += 0x58;
     }
     return (int)pOut;
 }
@@ -1406,8 +1409,9 @@ void __stdcall FUN_00ce0e00(char* pBegin, char* pEnd)
 {
     for (; pBegin < pEnd; pBegin += 0x58) {
         cTribePlanData* pData = (cTribePlanData*)pBegin;
-        void** ppEnd = (void**)pData->mWorkers.mpEnd;
-        for (void** ppIter = (void**)pData->mWorkers.mpBegin; ppIter < ppEnd; ++ppIter) {
+        int** ppIter = (int**)&pData->mWorkers.mpBegin;
+        int** ppEnd = (int**)&pData->mWorkers.mpEnd;
+        for (ppIter = (int**)&pData->mWorkers.mpBegin; ppIter < ppEnd; ++ppIter) {
             if (*ppIter)
                 (*(void (__thiscall**)(void*))(*(int*)*ppIter + 4)) (*ppIter);
         }

@@ -16,9 +16,7 @@ extern float g_01470f1c;                   // 0x01470f1c
 extern float g_013ec4d0;                   // 0x013ec4d0
 extern float g_013f1cac;                   // 0x013f1cac
 extern float g_f167eb78, g_f167eb7c, g_f167eb80, g_f167eb84;   // 0x0167eb78..
-extern float g_f15695fc;   // 0x015695fc
-extern float g_f15695f8;   // 0x015695f8
-extern float g_f1569648;   // 0x01569648
+extern float g_f15695fc, g_f15695f8, g_f1569648;               // 0x015695f8..
 #include <math.h>
 #include <float.h>
 #include "SP/cPlanet.h"
@@ -152,9 +150,7 @@ extern float g_01470f1c;                   // 0x01470f1c
 extern float g_013ec4d0;                   // 0x013ec4d0
 extern float g_013f1cac;                   // 0x013f1cac
 extern float g_f167eb78, g_f167eb7c, g_f167eb80, g_f167eb84;   // 0x0167eb78..
-extern float g_f15695fc;   // 0x015695fc
-extern float g_f15695f8;   // 0x015695f8
-extern float g_f1569648;   // 0x01569648
+extern float g_f15695fc, g_f15695f8, g_f1569648;               // 0x015695f8..
 void LoadPlanetTuning(IPropertyList* list);   // 0x00b51460
 struct CapsuleShape
 {
@@ -747,15 +743,8 @@ struct cHash16 {
     void Destroy();                            // 0x00c2e4e0
     void SetBuckets(void* buckets, int count); // 0x00693230
     void FreeNodes(void* buckets, int count);  // 0x007611f0
-    void Clear() { FreeNodes(mBuckets, mBucketCount); mNodeCount = 0; }
     void Find(void* out, void* key);           // 0x00645ed0
     Iter Erase(Iter it);                       // 0x01068380
-    void Teardown()
-    {
-        SetBuckets(mBuckets, mBucketCount);
-        mNodeCount = 0;
-        if ((unsigned)mBucketCount > 1u) FUN_00f47380(mBuckets);
-    }
 };
 struct cHash30 {
     int       mPad00;         // 0x00
@@ -2859,13 +2848,11 @@ PoolNode* Pool::NewNode(Obj** ppObj)
     PoolNode* node = mpFreeList;
     if (node)
         mpFreeList = (PoolNode*)node->mpObject;
-    else {
-        uint32_t nodeSize = mNodeSize;
+    else
         node = (PoolNode*)EAAllocate(
-            nodeSize, "Simulator", 0, 0,
+            mNodeSize, "Simulator", 0, 0,
             "c:\\BuildAgent\\max-spore001-spore\\CMBuild\\SporeEP1_RL\\Core\\UTFKernel\\EASTL\\include\\EASTL/allocator.h",
             0xd1);
-    }
     if (node) {
         Obj* pObj = *ppObj;
         node->mpObject = pObj;
@@ -3399,7 +3386,9 @@ void cObj45170::Destroy()
     if (mPtr90 != 0) FUN_00f47380(mPtr90);
     if (mPtr78 != 0) FUN_00f47380(mPtr78);
 
-    mSub58.Teardown();
+    mSub58.SetBuckets(mSub58.mBuckets, mSub58.mBucketCount);
+    mSub58.mNodeCount = 0;
+    if ((unsigned)mSub58.mBucketCount > 1u) FUN_00f47380(mSub58.mBuckets);
 
     mSub3c.Destroy();
     if (mPtr24 != 0) FUN_00f47380(mPtr24);
@@ -3438,7 +3427,8 @@ void cObj452b0::F()
 
     FUN_00b5a390();
 
-    mHash40.Clear();
+    mHash40.FreeNodes(mHash40.mBuckets, mHash40.mBucketCount);
+    mHash40.mNodeCount = 0;
 }
 
 // @ 0x00b452f0
@@ -6086,7 +6076,8 @@ void __cdecl FUN_00b4e820(char* a1, char a2, char a3, float* a4)
         if (AudioSystem() != 0) {
             char* t;
             if (a1 != 0) {
-                t = ((FnGetByName)(*(void**)(*(u32*)a1 + 0xc)))(a1, (char*)0x1186577);
+                FnGetByName getByName = (FnGetByName)(*(void**)(*(u32*)a1 + 0xc));
+                t = getByName(a1, (char*)0x1186577);
             } else {
                 t = 0;
             }
@@ -6124,7 +6115,8 @@ void __cdecl FUN_00b4e980(char* a1, u32 a2, u32 a3, char a4, char a5, float* a6)
         if (AudioSystem() != 0) {
             char* t;
             if (a1 != 0) {
-                t = ((FnGetByName)(*(void**)(*(u32*)a1 + 0xc)))(a1, (char*)0x1186577);
+                FnGetByName getByName = (FnGetByName)(*(void**)(*(u32*)a1 + 0xc));
+                t = getByName(a1, (char*)0x1186577);
             } else {
                 t = 0;
             }
@@ -6577,13 +6569,13 @@ It10 Table10::erase(Node10* node, Bucket10* bucket)
 // @ 0x00b4fae0
 LinkNode* __stdcall FUN_00b4fae0(LinkNode* head, const Key3* key, int unused)
 {
-    if (head) {
-        do {
-            if (key->m0 == (int)head->mKey0 && key->m4 == (int)head->mKey4 && key->m8 == (int)head->mKey8)
-                return head;
-            head = head->mNext;
-        } while (head);
-    }
+    if (!head)
+        return 0;
+    do {
+        if (key->m0 == (int)head->mKey0 && key->m4 == (int)head->mKey4 && key->m8 == (int)head->mKey8)
+            return head;
+        head = head->mNext;
+    } while (head);
     return 0;
 }
 

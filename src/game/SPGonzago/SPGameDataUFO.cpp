@@ -2,14 +2,6 @@
 // Object file: SPGonzago/SPGameDataUFO.obj.  Function bodies keep the slice's code; types, members and virtual calls use the
 // canonical headers under src/game/include.  Each function keeps its '// @ 0xVA' marker.
 
-// addresses retail relocates here, named so the build relocates them too
-extern "C" char g_146be54[];
-extern "C" char g_146be68[];
-extern "C" char g_146be89[];
-extern "C" char g_146be9c[];
-extern "C" char g_1570858[];
-extern "C" char g_1573290[];
-
 #include "game/types.h"
 #include "SP/cBehaviorTreeData.h"
 #include "SP/cCombatant.h"
@@ -294,7 +286,7 @@ struct PaintSystemExt : Skinner::PaintSystem {   // own vtbl 0x146bb78
     virtual ~PaintSystemExt();             // 0x00c38c90
 };
 struct OffsetHolder {
-    Vec3 GetPos();                         // 0x00c38c20 (returned through the hidden result pointer)
+    void GetPos(Vec3* out);                // 0x00c38c20
 };
 // ---- items of slice s00c389f0 end
 
@@ -2156,57 +2148,38 @@ void* __fastcall FUN_00c36e80(Ufo* self, void* dummy, u32 key)
   return self;
 }
 
-struct UFOWriter {
-  virtual void slot00();
-  virtual void slot04();
-  virtual void slot08();
-  virtual void slot0c();
-  virtual void slot10();
-  virtual void slot14();
-  virtual void* GetSink(); // +0x18
-};
-struct UFODatabaseStream {
-  virtual void slot00();
-  virtual void slot04();
-  virtual void slot08();
-  virtual void slot0c();
-  virtual void slot10();
-  virtual void slot14();
-  virtual void slot18();
-  virtual void slot1c();
-  virtual UFOWriter* GetWriter(); // +0x20
-};
-extern SP::cDataSerializerGeneric gUFOSerializerList; // 0x01573290
-inline u32 SerializedObjectID(void* object)
-{
-  if (object) return static_cast<Sub70*>(object)->f70;
-  return 0;
-}
-
 // @ 0x00c36ee0
 u8 __fastcall FUN_00c36ee0(Ufo* self, void* dummy, void* stream)
 {
-  UFODatabaseStream* context = static_cast<UFODatabaseStream*>(stream);
-  UFOWriter* __restrict writer = context->GetWriter();
+  (void)dummy;
+  void* w = ((TFp0)((void**)stream)[0x20 / 4])(stream);
+  w = ((TFp0)((void**)w)[0x18 / 4])(w);
   u32 ver = 0xb033b403u;
-  void* sink = writer->GetSink();
-  WriteUint32(sink, &ver, 1, 0);
-  bool ok = reinterpret_cast<CGameData*>(self)->Write(stream)
-      && self->combat.Write(stream) && self->loco.Write(stream);
-  g_168df70 = SerializedObjectID(self->p7b0);
-  g_168df6c = SerializedObjectID(self->p764);
-  SP::cVarListSerializer ser(self, &gUFOSerializerList,
-      SP::cVarListSerializer::kSignature);
-  ok = ok && ser.Serialize(*reinterpret_cast<SP::cIObjectDatabaseOStream*>(stream));
+  WriteUint32(w, &ver, 1, 0);
+
+  u8 ok = 0;
+  if (!((CGameData*)self)->Write(stream)) goto afterChain;
+  if (!self->combat.Write(stream)) goto afterChain;
+  if (!self->loco.Write(stream)) goto afterChain;
+  ok = 1;
+afterChain:
+  g_168df70 = (self->p7b0 != 0) ? ((Sub70*)self->p7b0)->f70 : 0;
+  g_168df6c = (self->p764 != 0) ? ((Sub70*)self->p764)->f70 : 0;
+
+  cVarListSerializer ser;
+  ser.Ctor(self, (void*)0x01573290, 0x1a80d26u);
+  if (ok) ok = ser.Serialize(stream);
+
+  void* p = ((TFp0)((void**)stream)[0x20 / 4])(stream);
   if (self->p6c8 != 0) {
-    void* output = context->GetWriter()->GetSink();
-    u8 present = 1;
-    StreamWrite(output, &present, 1);
-    static_cast<BehTree*>(self->p6c8)->Write(stream);
+    void* ow = ((TFp0)((void**)p)[0x18 / 4])(p);
+    u8 one = 1;
+    StreamWrite(ow, &one, 1);
+    ((BehTree*)self->p6c8)->Write(stream);
   } else {
-    void* output = context->GetWriter()->GetSink();
-    u8 present = 0;
-    StreamWrite(output, &present, 1);
+    void* ow = ((TFp0)((void**)p)[0x18 / 4])(p);
+    u8 zero = 0;
+    StreamWrite(ow, &zero, 1);
   }
   return ok;
 }
@@ -2216,16 +2189,20 @@ bool __fastcall FUN_00c37040(Ufo* self, void* dummy)
 {
   (void)dummy;
   switch (self->state714) {
-  case 8:
-  case 9:
-    return false;
   case 0:
-    return (self->f7f4 > g_kZero && !((SpaceGameC*)SpaceGameGet())->f4c30()) ? 1 : 0;
+    if (self->f7f4 > g_kZero) {
+      SpaceGameC* sg = (SpaceGameC*)SpaceGameGet();
+      return sg->f4c30() == 0;
+    }
+    return false;
   case 3: {
     Inventory* inv = GetUFOSimulator()->GetPlayerInventory();
     if (inv == 0) return true;
     return inv->f76c >= 2;
   }
+  case 8:
+  case 9:
+    return false;
   default:
     return true;
   }
@@ -2535,14 +2512,12 @@ void UFOThing::FUN_00c38b90()
 }
 
 // @ 0x00c38c20
-Vec3 OffsetHolder::GetPos()
+void OffsetHolder::GetPos(Vec3* out)
 {
     Vec3* p = (Vec3*)((float*)this - 0x134);   // 0x134 floats == 0x4d0 bytes
-    Vec3 out;
-    out.x = p->x;
-    out.y = p->y;
-    out.z = p->z;
-    return out;
+    out->x = p->x;
+    out->y = p->y;
+    out->z = p->z;
 }
 
 // @ 0x00c38c50
@@ -2842,10 +2817,10 @@ int cSPGameDataUFO_s00c3_ae70::GetFieldValues(void* pOut)
     int sum = ((FnB18420*)this)->f(pOut);
     sum += ((FnC0AF90*)((char*)this + 0x34))->f(pOut);
 
-    localA14.ctor((char*)this + 0x508, (void*)g_1570858, 0x1a80d26);
+    localA14.ctor((char*)this + 0x508, (void*)0x1570858, 0x1a80d26);
     sum += localA14.GetFields(pOut);
 
-    local1428.ctor(this, (void*)g_1573290, 0x1a80d26);
+    local1428.ctor(this, (void*)0x1573290, 0x1a80d26);
     sum += local1428.GetFields(pOut);
 
     return sum;
@@ -3508,17 +3483,17 @@ void UFO::func3e010(void* s)
     char* self = (char*)this;
     char* q = (char*)s;
     if (*(int*)(self + 0x714) == 0) {
-        ((Fn455d60*)q)->append("== Player UFO ==", (const char*)g_146be9c);
+        ((Fn455d60*)q)->append("== Player UFO ==", (const char*)0x146be9c);
     } else {
-        ((Fn455d60*)q)->append("== NPC UFO ==", (const char*)g_146be89);
+        ((Fn455d60*)q)->append("== NPC UFO ==", (const char*)0x146be89);
     }
-    FUN_005f9450(q, (const char*)g_146be68, (double)*(float*)(self + 0x768));
+    FUN_005f9450(q, (const char*)0x146be68, (double)*(float*)(self + 0x768));
 
     float hp = *(float*)(self + 0x540);
     void* sub = self + 0x508;
     typedef float(__thiscall* GetF)(void*);
     float maxf = ((GetF)(*(void**)(*(char**)sub + 0x58)))(sub);
-    FUN_005f9450(q, (const char*)g_146be54, (double)hp, (double)maxf);
+    FUN_005f9450(q, (const char*)0x146be54, (double)hp, (double)maxf);
 
     FUN_00563de0(self + 0x780, q);
 }

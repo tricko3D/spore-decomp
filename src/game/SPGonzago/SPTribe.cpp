@@ -2,12 +2,6 @@
 // Object file: SPGonzago/SPTribe.obj.  Function bodies keep the slice's code; types, members and virtual calls use the
 // canonical headers under src/game/include.  Each function keeps its '// @ 0xVA' marker.
 
-// addresses retail relocates here, named so the build relocates them too
-extern "C" char g_1581288[];
-extern "C" char g_169543c[];
-extern "C" char g_1695458[];
-extern "C" char g_1695460[];
-
 #include <intrin.h>
 #include "game/types.h"
 #include "sse_helpers.h"
@@ -1477,7 +1471,6 @@ struct Rec60 {
     uint8_t  pad34[0x10];
     void*    f44;      // @0x44
     void*    f48;      // @0x48  (owned array pointer, -4 holds a flag)
-    uint8_t  pad4c[0x60 - 0x4c];
 };
 class cVarListSerializer_s00c9_2a90 {
 public:
@@ -1517,14 +1510,7 @@ public:
     void FUN_00c92b70(void);                // pop-like
     void FUN_00c92bd0(int** p);             // push-like
 };
-// 16-byte deque iterator passed by value (user-declared copy ctor, like eastl::DequeIterator)
-struct V4 {
-    uint32_t v0, v1, v2, v3;
-    V4(uint32_t a0, uint32_t a1, uint32_t a2, uint32_t a3) : v0(a0), v1(a1), v2(a2), v3(a3) {}
-    V4(const V4& x) : v0(x.v0), v1(x.v1), v2(x.v2), v3(x.v3) {}
-};
-// empty iterator-category tag passed by value (EASTL-style dispatch)
-struct cCopyTag_s00c8ed90 { cCopyTag_s00c8ed90() {} };
+struct V4 { uint32_t v0, v1, v2, v3; };
 extern "C" cPointerBlockIter* __cdecl FUN_00c908a0(void* local, V4 a, V4 b, V4 c);
 class Thing {
 public:
@@ -4115,7 +4101,7 @@ void __fastcall Tribe_SetEditorMode(Tribe* pSelf, int, uint8_t bMode)
         if (bMode == 1) {
             int* pObj = Sub_b3d240();
             void** pSlot = (void**)((char*)*(void***)pObj + 0x60);
-            void* pName = ((void*(__thiscall*)(void*, void*))((void**)pSelf->mpModelFactory_120)[0x2c / 4])(&pSelf->mpModelFactory_120, (void*)g_169543c);
+            void* pName = ((void*(__thiscall*)(void*, void*))((void**)pSelf->mpModelFactory_120)[0x2c / 4])(&pSelf->mpModelFactory_120, (void*)0x0169543c);
             ((void(__thiscall*)(int*, int, void*))*pSlot)(pObj, 0x1046f5ef, pName);
             void* pOwner = (char*)pSelf + 0x20c;
             int* pIter = SELF(pOwner)->FUN_00cee330();
@@ -4236,10 +4222,10 @@ void* __cdecl F8ea70(unsigned int nSlot)
 {
     if (nSlot - 1 <= 0x1e) {
         int nTerrain = ((TerrainSphere*)((NounMgr*)Sub_b3d300())->GetCurrentTerrainSphere())->GetSubIndex();
-        return (char*)g_1695458 + (nTerrain * 0x20 + (int)nSlot) * 0xb8;
+        return (char*)0x01695458 + (nTerrain * 0x20 + (int)nSlot) * 0xb8;
     }
     int nTerrain = ((TerrainSphere*)((NounMgr*)Sub_b3d300())->GetCurrentTerrainSphere())->GetSubIndex();
-    return (char*)g_1695458 + nTerrain * 0x1700;
+    return (char*)0x01695458 + nTerrain * 0x1700;
 }
 
 // @ 0x00c8eae0
@@ -4247,7 +4233,7 @@ int __fastcall Tribe_GetMaxPopulation(Tribe* pSelf)
 {
     if (pSelf->mPopSlot_550 > 0u && pSelf->mPopSlot_550 < 0x20) {
         int nTerrain = ((TerrainSphere*)((NounMgr*)Sub_b3d300())->GetCurrentTerrainSphere())->GetSubIndex();
-        return *(int*)((char*)g_1695460
+        return *(int*)((char*)0x01695460
                        + (nTerrain * 0x20 + (int)pSelf->mPopSlot_550) * 0xb8);
     }
     {
@@ -4358,9 +4344,9 @@ cPointerVector* cPointerVector::Init(int32_t nCount, int32_t nUnused)
 }
 
 // @ 0x00c8ed90
-cPointerBlockIter* FUN_00c8ed90(cPointerBlockIter* pOut, V4 a, V4 b, V4 c, cCopyTag_s00c8ed90 tag)
+cPointerBlockIter* FUN_00c8ed90(cPointerBlockIter* pOut, V4 a, V4 b, V4 c, void* pExtra)
 {
-    (void)tag;
+    (void)pExtra;
     void** pCurrent = (void**)a.v0;
     void*  pA3 = (void*)a.v1;
     void** pEnd = (void**)a.v2;
@@ -4409,25 +4395,26 @@ cPointerBlockIter* FUN_00c8ed90(cPointerBlockIter* pOut, V4 a, V4 b, V4 c, cCopy
 // @ 0x00c8ee40
 void** FUN_00c8ee40(void** pBegin, void** pEnd, void** pOut)
 {
-    if (pBegin != pEnd) {
-        do {
-            cRefCountedNode* pSource = (*pBegin != nullptr)
-                                           ? (cRefCountedNode*)((uint8_t*)*pBegin + 0x34)
-                                           : nullptr;
-            cRefCountedNode* pOld = (cRefCountedNode*)*pOut;
-            if (pSource != pOld) {
-                if (pSource != nullptr)
-                    pSource->AddRef();
-                *pOut = pSource;
-                if (pOld != nullptr)
-                    pOld->Release();
-            }
+    if (pBegin == pEnd)
+        return pOut;
 
-            ++pBegin;
-            ++pOut;
-        } while (pBegin != pEnd);
+    do {
+        cRefCountedNode* pSource = (*pBegin != nullptr)
+                                       ? (cRefCountedNode*)((uint8_t*)*pBegin + 0x34)
+                                       : nullptr;
+        cRefCountedNode* pOld = (cRefCountedNode*)*pOut;
+        if (pSource != pOld) {
+            if (pSource != nullptr)
+                pSource->AddRef();
+            *pOut = pSource;
+            if (pOld != nullptr)
+                pOld->Release();
+        }
 
-    }
+        ++pBegin;
+        ++pOut;
+    } while (pBegin != pEnd);
+
     return pOut;
 }
 
@@ -4824,9 +4811,7 @@ void __thiscall cTribe_s00c8_fbb0::UpdateRoboTribeness()
 {
     if (mb334)
         return;
-    int mode = (int)FUN_00b5b800();
-    bool inRange = (mode >= 0x1654c01) && (mode <= 0x1654c02);
-    if (inRange)
+    if ((uint32_t)FUN_00b5b800() + (-0x01654c01) <= 1)
         return;
 
     int32_t count;
@@ -5002,8 +4987,9 @@ void __fastcall FUN_00c905c0(cTribe_s00c8_fbb0* this_, int unused)
 // @ 0x00c908a0
 cPointerBlockIter* FUN_00c908a0(void* local, V4 a, V4 b, V4 c)
 {
+    void* extra = local;
     cPointerBlockIter* p = (cPointerBlockIter*)local;
-    FUN_00c8ed90(p, a, b, c, cCopyTag_s00c8ed90());
+    FUN_00c8ed90(p, a, b, c, extra);
     return p;
 }
 
@@ -5382,7 +5368,7 @@ void cTribe_s00c9_0b40::CheckFoodTutorialComplete()
     return;
 
   s32 value = vA4();
-  s32 price = GetTutorialToolPrice(*(u32*)g_1581288, 0xb79e0065, 0x28);
+  s32 price = GetTutorialToolPrice(*(u32*)0x1581288, 0xb79e0065, 0x28);
   if (value < price)
     return;
 
@@ -5729,16 +5715,15 @@ void* __cdecl FUN_00c92ce0(void* out, void* first, void* last, void* dst, void* 
 // @ 0x00c92d50
 Rec60* __cdecl FUN_00c92d50(Rec60* first, Rec60* last, uint32_t* key)
 {
-    int n = (int)(last - first);
+    int n = (int)((char*)last - (char*)first) / 0x60;
     while (n > 0) {
         int half = n >> 1;
-        Rec60* mid = first + half;
+        Rec60* mid = (Rec60*)((char*)first + half * 0x60);
         if (mid->f00 < *key) {
-            first = ++mid;
-            n -= half + 1;
-        } else {
-            n = half;
+            first = (Rec60*)((char*)mid + 0x60);
+            half = n + (-1 - half);
         }
+        n = half;
     }
     return first;
 }
@@ -5771,25 +5756,23 @@ void __cdecl FUN_00c92e20(Vec3_s00c9_2a90* first, int top, int heapSize, int pos
 // @ 0x00c92f80
 char* __cdecl FUN_00c92f80(char* first, char* last, char* out)
 {
-    if (first != last) {
-        char* p = first + 0x44;
-        do {
-            void* a = *(void**)(p + 4);
-            if (a != 0 && *(int*)((char*)a - 4) != 0)
-                FUN_00f47380(a);
-            void* b = *(void**)p;
-            if (b)
-                ((void(__thiscall*)(void*))VF(b, 4))(b);
-            void* c = *(void**)(p - 0x14);
-            if (c)
-                ((void(__thiscall*)(void*))VF(c, 4))(c);
-            void* e = *(void**)(p - 0x18);
-            if (e)
-                ((void(__thiscall*)(void*))VF(e, 4))(e);
-            first += 0x60;
-            p += 0x60;
-            out += 0x60;
-        } while (first != last);
+    char* p = first + 0x44;
+    while (first != last) {
+        void* a = *(void**)(p + 4);
+        if (a != 0 && *(int*)((char*)a - 4) != 0)
+            FUN_00f47380(a);
+        void* b = *(void**)p;
+        if (b)
+            ((void(__thiscall*)(void*))VF(b, 4))(b);
+        void* c = *(void**)(p - 0x14);
+        if (c)
+            ((void(__thiscall*)(void*))VF(c, 4))(c);
+        void* e = *(void**)(p - 0x18);
+        if (e)
+            ((void(__thiscall*)(void*))VF(e, 4))(e);
+        first += 0x60;
+        p += 0x60;
+        out += 0x60;
     }
     return out;
 }
@@ -5862,9 +5845,9 @@ Thing* __thiscall Thing::FUN_00c93750(int32_t* p2)
              + ((p2[6] - p2[7]) >> 2)
              + ((p2[4] - p2[2]) >> 2);
     ((Thing*)this)->FUN_00ca09f0((uint32_t)size);
-    V4 s1(f08, f0c, f10, f14);
-    V4 s2((uint32_t)p2[6], (uint32_t)p2[7], (uint32_t)p2[8], (uint32_t)p2[9]);
-    V4 s3((uint32_t)p2[2], (uint32_t)p2[3], (uint32_t)p2[4], (uint32_t)p2[5]);
+    V4 s1 = { f08, f0c, f10, f14 };
+    V4 s2 = { (uint32_t)p2[6], (uint32_t)p2[7], (uint32_t)p2[8], (uint32_t)p2[9] };
+    V4 s3 = { (uint32_t)p2[2], (uint32_t)p2[3], (uint32_t)p2[4], (uint32_t)p2[5] };
     FUN_00c908a0(local, s3, s2, s1);
     return this;
 }
@@ -7067,39 +7050,25 @@ Vec3* cTribe_s00c9_7220::RandomRegionPointAt(int, Vec3* out, uint32_t key)
     return out;
 }
 
-// deque<uint32_t> iterator (EASTL DequeIterator: current, bucket begin, bucket end, bucket pointer)
-struct RegionDequeIter_s00c9_7c40
-{
-    uint32_t*  mpCurrent;
-    uint32_t*  mpBegin;
-    uint32_t*  mpEnd;
-    uint32_t** mpCurrentArrayPtr;
-    void Increment()
-    {
-        if (++mpCurrent == mpEnd)
-        {
-            mpBegin = *++mpCurrentArrayPtr;
-            mpEnd = mpBegin + 0x40;
-            mpCurrent = mpBegin;
-        }
-    }
-};
 // @ 0x00c97c40
 int cTribe_s00c9_7220::FindRegionIndex(uint32_t key, int key2)
 {
     uint32_t k = key;
     RegionSlot* slot = this->map4e4.Find(&k);
 
-    RegionDequeIter_s00c9_7c40 it;
-    it.mpCurrent = slot->mpBegin;
-    it.mpEnd = slot->mpBucketEnd;
-    it.mpCurrentArrayPtr = slot->mpBuckets;
+    uint32_t* it = slot->mpBegin;
+    uint32_t* bucketEnd = slot->mpBucketEnd;
+    uint32_t** buckets = slot->mpBuckets;
     uint32_t* end = slot->mpEnd;
     int idx = 0;
-    while (it.mpCurrent != end) {
-        if ((uint32_t)key2 == *it.mpCurrent)
+    while (it != end) {
+        if ((uint32_t)key2 == *it)
             return idx;
-        it.Increment();
+        ++it;
+        if (it == bucketEnd) {
+            it = *++buckets;
+            bucketEnd = it + 0x40;
+        }
         ++idx;
     }
     return -1;

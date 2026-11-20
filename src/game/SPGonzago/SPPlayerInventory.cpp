@@ -2,11 +2,6 @@
 // Object file: SPGonzago/SPPlayerInventory.obj.  Function bodies keep the slice's code; types, members and virtual calls use the
 // canonical headers under src/game/include.  Each function keeps its '// @ 0xVA' marker.
 
-// addresses retail relocates here, named so the build relocates them too
-extern "C" char g_1494d54[];
-extern "C" char g_1494d68[];
-extern "C" char g_1579ed8[];
-
 #include "game/types.h"
 
 // unnamed retail callees and globals (address in the comment)
@@ -500,9 +495,12 @@ void __fastcall FUN_00ff3df0(Inv* ecx_this)
     void** end = (void**)ecx_this->m60.mEnd;
     for (void** p = (void**)ecx_this->m60.mBegin; p != end; ++p) {
         InvItem* o = (InvItem*)*p;
-        ToolInst* t = o ? (ToolInst*)((void*(__thiscall*)(void*, u32))((void**)o->mpVtblC)[0xc / 4])(&o->mpVtblC, 0x707459f0) : 0;
-        if (t != 0) {
-            ((void(__thiscall*)(void*))(*(void***)t)[0x04 / 4])(t);
+        ToolInst* t = 0;
+        if (o != 0) {
+            t = (ToolInst*)((void*(__thiscall*)(void*, u32))((void**)o->mpVtblC)[0xc / 4])(&o->mpVtblC, 0x707459f0);
+            if (t != 0) {
+                ((void(__thiscall*)(void*))(*(void***)t)[0x04 / 4])(t);
+            }
         }
         if (t->GetCount() > 0) {
             if (t->HasFlag() != 0) {
@@ -574,8 +572,8 @@ u32 __fastcall FUN_00ff3fb0(Inv* ecx_this, void* edx, void* host)
 // @ 0x00ff3ff0
 void __fastcall FUN_00ff3ff0(Inv* ecx_this)
 {
-    ecx_this->mpVtbl0 = (void*)g_1494d68;
-    ecx_this->mpVtbl1 = (void*)g_1494d54;
+    ecx_this->mpVtbl0 = (void*)0x1494d68;
+    ecx_this->mpVtbl1 = (void*)0x1494d54;
     _ReadWriteBarrier();
     ToolObj* p;
     p = ecx_this->m90;
@@ -607,12 +605,12 @@ int __fastcall FUN_00ff4090(GameData* ecx_this, void* edx, void* host)
     int a = ecx_this->GetFieldValues(host);
 
     cVarListSerializer s1;
-    s1.Ctor(ecx_this, (void*)g_1579ed8, 0x1a80d26);
+    s1.Ctor(ecx_this, (void*)0x1579ed8, 0x1a80d26);
     int b = s1.GetFields(host);
     int ab = a + b;
 
     cVarListSerializer s2;
-    s2.Ctor(ecx_this, (void*)&g_15b5ed8, 0x1a80d26);
+    s2.Ctor(ecx_this, (void*)0x15b5ed8, 0x1a80d26);
     int c = s2.GetFields(host);
 
     return c + ab;
@@ -742,7 +740,8 @@ void cSPPlayerInventory::FUN_00ff4310()
 // @ 0x00ff4470
 void cSPPlayerInventory::FUN_00ff4470(cInvItem* item)
 {
-    int i = w64(item->m14, item->v18());
+    void* id = item->v18();
+    int i = w64(item->m14, id);
     if (i < 0) return;
     cInvItem* tool = mInventoryItems.mBegin[i];
     cInvItem* target;
@@ -766,7 +765,8 @@ void cSPPlayerInventory::FUN_00ff4470(cInvItem* item)
 // @ 0x00ff4540
 void cSPPlayerInventory::FUN_00ff4540(cInvItem* item)
 {
-    int i = w64(item->m14, item->v18());
+    void* id = item->v18();
+    int i = w64(item->m14, id);
     if (i < 0) return;
     cInvItem* tool = mInventoryItems.mBegin[i];
     cInvItem* target;

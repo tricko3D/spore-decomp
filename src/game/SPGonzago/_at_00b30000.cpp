@@ -2,7 +2,6 @@
 // Object file: SPGonzago/_at_00b30000.obj.  Function bodies keep the slice's code; types, members and virtual calls use the
 // canonical headers under src/game/include.  Each function keeps its '// @ 0xVA' marker.
 
-#include <intrin.h>
 #include "game/types.h"
 #include "SP/cPropertyList.h"
 #include "SP/cDirectPropertyList.h"
@@ -191,8 +190,8 @@ extern void* __stdcall SP_EffectsManager();              // 0x67ddd0
 extern const char g_str_Simulator[];   // 0x13f09b4
 extern float g_f1486110;   // 5.0f
 extern float g_f1418ef4;   // -5.0f
-extern void* RbtreeIncrement(void* node);            // 0x921580
-extern void  RBTreeErase(void* node, void* header);  // 0x921880
+extern void* __stdcall RbtreeIncrement(void* node);            // 0x921580
+extern void  __stdcall RBTreeErase(void* node, void* header);  // 0x921880
 extern void __stdcall RBTreeInsert(void* node, void* parent, void* header, int side); // 0x9216a0
 extern void __stdcall SortFunc1(void* a, void* b, void* c);   // 0xb363b0
 extern void __stdcall SortFunc2(void* a, void* b, void* c);   // 0xb363f0
@@ -241,8 +240,6 @@ struct RefPair {
 struct SmartPtrSlot { void Assign(RefHandle* p); };   // 0x478db0 (thiscall)
 struct RbtreeOps {
     void* Find(void* resultOut, const void* key);   // 0xe39fb0 (thiscall)
-    struct It { void* node; };
-    It Find(const void* key);                       // 0xe39fb0 (thiscall, hidden return)
 };
 struct MapHolder {
     char pad0[0xc1];
@@ -253,12 +250,12 @@ struct MapHolder {
     bool Lookup(int key);
 };
 struct MapErase {
-    int   pad0;     // +0x00
-    void* header;   // +0x04 (rbtree anchor)
+    void* header;   // +0x00
+    int   pad;      // +0x04 (header+0 = sentinel; +4 is next)
     char  pad2[0x14 - 8];
     int   count;    // +0x14
 
-    int Erase(void* key);
+    bool Erase(void* key);
 };
 struct MapInsert {
     void* header;  // +0x00
@@ -1435,18 +1432,16 @@ bool MapHolder::Lookup(int key)
 }
 
 // @ 0x00b36360
-int MapErase::Erase(void* key)
+bool MapErase::Erase(void* key)
 {
-    RbtreeOps::It it = ((RbtreeOps*)this)->Find(key);
-    if (it.node != &header) {
-        void* node = it.node;
-        --count;
-        RbtreeIncrement(node);
-        RBTreeErase(node, &header);
-        operator_delete(node);
-        return 1;
-    }
-    return 0;
+    void* node;
+    ((RbtreeOps*)&header)->Find(&node, key);
+    if (node == &header) return false;
+    --count;
+    RbtreeIncrement(node);
+    RBTreeErase(node, &header);
+    operator_delete(node);
+    return true;
 }
 
 // @ 0x00b36440
@@ -2740,7 +2735,6 @@ void cSpatialProxy::GetTransform(cSPTransform_s00b3_ef30* out)
         cSPTransform_s00b3_ef30* r = ((cSpatialObject*)*(void**)((char*)this + 0x40))->FUN_00b73e70();
         ((cSPTransformOps*)out)->Assign(r);
         uint8_t* p = (uint8_t*)((char*)*(void**)((char*)this + 0x40) + 0x34);
-        _ReadWriteBarrier();
         if (*p & 4)
         {
             ++out->mModCount;

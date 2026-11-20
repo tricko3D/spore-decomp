@@ -416,20 +416,19 @@ int __cdecl FUN_00d1e5c0(IVtbl* param_1, int param_2)
 // @ 0x00d1e610
 void* __cdecl FUN_00d1e610(void)
 {
-    void* result = 0;
     switch ((uintptr_t)SP_GetCurrentGameMode()) {
     case 0x1654c01:
     case 0x1654c10:
-        result = static_cast<NounMgr*>(SP_NounManager())->GetAvatar();
-        break;
+        return ((NounMgr*)SP_NounManager())->GetAvatar();
     case 0x1654c02: {
-        void* community = static_cast<NounMgr*>(SP_NounManager())->GetPlayerTribe();
-        if (community)
-            result = static_cast<Community*>(community)->GetLeader();
-        break;
+        void* c = ((NounMgr*)SP_NounManager())->GetPlayerTribe();
+        if (c)
+            return ((Community*)c)->GetLeader();
+        return 0;
     }
+    default:
+        return 0;
     }
-    return result;
 }
 
 // @ 0x00d1e670

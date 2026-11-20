@@ -7,6 +7,9 @@ typedef unsigned char  uint8_t;
 
 #define VF(p, off) (*(void**)((char*)(*(void**)(p)) + (off)))
 
+struct Vec3   { float x, y, z; };
+struct CState { int state; void* target; float timer; };
+
 extern "C" void* __cdecl FUN_00b3d290(void);
 extern "C" void* __cdecl FUN_00b3d300(void);                                    // SP::NounManager
 extern "C" void  __cdecl FUN_00dc8d10(void*, int, void**);
@@ -23,6 +26,21 @@ extern "C" void  __cdecl FUN_00ace0f0();
 extern "C" void  __cdecl FUN_00b1e500();
 extern char DAT_018eb45e;
 
+// ---- 0x00dce4d0 tick callees ---------------------------------------------
+extern "C" void* __cdecl FUN_00dcd720(void*, int);                 // nearest reachable commodity
+extern "C" void  __cdecl FUN_00dc4d00(void*);                      // attach the target sub-object
+extern "C" void  __cdecl FUN_00dc95b0(void*);                      // standard vehicle move tick
+extern "C" void  __cdecl FUN_00dc95e0(void*);                      // alternate move tick
+extern "C" void  __cdecl FUN_00dc5050(void*, void*);               // start the follow/escort pass
+extern "C" void* __cdecl FUN_00dcc440(void*, int, int);            // acquire the path object
+
+extern "C" float  DAT_013f6b68;
+extern "C" float  DAT_01441a88;
+extern "C" float  DAT_013f1164;
+extern "C" float  DAT_0147c394;
+extern "C" float  DAT_01486110;
+extern "C" double DAT_0140f3a8;
+
 class TObj {
 public:
     // ---- reused __thiscall callees (addresses in comments) -------------------
@@ -36,8 +54,27 @@ public:
     void   F_bab900(void*, void*);          // 0xbab900  eastl vector::insert(pos,val)
     char   F_c0c0e0();                      // 0xc0c0e0  C::Flag388
 
+    // ---- 0x00dce4d0 helpers --------------------------------------------------
+    double F_9360d0();                      // 0x9360d0  random value (global 0x1601760)
+    void   F_dc4c60();                      // 0xdc4c60  release the target ref
+    void   F_b5f950(void*);                 // 0xb5f950  target ref assignment
+    bool   F_c42e20();                      // 0xc42e20  at-goal test (this = sub-object)
+    void   F_ca7250(const char*);           // 0xca7250  report a failure message
+    void   F_caa900();                      // 0xcaa900  abort the mission step
+    void   F_c9fb40(float, float, Vec3);    // 0xc9fb40  place/orient from a position
+    void   F_c9ec40(int);                   // 0xc9ec40  request an animation/state
+    void   F_ca80e0(int);                   // 0xca80e0  post an event to the object
+    void*  F_bfec10();                      // 0xbfec10  current front target
+    void   F_bff140(void*);                 // 0xbff140  arrival notification
+    void   F_bff290(void*);                 // 0xbff290  departure notification
+    void*  F_b25f40(void*);                 // 0xb25f40  noun lookup by id
+
     // ---- slice targets -------------------------------------------------------
-    void  FUN_00dce4d0(void*, uint32_t);
+    // Retail restores its frame and returns with a plain `ret` (no callee
+    // stack cleanup), so this is a __cdecl routine whose first stack argument
+    // is the mission object, not a __thiscall member.
+    static bool __cdecl FUN_00dce4d0(void*, uint32_t, uint32_t, uint32_t,
+                                     CState*, uint32_t, uint32_t, float);
     void  FUN_00dce970(void*);
     void* FUN_00dcea90(void*);
     void  FUN_00dceca0();
@@ -55,6 +92,137 @@ public:
         if (_o) ((void(__thiscall*)(void*))VF(_o, 0xc0))(_o); \
     }                                                 \
 } while (0)
+
+// ===========================================================================
+// 0x00dce4d0 - mission tick: seven-state machine (jump table at 0xdce8a4)
+//   arg1  = the mission object the cases call their own updates on
+//   arg5  = the per-mission state block (+0 state, +4 target AutoRefCount,
+//           +8 timer)
+//   arg8  = the frame delta
+//   Every case falls through to `return true`; only the two guards return
+//   false, which aborts the tick.
+// ===========================================================================
+// @ 0x00dce4d0
+bool __cdecl TObj::FUN_00dce4d0(void* pOwner, uint32_t, uint32_t, uint32_t,
+                               CState* pState, uint32_t, uint32_t, float dt) {
+    TObj* owner = (TObj*)pOwner;
+    // The driven sub-object (vptr at +0x34) is re-formed at every use, as the
+    // original does with `lea ecx, [edi + 0x34]`; caching it costs a register.
+#define BODY ((TObj*)((char*)owner + 0x34))
+
+    switch (pState->state) {
+    case 0:
+        // Keep the current target only while the random gate taken on the
+        // global object at 0x1601760 stays below DAT_0140f3a8.
+        if (pState->target == 0 ||
+            ((TObj*)0x1601760)->F_9360d0() < DAT_0140f3a8) {
+            ((TObj*)&pState->target)->F_dc4c60();
+            ((TObj*)&pState->target)->F_b5f950(FUN_00dcd720(owner, 1));
+        }
+        if (pState->target == 0) {
+            owner->F_ca7250((const char*)0x147c654);  // "(50) HR: no spice target found"
+            owner->F_caa900();
+            return false;
+        }
+        FUN_00dc4d00((char*)pState->target + 0x34);
+        {
+            TObj* tgt  = (TObj*)pState->target;
+            TObj* tsub = (TObj*)((char*)tgt + 0x34);
+            Vec3  v    = *(Vec3*)((void*(__thiscall*)(void*))VF(tsub, 0x2c))(tsub);
+            owner->F_c9fb40(DAT_013f6b68, DAT_01441a88, v);
+            ((void(__thiscall*)(void*, float, float, Vec3*))VF(BODY, 0xe8))
+                (BODY, DAT_013f6b68, DAT_013f1164, &v);
+        }
+        pState->state = 1;
+        return true;
+
+    case 1:
+        if (*(uint8_t*)((char*)owner + 0x2a4) & 8) {
+            owner->F_ca7250((const char*)0x147c674);  // "(45) HR: path failure"
+            owner->F_caa900();
+            return false;
+        }
+        if (BODY->F_c42e20()) {
+            TObj* tgt  = (TObj*)pState->target;
+            TObj* tsub = (TObj*)((char*)tgt + 0x34);
+            (void)((void*(__thiscall*)(void*))VF(tsub, 0x2c))(tsub);
+            (void)((void*(__thiscall*)(void*))VF(BODY, 0x2c))(BODY);
+            ((TObj*)pState->target)->F_bff140(owner);
+            pState->state = 2;
+            return true;
+        }
+        FUN_00dc95b0(owner);
+        return true;
+
+    case 2:
+        if (((TObj*)pState->target)->F_bfec10() != owner) {
+            FUN_00dc95e0(owner);
+            return true;
+        }
+        {
+            TObj* tgt  = (TObj*)pState->target;
+            TObj* tsub = (TObj*)((char*)tgt + 0x34);
+            Vec3  v    = *(Vec3*)((void*(__thiscall*)(void*))VF(tsub, 0x2c))(tsub);
+            ((void(__thiscall*)(void*, Vec3*, void*, float))VF(BODY, 0xe4))
+                (BODY, &v, BODY, DAT_0147c394);
+            owner->F_c9fb40(0.0f, DAT_0147c394, v);
+        }
+        pState->state = 3;
+        owner->F_c9ec40(2);
+        return true;
+
+    case 3:
+        if (BODY->F_c42e20()) {
+            pState->state = 4;
+            pState->timer = 0.0f;
+            owner->F_ca80e0(0xc);
+            return true;
+        }
+        FUN_00dc95b0(owner);
+        return true;
+
+    case 4:
+        pState->timer += dt;
+        if (pState->timer <= DAT_01486110) return true;
+        owner->F_ca80e0(0xd);
+        owner->F_ca80e0(0xf);
+        owner->F_c9ec40(3);
+        ((TObj*)pState->target)->F_bff290(owner);
+        pState->state = 5;
+        {
+            TObj* hud = (TObj*)((char*)owner + 0x508);
+            void* sel = (void*)((void*(__thiscall*)(void*))VF(hud, 0x10))(hud);
+            TObj* nm  = (TObj*)FUN_00b3d300();
+            TObj* x   = (TObj*)nm->F_b25f40(sel);
+            if (x == 0) return false;
+            if (((char(__thiscall*)(void*))VF(x, 0x2c))(x) != 0) return false;
+            TObj* y = (TObj*)FUN_00dcc440(owner, -1, 0);
+            if (y == 0) return false;
+            if (((char(__thiscall*)(void*))VF(y, 0x2c))(y) != 0) return false;
+            FUN_00dc5050(owner, y);
+        }
+        return true;
+
+    case 5:
+        if (BODY->F_c42e20()) {
+            pState->state = 6;
+            pState->timer = 0.0f;
+            owner->F_ca80e0(0x10);
+            return true;
+        }
+        FUN_00dc95b0(owner);
+        return true;
+
+    case 6:
+        pState->timer += dt;
+        if (pState->timer <= DAT_0147c394) return true;
+        pState->state = 0;
+        owner->F_ca80e0(0x11);
+        owner->F_c9ec40(1);
+        return true;
+    }
+    return true;
+}
 
 // ===========================================================================
 // 0x00dcea90 - cMovingFormation entity copy-assignment (0x178-byte element)

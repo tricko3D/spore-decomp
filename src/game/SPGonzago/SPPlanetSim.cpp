@@ -2,10 +2,6 @@
 // Object file: SPGonzago/SPPlanetSim.obj.  Function bodies keep the slice's code; types, members and virtual calls use the
 // canonical headers under src/game/include.  Each function keeps its '// @ 0xVA' marker.
 
-// addresses retail relocates here, named so the build relocates them too
-extern "C" char g_13ebb38[];
-extern "C" char g_13f09b4[];
-
 #include "game/types.h"
 #include <intrin.h>
 #pragma intrinsic(_ReadWriteBarrier)
@@ -1590,20 +1586,16 @@ bool fn27730(void* a)
 int StrObj::fn277f0()
 { return 0; }
 
-struct PlanetSimStatePredicate {
-  bool Test(); // 0x00f277f0
-};
-
 // @ 0x00f278b0
 bool StrObj::fn278b0()
 {
+  bool r = false;
   if (sub_eece20(this) == (int)0xcf56099a) {
-    uint type = f00;
-    if (type == 0x90c48d09 || type == 0x3144b430
-        || reinterpret_cast<PlanetSimStatePredicate*>(this)->Test())
-      return true;
+    uint t = f00;
+    if (t == 0x90c48d09 || t == 0x3144b430) r = true;
+    else if (fn277f0()) r = true;
   }
-  return false;
+  return r;
 }
 
 // @ 0x00f278f0
@@ -1688,7 +1680,7 @@ void Vec18::reserve(unsigned n)
   if (n > capCount) {
     char* p;
     if (n)
-      p = (char*)FUN_00f473a0(n * 0x18, (const char*)g_13f09b4, 0, 0, (int)g_13ebb38, 0xd1);
+      p = (char*)FUN_00f473a0(n * 0x18, (const char*)0x13f09b4, 0, 0, 0x13ebb38, 0xd1);
     else
       p = 0;
     FUN_00720200(begin, end, p);
@@ -1708,7 +1700,7 @@ void Vec38::reserve(unsigned n)
   if (n > capCount) {
     char* p;
     if (n)
-      p = (char*)FUN_00f473a0(n * 0x38, (const char*)g_13f09b4, 0, 0, (int)g_13ebb38, 0xd1);
+      p = (char*)FUN_00f473a0(n * 0x38, (const char*)0x13f09b4, 0, 0, 0x13ebb38, 0xd1);
     else
       p = 0;
     FUN_00f25ea0(begin, end, p);
@@ -2056,10 +2048,8 @@ int cCityData_s00fe_ff80::GetNumTurrets() const
 namespace SP {
 cBuildingData_s00fe_ff80* cCityData_s00fe_ff80::GetBuilding(int nIndex)
 {
-    if (nIndex < (int32_t)(mpBuildingsEnd - mpBuildingsBegin)) {
-        _ReadWriteBarrier();
+    if (nIndex < (int32_t)(mpBuildingsEnd - mpBuildingsBegin))
         return &mpBuildingsBegin[nIndex];
-    }
     return 0;
 }
 }  // namespace SP

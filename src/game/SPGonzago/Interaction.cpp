@@ -23,7 +23,7 @@ struct SlotVector;
 struct SlotIter {
   SlotVector* mpOwner;
   u32 mIndex;
-  SlotIter& increment();
+  void increment();
 };
 static const u32 kSlotEmpty = 0x3fffffff;
 int __cdecl SlotDistance(SlotIter first, SlotIter last);
@@ -131,14 +131,14 @@ struct AgentMap {
     if (candidate != sentinel() && key < candidate->mpKey) candidate = sentinel();
     return candidate;
   }
-  AgentNode** find(AgentNode** out, cInteractionAgent* const& key);
+  AgentNode** find(AgentNode** out, cInteractionAgent* key);
   void erase(cInteractionAgent** key);
 };
 struct IsAgentActive {
   cInteraction* mpOwner;  // +0x00
   u8 mCheckMap;           // +0x04
   u8 mPad05[3];
-  int evaluate(cInteractionAgent* agent);
+  bool evaluate(cInteractionAgent* agent);
 };
 struct AgentFilterRange {
   SlotIter mBegin;        // +0x00
@@ -439,16 +439,14 @@ void SlotVector::freeAgent(u32 i)
 }
 
 // @ 0x00abe9b0
-NOINLINE SlotIter& SlotIter::increment()
+NOINLINE void SlotIter::increment()
 {
-  bool busy;
+  u32 cur;
   do {
-    u32 cur = mIndex++;
-    bool done = ((mpOwner->entry(cur)->mMeta >> 30) & 1) != 0;
-    if (done) return *this;
-    busy = ((mpOwner->entry(mIndex)->mMeta >> 31) & 1) != 0;
-  } while (busy);
-  return *this;
+    cur = mIndex;
+    mIndex = cur + 1;
+    if ((mpOwner->entry(cur)->mMeta >> 30) & 1) return;
+  } while ((int)mpOwner->entry(mIndex)->mMeta < 0);
 }
 
 // @ 0x00abea00
@@ -465,22 +463,22 @@ NOINLINE int __cdecl SlotDistance(SlotIter first, SlotIter last)
 // @ 0x00abea40
 bool cInteraction::IsAgentDefault(cInteractionAgent* agent)
 {
-  AgentNode* it;
-  AgentNode* node = *mAgentData.find(&it, agent);
-  if (node != mAgentData.sentinel())
-    return node->mData.mState == 0 && node->mData.mSleepTimeout == 0;
-  return false;
+  AgentNode* node;
+  AgentNode** it = mAgentData.find(&node, agent);
+  node = *it;
+  if (node == mAgentData.sentinel()) return false;
+  return node->mData.mState == 0 && node->mData.mSleepTimeout == 0;
 }
 
 // @ 0x00abea90
-int IsAgentActive::evaluate(cInteractionAgent* agent)
+bool IsAgentActive::evaluate(cInteractionAgent* agent)
 {
   cInteraction* owner = mpOwner;
   if (owner) {
     if (mCheckMap) {
-      cInteractionAgent* key = agent;
-      AgentNode* it;
-      AgentNode* node = *owner->mAgentData.find(&it, key);
+      AgentNode* node;
+      AgentNode** it = owner->mAgentData.find(&node, agent);
+      node = *it;
       if (node == owner->mAgentData.sentinel()) return true;
       if (node->mData.mState == 0) return true;
     }
@@ -839,9 +837,8 @@ bool cInteraction_s00ab_f0b0::AddTarget(cInteractionTarget_s00ab_f0b0* pTarget)
 {
     if (pTarget != 0)
     {
-        cInteractionTarget_s00ab_f0b0* pRef = pTarget;
-        pRef->AddRef();
-        mTargets.Insert(pRef);
+        pTarget->AddRef();
+        mTargets.Insert(pTarget);
         pTarget->Release();
         pTarget->Attach(this);
         return true;

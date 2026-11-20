@@ -2,9 +2,6 @@
 // Object file: SPGonzago/SPSpatialObject.obj.  Function bodies keep the slice's code; types, members and virtual calls use the
 // canonical headers under src/game/include.  Each function keeps its '// @ 0xVA' marker.
 
-// addresses retail relocates here, named so the build relocates them too
-extern "C" char g_1473758[];
-
 #include "game/types.h"
 #include "SP/cViewer.h"
 #include "SP/cCommunity.h"
@@ -416,9 +413,8 @@ Attribute gSpatialObjectAttributes[25];
 // @ 0x00c88a90
 void cSpatialObject::Write(void* pStream)
 {
-    VObj174* __restrict writer = ((VObj174*)pStream)->v020();
     uint32_t type = 0x1186577;
-    VObj174* pIo = writer->v018();
+    VObj174* pIo = ((VObj174*)pStream)->v020()->v018();
     EA::IO::WriteUint32(pIo, &type, 1, 0);
     cVarListSerializer serializer(this, &kSpatialObjectSerializerList, 0x1a80d26);
     serializer.Serialize(pStream);
@@ -542,9 +538,7 @@ bool cSO::func9C()
             if (b14 && !b18)
                 return true;
         } else {
-            unsigned char bit = (unsigned char)(v >> 14);
-            bit &= 1;
-            return bit;
+            return (v >> 14) & 1;
         }
     }
     return false;
@@ -907,7 +901,7 @@ void __fastcall F8a200(Spatial* s, int, int id, float val)
 // @ 0x00c8a420
 void __fastcall F8a420(Spatial* s)
 {
-    s->vt = (void**)g_1473758;
+    s->vt = (void**)0x1473758;
     ((SpatialBaseDtor*)s)->Destroy();
     ((EffectVecDtor*)((char*)s + 0xc0))->Destroy();
     if (s->pa0 != 0) {

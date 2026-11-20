@@ -355,6 +355,7 @@ void* __cdecl FUN_00b18720(void*);                   // interface_cast turret
 void* __cdecl FUN_00c8b770();                        // cStar::GetSolarSystem
 int   __cdecl FUN_01042480(float*, float*);          // 0x01042480
 void  __cdecl FUN_0106ab20(int);                     // 0x0106ab20
+void  __cdecl FUN_0106200(void*, int);               // ToggleStarmapFilters
 void  __cdecl FUN_00c706d0(void*, int);              // SetPlanetTechLevel
 void  __cdecl FUN_00b22960();                        // cGameNounManager_ProcessPending
 void* __cdecl FUN_00ffd710(void*);                   // 0x00ffd710
@@ -376,7 +377,6 @@ struct Ext {
     void* FUN_00e0ad00(int);                 // 0x00e0ad00
     void* FUN_00e0e1a0();                    // 0x00e0e1a0
     void  FUN_0106ab20(int);                 // 0x0106ab20
-    void  FUN_01066200(int);                 // 0x01066200 SPUISpace::ToggleStarmapFilters
     void* FUN_01067e60();                    // 0x01067e60
     void* FUN_00ff3f00();                    // 0x00ff3f00
     void* FUN_00c32cd0(void*);               // GetColor
@@ -1900,7 +1900,7 @@ void SimGame::f5130()
         E(m)->FUN_00e0e1a0();
     }
     E(*(void**)(s + 0x14))->FUN_0106ab20(1);
-    E(*(void**)(s + 0x14))->FUN_01066200(0);
+    FUN_0106200(*(void**)(s + 0x14), 0);
     void* nouns = FUN_00b3d300();
     E(nouns)->FUN_00b22960();
 }
@@ -2293,24 +2293,20 @@ void* __cdecl FUN_01006280(char* first, char* last, char* dst)
 }
 
 // @ 0x010062d0
-extern "C" char g_13ec458[];   // ??_7ContentValidationSummarizer@@6B@
-extern "C" char g_1495400[];
-extern "C" char g_149bad8[];
-char* __cdecl FUN_010062d0(char* first, char* last, char* dst)
+void __cdecl FUN_010062d0(char* first, char* last, char* dst)
 {
   while (first != last) {
     if (dst != 0) {
-      *(void* volatile*)(dst + 4) = g_13ec458;   // ??_7ContentValidationSummarizer@@6B@
+      *(u32*)(dst + 4) = 0x013ec458;   // ??_7ContentValidationSummarizer@@6B@
       *(u32*)(dst + 8) = 0;
-      *(void**)(dst + 0) = g_1495400;
-      *(void**)(dst + 4) = g_149bad8;
+      *(u32*)(dst + 0) = 0x01495400;
+      *(u32*)(dst + 4) = 0x0149bad8;
       *(u32*)(dst + 0xc)  = *(u32*)(first + 0xc);
       *(u32*)(dst + 0x10) = *(u32*)(first + 0x10);
     }
     first += 0x14;
     dst   += 0x14;
   }
-  return dst;
 }
 
 // @ 0x01006320

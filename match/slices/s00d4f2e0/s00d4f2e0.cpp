@@ -30,8 +30,6 @@ typedef unsigned long long u64;
 struct cSPVector2 { float x, y; };      // SP::cSPVector2 (struct, 8 bytes)
 struct Vec3 {
     float x, y, z;
-    Vec3() {}
-    Vec3(const Vec3& o) { x = o.x; y = o.y; z = o.z; }
 };
 inline Vec3 operator*(const Vec3& v, float s)
 {
@@ -668,6 +666,204 @@ bool SP::cMeteorStrikeEvent::Write(void* stream)
 }
 
 // =============================================================================
+// @ 0x00d4f2e0
+// Activation helper that sits directly in front of cUFOAbductionEvent:TriggerEvent:
+// it resolves the avatar's simulator and the active herd, places two beam spawn
+// centres on the planet surface and flags every herd member the beam picks up.
+// Retail returns void (no value is set before `ret`), so the retail symbol is
+// kept as FUN_00d4f2e0.  Identity inferred from the callers/callees only.
+extern "C" void* FUN_00c04590();   // 0x00c04590  avatar -> simulator object
+extern "C" void* FUN_00d4cf10();   // 0x00d4cf10  event: game-data lookup (key, class)
+extern "C" void* FUN_0067dd10();   // 0x0067dd10  game-mode singleton
+extern "C" void* FUN_00b23650();   // 0x00b23650  cGameNounManager::CreateNoun
+extern "C" void* FUN_00b3d480();   // 0x00b3d480  world singleton
+extern "C" void* FUN_00ac84d0();   // 0x00ac84d0  effect manager of that world (arg 1)
+extern "C" void  FUN_00c6ba20();   // 0x00c6ba20  herd: store the spawn record
+extern "C" void* FUN_0059aed0();   // 0x0059aed0  basis * vector -> world vector (+ height)
+extern "C" void  FUN_00b815a0();   // 0x00b815a0  planet: build the spawn record from a point
+extern "C" void* FUN_0108db30();   // 0x0108db30  current surface normal
+extern "C" void  FUN_004a9b40();   // 0x004a9b40  quaternion -> 3x3 basis
+extern "C" void* FUN_00b82970();   // 0x00b82970  planet: surface hit for a transform
+extern "C" void  FUN_00537dc0();   // 0x00537dc0  effect holder: set the transform
+extern "C" void* FUN_00c099e0();   // 0x00c099e0  herd slot -> spawned visual
+extern "C" void  FUN_00b8bb70();   // 0x00b8bb70  planet query: point on surface
+extern "C" void* FUN_00449c20();   // 0x00449c20  normalise a direction
+extern "C" void* FUN_00c6acc0();   // 0x00c6acc0  simulator object position
+
+extern const u8 gBasis169e4a4;     // 0x0169e4a4
+extern const u8 gBasis169e4b0;     // 0x0169e4b0
+extern const float kRadius169f1cac; // 0x013f1cac  default beam radius
+
+typedef void* (__cdecl   *Th0)();
+typedef void* (__thiscall *Th1)(void*);
+typedef void* (__thiscall *Th2)(void*, u32);
+typedef void* (__thiscall *Th5)(void*, u32, u32, u32, void*, u32);
+typedef u32   (__thiscall *ThType)(void*);
+typedef void  (__thiscall *ThT3)(void*, void*, void*, void*);
+
+// The herd noun as this function sees it: the member stream at +0x40/+0x44,
+// the array at +0xa4, the count at +0xf4 and the beam id at +0x124.
+struct HerdStub {
+    u8    m_pad00[0x40];
+    u8*   m_begin44;                 // +0x40
+    u8*   m_end44;                   // +0x44
+    u8    m_pad48[0xa4 - 0x48];
+    void* m_pA4;                     // +0xa4
+    u8    m_padA8[0xf4 - 0xa8];
+    u32   m_uF4;                     // +0xf4
+    u8    m_padF8[0x124 - 0xf8];
+    i32   m_beam124;                 // +0x124
+};
+
+void __fastcall FUN_00d4f2e0(void* selfRaw)
+{
+    u8* ev = (u8*)selfRaw;
+
+    cGameNounManager* nouns = (cGameNounManager*)SP_NounManager();
+    void* avatar = nouns->GetAvatar();
+    void* sim    = ((Th1)FUN_00c04590)(avatar);
+
+    // The abduction is only valid while the mode object still resolves the
+    // scenario (0x2a7ecd2) that owns the herd.
+    void* mode = ((Th0)FUN_0067dd10)();
+    void* p50  = ((Th1)(*(void***)mode)[0x50 / 4])(mode);
+    void* p38  = ((Th1)(*(void***)p50)[0x38 / 4])(p50);
+    if (p38 == 0)
+        return;
+    void* scenario = ((Th2)(*(void***)p38)[0x0c / 4])(p38, 0x2a7ecd2);
+    if (scenario == 0)
+        return;
+
+    HerdStub* herd = (HerdStub*)((void* (__thiscall*)(void*, u32, u32))FUN_00d4cf10)(selfRaw, 0, 0x52aa6117);
+    if (herd == 0) {
+        Vec3 pos;
+        {
+            float* sp = (float*)((Th1)FUN_00c6acc0)(sim);
+            pos.x = sp[0];
+            pos.y = sp[1];
+            pos.z = sp[2];
+        }
+        void* noun = ((Th5)FUN_00b23650)((void*)SP_NounManager(), 0x1be418e, 0xc21f9669, 0, &pos, 0);
+        if (noun == 0)
+            return;
+        // Checked cast to the herd noun type.
+        herd = (((ThType)(*(void***)noun)[0x20 / 4])(noun) == 0x1be418e) ? (HerdStub*)noun : 0;
+        herd->m_beam124 = -1;
+        ((void (__thiscall*)(void*, u32, void*))FUN_00d4edd0)(selfRaw, 0, herd);
+    }
+
+    // Beam radius from the event's property list.
+    float fRadius = kRadius169f1cac;
+    cPropertyList* props = *(cPropertyList**)(ev + 0x40);
+    if (props != 0) {
+        Property* prop;
+        if (props->FindProperty(0x3551d2ea, &prop) && prop->m_type12 == 0xd)
+            fRadius = *prop->GetFloat();
+    }
+
+    // --- first spawn centre: simulator orientation, lifted by the planet query
+    void* anchor = *(void**)((u8*)sim + 0x160);
+    u8*   basis  = (u8*)anchor + 0x34;
+    void* orient = ((Th1)(*(void***)basis)[0x30 / 4])(basis);
+
+    {
+        Vec3 scratch;
+        Vec3 v = *((Vec3* (__cdecl*)(Vec3*, const void*, void*))FUN_0059aed0)(
+                     &scratch, (const void*)&gBasis169e4a4, orient);
+
+        Vec3 water;
+        bool bHit = ((bool (__thiscall*)(void*, const float*, float, Vec3*))FUN_00b8bb70)(
+                        (void*)SP_PlanetModel(),
+                        (const float*)((Th1)FUN_00c6acc0)(sim), fRadius, &water);
+        if (bHit) {
+            float* sp = (float*)((Th1)FUN_00c6acc0)(sim);
+            Vec3 delta;
+            delta.x = sp[0] - water.x;
+            delta.y = sp[1] - water.y;
+            delta.z = sp[2] - water.z;
+            Vec3 dirOut;
+            v = *((Vec3* (__cdecl*)(Vec3*, const Vec3*))FUN_00449c20)(&dirOut, &delta);
+        }
+
+        v.x = v.x * fRadius;
+        v.y = v.y * fRadius;
+        v.z = v.z * fRadius;
+
+        float* sp = (float*)((Th1)FUN_00c6acc0)(sim);
+        Vec3 spawn;
+        spawn.x = v.x + sp[0];
+        spawn.y = v.y + sp[1];
+        spawn.z = v.z + sp[2];
+
+        Vec3 rec;
+        ((void (__thiscall*)(void*, Vec3*, const Vec3*))FUN_00b815a0)(
+            (void*)SP_PlanetModel(), &rec, &spawn);
+        ((void (__thiscall*)(void*, Vec3*))FUN_00c6ba20)(herd, &rec);
+    }
+
+    // --- second spawn centre: the avatar's own ground direction
+    void* effWorld = ((Th0)FUN_00b3d480)();
+    void* mgr = ((void* (__thiscall*)(void*, u32))FUN_00ac84d0)(effWorld, 1);
+
+    u8* avIface = (u8*)avatar + 0xc0;
+
+    Vec3 w;
+    {
+        float* ap = (float*)((Th1)(*(void***)avIface)[0x2c / 4])(avIface);
+        float alen = sqrtf(ap[0] * ap[0] + ap[1] * ap[1] + ap[2] * ap[2] + kEps);
+        float ainv = 1.0f / alen;
+        w.x = ap[0] * ainv;
+        w.y = ap[1] * ainv;
+        w.z = ap[2] * ainv;
+    }
+
+    Vec3 nrm = *(Vec3*)((void* (__cdecl*)())FUN_0108db30)();
+    float dot = w.x * nrm.x + w.y * nrm.y + w.z * nrm.z;
+    nrm.x = nrm.x - w.x * dot;
+    nrm.y = nrm.y - w.y * dot;
+    nrm.z = nrm.z - w.z * dot;
+    float rlen = sqrtf(nrm.x * nrm.x + nrm.y * nrm.y + nrm.z * nrm.z + kEps);
+    float rinv = 1.0f / rlen;
+
+    float* ap2 = (float*)((Th1)(*(void***)avIface)[0x2c / 4])(avIface);
+    Vec3 centre;
+    centre.x = ap2[0] - nrm.x * rinv * fRadius;
+    centre.y = ap2[1] - nrm.y * rinv * fRadius;
+    centre.z = ap2[2] - nrm.z * rinv * fRadius;
+
+    Transform t1;
+    Transform t2;
+    {
+        Quaternion quat = ((SP::cPlanetModel*)SP_PlanetModel())->BuildSurfaceOrientation(centre);
+        Matrix3 mat;
+        ((void (__cdecl*)(void*, const Quaternion*))FUN_004a9b40)(&mat, &quat);
+        t1.mBasis = mat;
+        t1.mFlags |= 2;
+        t1.mRevision++;
+
+        Vec3* snapped = (Vec3*)((Vec3* (__thiscall*)(void*, void*, void*, u32))FUN_00b82970)(
+                            (void*)SP_PlanetModel(), (void*)&quat, &centre, 0);
+        t1.mPos = *snapped;
+        t1.mFlags |= 4;
+        t1.mRevision++;
+    }
+    ((void (__thiscall*)(void*, void*))FUN_00537dc0)(&t2, &t1);
+
+    // --- flag every herd member the beam reaches
+    int count = (int)((herd->m_end44 - herd->m_begin44) >> 2);
+    void* arr = herd->m_pA4;
+    if ((u32)count >= herd->m_uF4)
+        return;
+    while ((u32)count < herd->m_uF4) {
+        ((ThT3)(*(void***)mgr)[0x10 / 4])(mgr, &t1, &t2, &t1);
+        void* r2 = ((void* (__cdecl*)(void*, void*, u32, void*, u32, u32))FUN_00c099e0)(
+                       &t2, arr, 1, herd, 0, 1);
+        void* slot = *(void**)((u8*)r2 + 0xb4c);
+        *(u32*)((u8*)slot + 0x5fc) |= 0x10000;
+        ++count;
+    }
+}
+
 // @ 0x00d502f0
 void __fastcall FUN_00d502f0(void* self)
 {

@@ -2,9 +2,6 @@
 // Object file: SPGonzago/SPTribeDisplayStrategy.obj.  Function bodies keep the slice's code; types, members and virtual calls use the
 // canonical headers under src/game/include.  Each function keeps its '// @ 0xVA' marker.
 
-// addresses retail relocates here, named so the build relocates them too
-extern "C" char g_13ef094[];
-
 #include "game/types.h"
 #include "SP/cSPCreatureCitizen.h"
 #include "SP/cReservationGrid.h"
@@ -1452,7 +1449,7 @@ void TribeStrategy_s00cc_8ed0::FUN_00cc9430()
             c->pv1();
         }
     }
-    mVt = (int)g_13ef094;
+    mVt = 0x013ef094;
 }
 
 // @ 0x00cc9460
@@ -2275,7 +2272,9 @@ void cTribeDisplayStrategy::FUN_00ccaa80(void* arg)
         void* ps = *(void**)((char*)p + 0x78);
         void* key = *(void**)((char*)node + 0x10);
         u32 idx;
-        if (CIT(cit)->FUN_00c0b770() != 0) {
+        if (CIT(cit)->FUN_00c0b770() == 0) {
+            idx = 5;
+        } else {
             switch (CIT(cit)->FUN_00c22dc0()) {
             case 0xb:
                 idx = 0;
@@ -2299,8 +2298,6 @@ void cTribeDisplayStrategy::FUN_00ccaa80(void* arg)
                 idx = 4;
                 break;
             }
-        } else {
-            idx = 5;
         }
         void* pose = *(void**)((char*)ps + idx * 4 + 8);
         void* item = POSSE(pose)->FUN_00e24c90(cit);
@@ -2325,10 +2322,12 @@ void cTribeDisplayStrategy::FUN_00ccab80()
     }
     do {
         void* cit = *(void**)((char*)node + 0x14);
-        void* key = *(void**)((char*)node + 0x10);
         void* ps = *(void**)((char*)p + 0x78);
+        void* key = *(void**)((char*)node + 0x10);
         u32 idx;
-        if (CIT(cit)->FUN_00c0b770() != 0) {
+        if (CIT(cit)->FUN_00c0b770() == 0) {
+            idx = 5;
+        } else {
             switch (CIT(cit)->FUN_00c22dc0()) {
             case 0xb:
                 idx = 0;
@@ -2352,8 +2351,6 @@ void cTribeDisplayStrategy::FUN_00ccab80()
                 idx = 4;
                 break;
             }
-        } else {
-            idx = 5;
         }
         void* pose = *(void**)((char*)ps + idx * 4 + 8);
         void* item = POSSE(pose)->FUN_00e24c90(cit);

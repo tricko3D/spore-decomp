@@ -2,51 +2,6 @@
 // Object file: SPGonzago/SPPlayer.obj.  Function bodies keep the slice's code; types, members and virtual calls use the
 // canonical headers under src/game/include.  Each function keeps its '// @ 0xVA' marker.
 
-// addresses retail relocates here, named so the build relocates them too
-extern "C" char g_1465d64[];
-extern "C" void FUN_00595a50();
-extern "C" void FUN_00675ca0();
-extern "C" void FUN_00692ca0();
-extern "C" void FUN_00692fb0();
-extern "C" void FUN_00693070();
-extern "C" void FUN_00693090();
-extern "C" void FUN_00694f00();
-extern "C" void FUN_00694f80();
-extern "C" void FUN_00ac8050();
-extern "C" void FUN_00ae3310();
-extern "C" void FUN_00ae3470();
-extern "C" void FUN_00ae3490();
-extern "C" void FUN_00c2e4e0();
-extern "C" void FUN_00c76300();
-extern "C" char g_1473080[];
-extern "C" char g_147309c[];
-extern "C" char g_14730b8[];
-extern "C" char g_14730c8[];
-extern "C" char g_14730dc[];
-extern "C" char g_14730f0[];
-extern "C" char g_1473104[];
-extern "C" char g_1473110[];
-extern "C" char g_1473124[];
-extern "C" char g_1473130[];
-extern "C" char g_1473144[];
-extern "C" char g_147315c[];
-extern "C" char g_1473174[];
-extern "C" char g_147318c[];
-extern "C" char g_14731a0[];
-extern "C" char g_157963c[];
-extern "C" char g_1579678[];
-extern "C" char g_15796b4[];
-extern "C" char g_15796f0[];
-extern "C" char g_157972c[];
-extern "C" char g_1579768[];
-extern "C" char g_15797a4[];
-extern "C" char g_15797e0[];
-extern "C" char g_1579894[];
-extern "C" char g_15798d0[];
-extern "C" char g_157990c[];
-extern "C" char g_1579948[];
-extern "C" char g_1579984[];
-
 #include "game/types.h"
 #include "SP/cEmpire.h"
 #include "SP/cGameNounManager.h"
@@ -82,7 +37,6 @@ struct cStarManager {                              // returned by SP::StarManage
 };
 struct cEmpire {
     void  SetValue(i32 v);                         // 0x00c322f0
-    void SetCaptainKey(const EA::ResourceMan::Key& key); // 0x00c30fa0
 };
 void* __stdcall FUN_00b3d2a0(void*);                // 0x00b3d2a0 (SP::StarManager; one stack arg, caller pops)
 struct cDepthCounter {
@@ -295,7 +249,7 @@ extern uint8_t g_gameModeEntry;     // 0x01654c02  game-mode table entry (DAT_01
 extern wchar_t g_wstrEmpty[];       // 0x013f6254  shared empty wstring buffer
 extern wchar_t g_wstrBool[];        // 0x013f58a0  L"bool"
 void*  __cdecl FUN_00c771e0(void* pLast, void* pEnd, void* pFirst);            // 0x00c771e0 eastl copy_impl::do_copy
-void   __cdecl FUN_00c75b60(void* pDst, uint32_t n, void* pValue, void* pPos); // 0x00c75b60 eastl uninitialized_fill_n
+void*  __cdecl FUN_00c75b60(void* pDst, uint32_t n, void* pValue, void* pPos); // 0x00c75b60 eastl uninitialized_fill_n
 void*  __cdecl FUN_00c76740(void* pDst, void* pSrc, uint32_t nBytes);          // 0x00c76740 eastl uninitialized_move
 uint32_t __cdecl FUN_00c227e0();                                               // 0x00c227e0 get the ban-pick mode
 void   __cdecl FUN_00c227d0(uint32_t nMode);                                   // 0x00c227d0 set the ban-pick mode
@@ -491,13 +445,7 @@ public:
     cHash69c mHash69c;                          // +0x0698 .. +0x06cb
     uint8_t mPad6cc[0x10e8 - 0x6cc];
     void* mpRef10e8;                            // +0x10e8
-    uint8_t mPad10ec[0x10fc - 0x10ec];
-    int mCellConsequenceTrait;                  // +0x10fc, retail attribute registration
-    int mCreatureConsequenceTrait;              // +0x1100, retail attribute registration
-    int mTribeConsequenceTrait;                 // +0x1104, retail attribute registration
-    int mCivConsequenceTrait;                   // +0x1108, retail attribute registration
-    int mSpaceConsequenceTrait;                 // +0x110c, retail attribute registration
-    uint8_t mPad1110[0x111c - 0x1110];
+    uint8_t mPad10ec[0x111c - 0x10ec];
     cHash1120 mHash1120;                        // +0x111c .. +0x112b
     uint8_t mPad112c[0x113c - 0x112c];
     cBanModeArray mBanModeTable;                // +0x113c .. +0x1143
@@ -519,16 +467,10 @@ public:
     tPair28* mpPairEnd1218;                     // +0x1218
     uint8_t mPad121c[0x1228 - 0x121c];
     cRbTree1228 mRbTree;                        // +0x1228 .. +0x123f
-    uint8_t mPad1240c[0x1244 - 0x1240];
-    uint32_t mThemeID;                          // +0x1244, retail attribute registration
-    uint8_t mPad1248[0x1258 - 0x1248];
-    SP::cGonzagoTimer mSoothingSongTimer;        // +0x1258, registered as mSoothingSongTimer
-    float mSocialTraitProgress;                 // +0x1278, retail attribute registration
-    float mCombatTraitProgress;                 // +0x127c, retail attribute registration
-    EA::ResourceMan::Key mPirateUFOModelKey;     // +0x1280, retail attribute registration
-    uint32_t mTotalTimeInCVG;                    // +0x128c, retail attribute registration
-    EA::ResourceMan::Key mInitCaptainKey;        // +0x1290, retail attribute registration
-    int* mAdventuresCompletedBegin;             // +0x129c, mAdventuresCompleted storage
+    uint8_t mPad1240c[0x1258 - 0x1240];
+    cGonzagoTimer mTimer1258;                   // +0x1258
+    uint8_t mPad1278[0x129c - 0x1278];
+    void* mpBlock129c;                          // +0x129c
     uint8_t mPad12a0[0x12ac - 0x12a0];
     void* mpBlock12ac;                          // +0x12ac
 
@@ -539,13 +481,6 @@ public:
     void  FUN_00c7a160(cPlayerInner* pObj);                     // 0x00c7a160
     void  SetBanModePickPriorities(uint32_t nMode, tUintVec* pVec);  // 0x00c79e20
     void  FUN_00c79b60();                                       // 0x00c79b60  destructor body
-    bool IsSoothingSongActive();                               // 0x00c75650
-    float GetTraitProgress(bool social) const;                  // 0x00c75680
-    void AddTraitProgress(float amount, bool social);           // 0x00c756a0
-    void ApplyInitialCaptainKey();                             // 0x00c75a50
-    void SetTheme(uint32_t themeID);                            // 0x00c75580
-    int GetConsequenceTrait(int stageID) const;                 // 0x00c756e0
-    void NoteAdventureCompleted(SP::cEmpire* empire, uint32_t adventureID); // 0x00c75e30
 };
 // ---- items of slice s00c793e0 end
 
@@ -667,8 +602,8 @@ virtual void d40();
 virtual void d44();
 virtual void d48();
 virtual void d4c();
-    virtual void SetTheme(uint32_t themeID);                             // +0x50
-    virtual void ClearTheme();                                          // +0x54
+    virtual void Register(void* owner);                                 // +0x50
+    virtual void Unregister();                                          // +0x54
 };
 class cVarListSerializer {
 public:
@@ -1532,16 +1467,15 @@ struct cSpacePlayerWarData {
     cSpacePlayerWarData* __thiscall ctor(const cSpacePlayerWarData& src);   // 0x00c76f60
 };
 struct cHashSubD {
-    U32 mDummy;       // +0x00 (sub-object state, not touched by the thunks below)
-    U32 mpBuckets;    // +0x04
-    U32 mnBuckets;    // +0x08
-    U32 mnElements;   // +0x0c
+    U32 mDummy;   // +0x00 (sub-object state, not touched by the thunks below)
 
-    U32 __thiscall FUN_006b6740(U32* pKey);   // 0x006b6740, returns erased count
+    void __thiscall FUN_006b6740(U32* pKey);   // 0x006b6740
 };
 struct cHashTableD {
     U32       md000[0x111c / 4];   // +0x000
     cHashSubD mSub;                // +0x111c
+    U32       mpBuckets;           // +0x1120
+    U32       mnBuckets;           // +0x1124
 
     bool __thiscall Contains(U32 nKey);       // 0x00c772c0
     void __thiscall FUN_00c77300(U32 nKey);   // 0x00c77300
@@ -2252,7 +2186,7 @@ void* __cdecl FUN_00ba2e50(int lo, int hi, uint32_t* key)
 void __thiscall W::Run_00ba2f20()
 {
   char* s = (char*)this;
-  *(void**)s = (void*)g_vtblPlayerPlanetData;   // 0x01465d64
+  *(void**)s = (void*)0x1465dc8;
   ((CGZTimer*)(s + 0x80))->Dtor();
   if (*(void**)(s + 0x68)) operator_delete__(*(void**)(s + 0x68));
   if (*(void**)(s + 0x50)) operator_delete__(*(void**)(s + 0x50));
@@ -2359,8 +2293,7 @@ void __cdecl WriteKeyBoolMap(ISerializer* pWriter, cVector<cKeyBoolPair>& items)
 // @ 0x00c760c0
 bool __cdecl FixupPlayerPlanetData(void* pCtx, cVector<cKeyBoolPair>& items)
 {
-    cKeyBoolPair* pEnd = items.mpEnd;
-    for (cKeyBoolPair* pItem = items.mpBegin; pItem != pEnd; ++pItem) {
+    for (cKeyBoolPair* pItem = items.mpBegin; pItem != items.mpEnd; ++pItem) {
         if (&pItem->mValue != 0)
             ((IRegisterHost*)pCtx)->Register(&pItem->mValue, &g_1579600, L"PlayerPlanetData");
     }
@@ -2524,7 +2457,8 @@ float __thiscall cPlayer_s00c7_5e70::GetPlayerWarElapsedSeconds(cPlayer_s00c7_5e
     mWars.Find(&pFound, &nEnemyId);
     if (pFound != (cRBNodeBase*)&mWars.mAnchor) {
         cWarNode* pNode = (cWarNode*)pFound;
-        return (float)pNode->mTimer.GetElapsedTime() * g_f0p001;
+        U64 nElapsed = pNode->mTimer.GetElapsedTime();
+        return (float)nElapsed * g_f0p001;
     }
     return 0.0f;
 }
@@ -2781,7 +2715,7 @@ CElemTimer* __cdecl FUN_00c77250(const CElemTimer* pFirst, const CElemTimer* pLa
 bool __thiscall cHashTableD::Contains(U32 nKey)
 {
     int nCount = 0;
-    cHashNodeD* pNode = (cHashNodeD*)(*(U32*)(mSub.mpBuckets + (nKey % mSub.mnBuckets) * 4));
+    cHashNodeD* pNode = (cHashNodeD*)(*(U32*)(mpBuckets + (nKey % mnBuckets) * 4));
     while (pNode != 0) {
         if (nKey == pNode->mKey)
             ++nCount;
@@ -2793,8 +2727,7 @@ bool __thiscall cHashTableD::Contains(U32 nKey)
 // @ 0x00c77300
 void __thiscall cHashTableD::FUN_00c77300(U32 nKey)
 {
-    U32 key = nKey;
-    mSub.FUN_006b6740(&key);
+    mSub.FUN_006b6740(&nKey);
 }
 
 // @ 0x00c77380
@@ -3699,10 +3632,10 @@ void cPlayer::FUN_00c79b60()
         mpRef11f4 = 0;
         ((cRefObj_s00c7_93e0*)p)->Release();
     }
-    if (mAdventuresCompletedBegin != 0 && mAdventuresCompletedBegin != mpBlock12ac)
-        operator_delete_array(mAdventuresCompletedBegin);
+    if (mpBlock129c != 0 && mpBlock129c != mpBlock12ac)
+        operator_delete_array(mpBlock129c);
 
-    mSoothingSongTimer.~cGonzagoTimer();
+    mTimer1258.~cGonzagoTimer();
     mRbTree.DoNukeSubtree(mRbTree.mpRoot);
 
     for (uint32_t i = (uint32_t)mpPairBegin1214; i < (uint32_t)mpPairEnd1218; i += 0x28)
@@ -4486,9 +4419,9 @@ bool cPlayer_s00c7_c0c0::Read(void* stream)
     cObjectTemplateDB* db = (cObjectTemplateDB*)ObjectTemplateDB();
     if (db != 0) {
         if (mp1244 == 0)
-            db->ClearTheme();
+            db->Unregister();
         else
-            db->SetTheme(reinterpret_cast<uint32_t>(mp1244));
+            db->Register(mp1244);
     }
 
     cPropertyManager* pm = (cPropertyManager*)PropertyManager();
@@ -4519,7 +4452,7 @@ void __cdecl FUN_00c7c9b0(void* stream, cPlanetVec* vec)
     if (count != 0) {
         do {
             PlayerPlanetData temp;
-            temp.mpVtbl = (void*)g_1465d64;
+            temp.mpVtbl = (void*)0x1465d64;
             temp.pv08b = temp.pv08e = temp.pv08c = 0;
             temp.pv20b = temp.pv20e = temp.pv20c = 0;
             temp.pv38b = temp.pv38e = temp.pv38c = 0;
@@ -4799,25 +4732,25 @@ void InitPlayerAttributes()
 void FUN_01351ae0(void)
 {
     PropDesc d;
-    d.mName = (const char*)g_1473124;
+    d.mName = (const char*)0x1473124;
     d.mHash = 0x5626ed3;
     d.mZero18 = 0x0;
     d.mZero1C = 0x0;
-    d.mDefault = (void*)FUN_00692ca0;
+    d.mDefault = (void*)0x692ca0;
     d.mFn24 = (void*)U_01351ae0_0_24;
     d.mFn28 = (void*)U_01351ae0_0_28;
-    d.mFn2C = (void*)FUN_00693070;
-    d.mFn30 = (void*)FUN_00694f80;
+    d.mFn2C = (void*)0x693070;
+    d.mFn30 = (void*)0x694f80;
     d.mFn34 = (void*)U_01351ae0_0_34;
-    d.mFn38 = (void*)FUN_00595a50;
+    d.mFn38 = (void*)0x595a50;
     d.mType = 0xa2;
-    *(PropDesc*)&g_1579600 = d;
+    *(PropDesc*)0x1579600 = d;
 
-    d.mName = (const char*)g_1473110;
+    d.mName = (const char*)0x1473110;
     d.mHash = 0x6282444;
     d.mZero18 = 0x0;
     d.mZero1C = 0x0;
-    d.mDefault = (void*)FUN_00692ca0;
+    d.mDefault = (void*)0x692ca0;
     d.mFn24 = (void*)U_01351ae0_1_24;
     d.mFn28 = (void*)U_01351ae0_1_28;
     d.mFn2C = (void*)U_01351ae0_1_2c;
@@ -4825,13 +4758,13 @@ void FUN_01351ae0(void)
     d.mFn34 = (void*)SAE0_F34A;
     d.mFn38 = (void*)SAE0_F38A;
     d.mType = 0xa1;
-    *(PropDesc*)g_157963c = d;
+    *(PropDesc*)0x157963c = d;
 
-    d.mName = (const char*)g_1473104;
+    d.mName = (const char*)0x1473104;
     d.mHash = 0x6282445;
     d.mZero18 = 0x0;
     d.mZero1C = 0x0;
-    d.mDefault = (void*)FUN_00692ca0;
+    d.mDefault = (void*)0x692ca0;
     d.mFn24 = (void*)U_01351ae0_2_24;
     d.mFn28 = (void*)U_01351ae0_2_28;
     d.mFn2C = (void*)U_01351ae0_2_2c;
@@ -4839,13 +4772,13 @@ void FUN_01351ae0(void)
     d.mFn34 = (void*)SAE0_F34A;
     d.mFn38 = (void*)SAE0_F38A;
     d.mType = 0xa0;
-    *(PropDesc*)g_1579678 = d;
+    *(PropDesc*)0x1579678 = d;
 
-    d.mName = (const char*)g_14730f0;
+    d.mName = (const char*)0x14730f0;
     d.mHash = 0x5d2741e;
     d.mZero18 = 0x0;
     d.mZero1C = 0x0;
-    d.mDefault = (void*)FUN_00692ca0;
+    d.mDefault = (void*)0x692ca0;
     d.mFn24 = (void*)U_01351ae0_3_24;
     d.mFn28 = (void*)U_01351ae0_3_28;
     d.mFn2C = (void*)SAE0_F2CB;
@@ -4853,13 +4786,13 @@ void FUN_01351ae0(void)
     d.mFn34 = (void*)U_01351ae0_3_34;
     d.mFn38 = (void*)U_01351ae0_3_38;
     d.mType = 0x8;
-    *(PropDesc*)g_15796b4 = d;
+    *(PropDesc*)0x15796b4 = d;
 
-    d.mName = (const char*)g_14730dc;
+    d.mName = (const char*)0x14730dc;
     d.mHash = 0x5d27422;
     d.mZero18 = 0x0;
     d.mZero1C = 0x0;
-    d.mDefault = (void*)FUN_00692ca0;
+    d.mDefault = (void*)0x692ca0;
     d.mFn24 = (void*)U_01351ae0_4_24;
     d.mFn28 = (void*)U_01351ae0_4_28;
     d.mFn2C = (void*)SAE0_F2CB;
@@ -4867,13 +4800,13 @@ void FUN_01351ae0(void)
     d.mFn34 = (void*)U_01351ae0_4_34;
     d.mFn38 = (void*)U_01351ae0_4_38;
     d.mType = 0x20;
-    *(PropDesc*)g_15796f0 = d;
+    *(PropDesc*)0x15796f0 = d;
 
-    d.mName = (const char*)g_14730c8;
+    d.mName = (const char*)0x14730c8;
     d.mHash = 0x5d27426;
     d.mZero18 = 0x0;
     d.mZero1C = 0x0;
-    d.mDefault = (void*)FUN_00692ca0;
+    d.mDefault = (void*)0x692ca0;
     d.mFn24 = (void*)U_01351ae0_5_24;
     d.mFn28 = (void*)U_01351ae0_5_28;
     d.mFn2C = (void*)SAE0_F2CB;
@@ -4881,13 +4814,13 @@ void FUN_01351ae0(void)
     d.mFn34 = (void*)U_01351ae0_5_34;
     d.mFn38 = (void*)U_01351ae0_5_38;
     d.mType = 0x38;
-    *(PropDesc*)g_157972c = d;
+    *(PropDesc*)0x157972c = d;
 
-    d.mName = (const char*)g_14730b8;
+    d.mName = (const char*)0x14730b8;
     d.mHash = 0x5d2742a;
     d.mZero18 = 0x0;
     d.mZero1C = 0x0;
-    d.mDefault = (void*)FUN_00692ca0;
+    d.mDefault = (void*)0x692ca0;
     d.mFn24 = (void*)U_01351ae0_6_24;
     d.mFn28 = (void*)U_01351ae0_6_28;
     d.mFn2C = (void*)SAE0_F2CB;
@@ -4895,74 +4828,74 @@ void FUN_01351ae0(void)
     d.mFn34 = (void*)U_01351ae0_6_34;
     d.mFn38 = (void*)U_01351ae0_6_38;
     d.mType = 0x50;
-    *(PropDesc*)g_1579768 = d;
+    *(PropDesc*)0x1579768 = d;
 
-    d.mName = (const char*)g_147309c;
+    d.mName = (const char*)0x147309c;
     d.mHash = 0x5f0de1b;
     d.mZero18 = 0x0;
     d.mZero1C = 0x0;
-    d.mDefault = (void*)FUN_00692ca0;
-    d.mFn24 = (void*)&SP::FUN_00c7b510;
-    d.mFn28 = (void*)FUN_00c76300;
+    d.mDefault = (void*)0x692ca0;
+    d.mFn24 = (void*)0xc7b510;
+    d.mFn28 = (void*)0xc76300;
     d.mFn2C = (void*)SAE0_F2CB;
     d.mFn30 = (void*)SAE0_F30B;
     d.mFn34 = (void*)U_01351ae0_7_34;
-    d.mFn38 = (void*)&FUN_00c793e0;
+    d.mFn38 = (void*)0xc793e0;
     d.mType = 0x68;
-    *(PropDesc*)g_15797a4 = d;
+    *(PropDesc*)0x15797a4 = d;
 
-    d.mName = (const char*)g_1473080;
+    d.mName = (const char*)0x1473080;
     d.mHash = 0x689821d;
     d.mZero18 = 0x0;
     d.mZero1C = 0x0;
-    d.mDefault = (void*)FUN_00692ca0;
-    d.mFn24 = (void*)FUN_00ae3470;
-    d.mFn28 = (void*)FUN_00ae3490;
+    d.mDefault = (void*)0x692ca0;
+    d.mFn24 = (void*)0xae3470;
+    d.mFn28 = (void*)0xae3490;
     d.mFn2C = (void*)SAE0_F2CB;
     d.mFn30 = (void*)SAE0_F30B;
-    d.mFn34 = (void*)FUN_00ae3310;
-    d.mFn38 = (void*)FUN_00ac8050;
+    d.mFn34 = (void*)0xae3310;
+    d.mFn38 = (void*)0xac8050;
     d.mType = 0x80;
-    *(PropDesc*)g_15797e0 = d;
+    *(PropDesc*)0x15797e0 = d;
 }
 
 // @ 0x01351e60
 void FUN_01351e60(void)
 {
     PropDesc d;
-    d.mName = (const char*)g_14731a0;
+    d.mName = (const char*)0x14731a0;
     d.mHash = 0x5626da6;
     d.mZero18 = 0x0;
     d.mZero1C = 0x0;
-    d.mDefault = (void*)FUN_00692ca0;
+    d.mDefault = (void*)0x692ca0;
     d.mFn24 = (void*)U_01351e60_0_24;
     d.mFn28 = (void*)U_01351e60_0_28;
-    d.mFn2C = (void*)FUN_00693090;
-    d.mFn30 = (void*)FUN_00694f00;
+    d.mFn2C = (void*)0x693090;
+    d.mFn30 = (void*)0x694f00;
     d.mFn34 = (void*)U_01351e60_0_34;
-    d.mFn38 = (void*)FUN_00675ca0;
+    d.mFn38 = (void*)0x675ca0;
     d.mType = 0x8;
-    *(PropDesc*)&g_1579858 = d;
+    *(PropDesc*)0x1579858 = d;
 
-    d.mName = (const char*)g_147318c;
+    d.mName = (const char*)0x147318c;
     d.mHash = 0x57a0b60;
     d.mZero18 = 0x0;
     d.mZero1C = 0x0;
-    d.mDefault = (void*)FUN_00692ca0;
-    d.mFn24 = (void*)FUN_00ae3470;
-    d.mFn28 = (void*)FUN_00ae3490;
-    d.mFn2C = (void*)FUN_00c2e4e0;
-    d.mFn30 = (void*)FUN_00692fb0;
-    d.mFn34 = (void*)FUN_00ae3310;
-    d.mFn38 = (void*)FUN_00ac8050;
+    d.mDefault = (void*)0x692ca0;
+    d.mFn24 = (void*)0xae3470;
+    d.mFn28 = (void*)0xae3490;
+    d.mFn2C = (void*)0xc2e4e0;
+    d.mFn30 = (void*)0x692fb0;
+    d.mFn34 = (void*)0xae3310;
+    d.mFn38 = (void*)0xac8050;
     d.mType = 0x10;
-    *(PropDesc*)g_1579894 = d;
+    *(PropDesc*)0x1579894 = d;
 
-    d.mName = (const char*)g_1473174;
+    d.mName = (const char*)0x1473174;
     d.mHash = 0x5626dae;
     d.mZero18 = 0x0;
     d.mZero1C = 0x0;
-    d.mDefault = (void*)FUN_00692ca0;
+    d.mDefault = (void*)0x692ca0;
     d.mFn24 = (void*)U_01351e60_2_24;
     d.mFn28 = (void*)U_01351e60_2_28;
     d.mFn2C = (void*)U_01351e60_2_2c;
@@ -4970,13 +4903,13 @@ void FUN_01351e60(void)
     d.mFn34 = (void*)SE60_F34;
     d.mFn38 = (void*)SE60_F38;
     d.mType = 0x30;
-    *(PropDesc*)g_15798d0 = d;
+    *(PropDesc*)0x15798d0 = d;
 
-    d.mName = (const char*)g_147315c;
+    d.mName = (const char*)0x147315c;
     d.mHash = 0x5626ec6;
     d.mZero18 = 0x0;
     d.mZero1C = 0x0;
-    d.mDefault = (void*)FUN_00692ca0;
+    d.mDefault = (void*)0x692ca0;
     d.mFn24 = (void*)U_01351e60_3_24;
     d.mFn28 = (void*)U_01351e60_3_28;
     d.mFn2C = (void*)U_01351e60_3_2c;
@@ -4984,13 +4917,13 @@ void FUN_01351e60(void)
     d.mFn34 = (void*)SE60_F34;
     d.mFn38 = (void*)SE60_F38;
     d.mType = 0x34;
-    *(PropDesc*)g_157990c = d;
+    *(PropDesc*)0x157990c = d;
 
-    d.mName = (const char*)g_1473144;
+    d.mName = (const char*)0x1473144;
     d.mHash = 0x5626eca;
     d.mZero18 = 0x0;
     d.mZero1C = 0x0;
-    d.mDefault = (void*)FUN_00692ca0;
+    d.mDefault = (void*)0x692ca0;
     d.mFn24 = (void*)U_01351e60_4_24;
     d.mFn28 = (void*)U_01351e60_4_28;
     d.mFn2C = (void*)U_01351e60_4_2c;
@@ -4998,13 +4931,13 @@ void FUN_01351e60(void)
     d.mFn34 = (void*)SE60_F34;
     d.mFn38 = (void*)SE60_F38;
     d.mType = 0x38;
-    *(PropDesc*)g_1579948 = d;
+    *(PropDesc*)0x1579948 = d;
 
-    d.mName = (const char*)g_1473130;
+    d.mName = (const char*)0x1473130;
     d.mHash = 0x5626ece;
     d.mZero18 = 0x0;
     d.mZero1C = 0x0;
-    d.mDefault = (void*)FUN_00692ca0;
+    d.mDefault = (void*)0x692ca0;
     d.mFn24 = (void*)U_01351e60_5_24;
     d.mFn28 = (void*)U_01351e60_5_28;
     d.mFn2C = (void*)U_01351e60_5_2c;
@@ -5012,194 +4945,5 @@ void FUN_01351e60(void)
     d.mFn34 = (void*)SE60_F34;
     d.mFn38 = (void*)SE60_F38;
     d.mType = 0x3c;
-    *(PropDesc*)g_1579984 = d;
-}
-
-// @ 0x00c75650
-bool cPlayer::IsSoothingSongActive()
-{
-    if (mSoothingSongTimer.GetElapsedTime() > 120000ULL)
-        mSoothingSongTimer.Stop();
-    return mSoothingSongTimer.IsRunning();
-}
-
-// @ 0x00c75680
-float cPlayer::GetTraitProgress(bool social) const
-{
-    if (social)
-        return mSocialTraitProgress;
-    return mCombatTraitProgress;
-}
-
-// @ 0x00c756a0
-void cPlayer::AddTraitProgress(float amount, bool social)
-{
-    if (social)
-        mSocialTraitProgress += amount;
-    else
-        mCombatTraitProgress += amount;
-}
-
-// @ 0x00c75a50
-void cPlayer::ApplyInitialCaptainKey()
-{
-    if (mInitCaptainKey.mInstance != 0) {
-        static_cast<cEmpire*>(SP::FUN_01021300())->SetCaptainKey(mInitCaptainKey);
-        mInitCaptainKey = EA::ResourceMan::Key();
-    }
-}
-
-// @ 0x00c75b60
-void __cdecl FUN_00c75b60(void* pDst, uint32_t n, void* pValue, void* pPos)
-{
-    (void)pPos;
-    tAutoRef* destination = static_cast<tAutoRef*>(pDst);
-    while (n > 0) {
-        if (destination) {
-            SP::cSpatialObject* object =
-                static_cast<SP::cSpatialObject*>(static_cast<tAutoRef*>(pValue)->mpObj);
-            destination->mpObj = object;
-            if (object) {
-                // The retail selection-object interface has AddRef at slot 47.
-                typedef int (__thiscall* AddRefFunction)(SP::cSpatialObject*);
-                reinterpret_cast<AddRefFunction*>(*reinterpret_cast<void***>(object))[47](object);
-            }
-        }
-        --n;
-        ++destination;
-    }
-}
-
-// @ 0x00c75580
-void cPlayer::SetTheme(uint32_t themeID)
-{
-    mThemeID = themeID;
-    cObjectTemplateDB* db = static_cast<cObjectTemplateDB*>(ObjectTemplateDB());
-    if (db) {
-        if (mThemeID != 0)
-            db->SetTheme(mThemeID);
-        else
-            db->ClearTheme();
-    }
-}
-
-// Select the current adventure key from the empire archetype's adventure list.
-bool __cdecl GetArchetypeAdventure(SP::cEmpire* empire, int completedCount, uint32_t* adventureID);
-
-// @ 0x00c75e30
-void cPlayer::NoteAdventureCompleted(SP::cEmpire* empire, uint32_t adventureID)
-{
-    int archetype = empire->mArchetype;
-    if (archetype < 8) {
-        int& completedCount = mAdventuresCompletedBegin[archetype];
-        uint32_t nextAdventureID;
-        if (GetArchetypeAdventure(empire, completedCount, &nextAdventureID) &&
-            nextAdventureID == adventureID)
-            ++completedCount;
-    }
-}
-
-class cCommManager {
-public:
-    void FUN_00aeb720(uint32_t empireID, uint32_t context, uint32_t groupID,
-                      uint32_t eventID, void* mission, int flags); // 0x00aeb720
-};
-cCommManager* __cdecl CommManager(); // 0x00b3d4a0
-
-// @ 0x00c75520
-void SP::cPlayer::DoPlayerWarVictory(unsigned int empireID)
-{
-    SP::cEmpire* empire = reinterpret_cast<SP::cEmpire*>(StarManager()->GetEmpireByID(empireID));
-    uint32_t politicalID = empire->mPoliticalID;
-    CommManager()->FUN_00aeb720(politicalID,
-        reinterpret_cast<cStarRecordRef*>(empire->GetHomePlanet())->GetCommContext(),
-        0xc8fbf7d7, 0xabd09746, 0, 0);
-}
-
-namespace SP {
-    cStarManager* __cdecl StarManager(); // 0x00b3d2a0
-}
-bool __cdecl GetPropertyKeyArray(SP::cPropertyList* properties, uint32_t propertyID,
-                                int* count, EA::ResourceMan::Key** keys); // 0x006a0ae0
-
-// @ 0x00c75940
-bool __cdecl GetArchetypeAdventure(SP::cEmpire* empire, int completedCount,
-                                  uint32_t* adventureID)
-{
-    int count;
-    EA::ResourceMan::Key* adventures;
-    SP::cPropertyList* properties = SP::StarManager()->GetEmpirePersonalityTuning(empire);
-    if (GetPropertyKeyArray(properties, 0x07674d19, &count, &adventures) &&
-        completedCount < count) {
-        *adventureID = adventures[completedCount].mInstance;
-        return true;
-    }
-    return false;
-}
-
-// @ 0x00c75780
-bool SP::PlayerPlanetData::Write(SP::cIObjectDatabaseOStream& stream) const
-{
-    ISerializerStream* __restrict holder = reinterpret_cast<ISerializer*>(&stream)->GetStreamHolder();
-    uint32_t signature = 0x05626b93;
-    EA_IO_Stream* output = holder->GetStream();
-    IO_WriteUint32(output, &signature, 1, 0);
-    SP::cVarListSerializer serializer(this,
-        reinterpret_cast<SP::cDataSerializerGeneric*>(&g_1579600),
-        SP::cVarListSerializer::kSignature);
-    bool result = serializer.Serialize(stream) ? true : false;
-    return result;
-}
-
-// @ 0x00c757f0
-bool SP::PlayerPlanetData::Read(SP::cIObjectDatabaseIStream& stream)
-{
-    EA_IO_Stream* input = reinterpret_cast<ISerializer*>(&stream)->GetStreamHolder()->GetStream();
-    uint32_t signature;
-    ReadInt32(input, &signature, 1, 0);
-    SP::cVarListSerializer serializer(this,
-        reinterpret_cast<SP::cDataSerializerGeneric*>(&g_1579600),
-        SP::cVarListSerializer::kSignature);
-    bool result = serializer.Serialize(stream) ? true : false;
-    return result;
-}
-
-// @ 0x00c75860
-bool SP::cSpacePlayerWarData::Write(SP::cIObjectDatabaseOStream& stream) const
-{
-    ISerializerStream* __restrict holder = reinterpret_cast<ISerializer*>(&stream)->GetStreamHolder();
-    uint32_t signature = 0x05626b91;
-    EA_IO_Stream* output = holder->GetStream();
-    IO_WriteUint32(output, &signature, 1, 0);
-    SP::cVarListSerializer serializer(this,
-        reinterpret_cast<SP::cDataSerializerGeneric*>(&g_1579858),
-        SP::cVarListSerializer::kSignature);
-    bool result = serializer.Serialize(stream) ? true : false;
-    return result;
-}
-
-// @ 0x00c758d0
-bool SP::cSpacePlayerWarData::Read(SP::cIObjectDatabaseIStream& stream)
-{
-    EA_IO_Stream* input = reinterpret_cast<ISerializer*>(&stream)->GetStreamHolder()->GetStream();
-    uint32_t signature;
-    ReadInt32(input, &signature, 1, 0);
-    SP::cVarListSerializer serializer(this,
-        reinterpret_cast<SP::cDataSerializerGeneric*>(&g_1579858),
-        SP::cVarListSerializer::kSignature);
-    bool result = serializer.Serialize(stream) ? true : false;
-    return result;
-}
-
-// @ 0x00c756e0
-int cPlayer::GetConsequenceTrait(int stageID) const
-{
-    switch (stageID) {
-    case static_cast<int>(0xa426730b): return mCellConsequenceTrait;
-    case static_cast<int>(0xad56080c): return mCreatureConsequenceTrait;
-    case static_cast<int>(0xf71fa311): return mTribeConsequenceTrait;
-    case static_cast<int>(0xbeb528cb): return mCivConsequenceTrait;
-    case 0x2db6dad3: return mSpaceConsequenceTrait;
-    default: return 0;
-    }
+    *(PropDesc*)0x1579984 = d;
 }

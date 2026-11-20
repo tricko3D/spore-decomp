@@ -2,10 +2,6 @@
 // Object file: SPGonzago/SPStarmap.obj.  Function bodies keep the slice's code; types, members and virtual calls use the
 // canonical headers under src/game/include.  Each function keeps its '// @ 0xVA' marker.
 
-// addresses retail relocates here, named so the build relocates them too
-extern "C" char g_15b85a0[];
-extern "C" char g_16e0688[];
-
 #include <intrin.h>
 #include "game/types.h"
 #include "SP/cStarRecord.h"
@@ -787,16 +783,10 @@ struct cSink {
 };
 }
 namespace SP {
-struct StarMapStreamHolder {
-    virtual void slot0(); virtual void slot1(); virtual void slot2();
-    virtual void slot3(); virtual void slot4(); virtual void slot5();
-    virtual void* GetStream(); // +0x18
-};
-struct StarMapOutputStream {
-    virtual void slot0(); virtual void slot1(); virtual void slot2();
-    virtual void slot3(); virtual void slot4(); virtual void slot5();
-    virtual void slot6(); virtual void slot7();
-    virtual StarMapStreamHolder* GetStreamHolder(); // +0x20
+struct cVarListSerializer_s0104_4360 {
+    uint32_t mData[7];                                     // 0x1c bytes
+    void Init(void* owner, const void* list, uint32_t line); // 0x00692f90
+    bool Serialize(cIOStream* stream);                     // 0x00692900
 };
 }
 namespace SP {
@@ -996,26 +986,15 @@ struct cBitVector {
 };
 }
 namespace SP {
-struct FlagGridIterator {
-    int* current;
-    int* first;
-    int* last;
-    int** node;
-    void Advance() {
-        ++current;
-        if (current == last) {
-            ++node;
-            first = *node;
-            last = first + 0x40;
-            current = first;
-        }
-    }
-};
 struct cFlagEntry {
-    virtual void slot0(); virtual void slot1(); virtual void slot2();
-    virtual void* GetName(const void* id); // +0x0c
-    virtual void slot4(); virtual void slot5(); virtual void slot6();
-    virtual void SerializeInto(void* stream); // +0x1c
+    void* mpVtable;                    // +0x00
+    void SerializeInto(void* stream) {
+        ((void (__thiscall*)(cFlagEntry*, void*))((void**)mpVtable)[0x1c / 4])(this, stream);
+    }
+    void* GetName(const void* id) {
+        return ((void* (__thiscall*)(cFlagEntry*, const void*))
+            ((void**)mpVtable)[0x0c / 4])(this, id);
+    }
 };
 }
 namespace SP {
@@ -1078,16 +1057,13 @@ namespace SP {
 void cStarMap_s0104_4360::SerializeSlots(cIOStream* stream)
 {
     for (int i = 0; i < 7; ++i) {
-        uint32_t slot = mSlots[i];
-        StarMapStreamHolder* __restrict holder =
-            reinterpret_cast<StarMapOutputStream*>(stream)->GetStreamHolder();
-        uint32_t value = slot;
-        void* output = holder->GetStream();
-        WriteUint32(output, &value, 1, 0);
+        uint32_t value = mSlots[i];
+        cSink* sink = stream->GetSink();
+        WriteUint32(sink->GetStream(), &value, 1, 0);
     }
-    cVarListSerializer serializer(this,
-        (cDataSerializerGeneric*)&gSerializerList, cVarListSerializer::kSignature);
-    serializer.Serialize(*reinterpret_cast<cIObjectDatabaseOStream*>(stream));
+    cVarListSerializer_s0104_4360 serializer;
+    serializer.Init(this, &gSerializerList, 0x1a80d26);
+    serializer.Serialize(stream);
 }
 }  // namespace SP
 
@@ -1270,12 +1246,19 @@ void __cdecl SerializeFlagGrid(cIOStream* stream, const cFlagGrid* grid)
 namespace SP {
 bool __cdecl ForEachFlagEntry(void* stream, const cFlagGrid* grid)
 {
-    FlagGridIterator it = { grid->mpBegin, 0, grid->mpRowEnd, grid->mpRowBase };
+    int* rowEnd = grid->mpRowEnd;
     int* last = grid->mpEnd;
-    while (it.current != last) {
-        if (*it.current)
-            ((cFlagEntry*)*it.current)->SerializeInto(stream);
-        it.Advance();
+    int* it = grid->mpBegin;
+    int** rowBase = grid->mpRowBase;
+    while (it != last) {
+        if (*it)
+            ((cFlagEntry*)*it)->SerializeInto(stream);
+        ++it;
+        if (it == rowEnd) {
+            it = rowBase[1];
+            ++rowBase;
+            rowEnd = it + 0x40;
+        }
     }
     return true;
 }
@@ -1754,24 +1737,15 @@ void cStarMap::ResetTravelTrail()
 void cStarMap::FilterHelperRemove(int filter)
 {
   RemoveVisualGroup(filter, false);
-  switch (filter) {
-  case 0:
-    return;
-  case 1:
-    return;
-  case 2:
-    if (this->mRelationshipScreenEffect != 0) {
-      VEffect* eff = this->mRelationshipScreenEffect;
-      eff->Destroy(false);
-      eff = this->mRelationshipScreenEffect;
-      if (eff != 0) {
-        this->mRelationshipScreenEffect = 0;
-        eff->Release();
-      }
+  if (filter != 0 && filter != 1 && filter == 2 &&
+      this->mRelationshipScreenEffect != 0) {
+    VEffect* eff = this->mRelationshipScreenEffect;
+    eff->Destroy(false);
+    eff = this->mRelationshipScreenEffect;
+    if (eff != 0) {
+      this->mRelationshipScreenEffect = 0;
+      eff->Release();
     }
-    break;
-  default:
-    break;
   }
 }
 
@@ -2305,7 +2279,7 @@ cPropView::~cPropView()
     void* a = FUN_0067dd50();
     ((void(__thiscall*)(void*, int))VF(a, 0x50))(a, 0x17);
 
-    ((void(__thiscall*)(void*))FUN_00feb0f0)((void*)g_16e0688);
+    ((void(__thiscall*)(void*))FUN_00feb0f0)((void*)0x016e0688);
 
     ((void(__thiscall*)(void*, int, int))FUN_01045b90)(this, 2, 0);
 
@@ -2344,7 +2318,7 @@ void cPropView::Fill_01046f30(void* arg)
     }
 
     ((void(__thiscall*)(void*, void*, int, int))FUN_00692f90)
-        (&local.mValue.y, this, (int)g_15b85a0, 0x01a80d26);
+        (&local.mValue.y, this, 0x015b85a0, 0x01a80d26);
     ((void(__thiscall*)(void*, void*))FUN_00693e10)(&local.mValue.y, arg);
 }
 

@@ -2,11 +2,6 @@
 // Object file: SPGonzago/SPCombatant.obj.  Function bodies keep the slice's code; types, members and virtual calls use the
 // canonical headers under src/game/include.  Each function keeps its '// @ 0xVA' marker.
 
-// addresses retail relocates here, named so the build relocates them too
-extern "C" char g_14698f0[];
-extern "C" char g_1464450[];
-extern "C" char g_1465d54[];
-
 #include "game/types.h"
 #include "SP/cCity.h"
 #include "SP/cCombatant.h"
@@ -72,6 +67,12 @@ struct Timer {
     void Restart();                                    // 0x00bc3130
     void Stop();                                       // 0x00bc3110
 };
+struct VarListSerializer {
+    char body[0xa00];
+    void Init(void* owner, void* table, int key);      // 0x00692f90 (ctor), ret 0xc
+    void Serialize(void* stream);                      // 0x00692900, ret 4
+    void Read(void* stream);                           // 0x00693e10, ret 4
+};
 struct VtObj {
     void** vt;                                         // +0x000
     bool NodePresent();                                // 0x00bfc3a0
@@ -113,8 +114,8 @@ struct Sim {
     void* arr_bc[3];                                   // +0x0bc
     void NodeApply(int value);                         // 0x00bfc430
     float NodeRatio();                                 // 0x00bfc490
-    bool CombatantWrite(VtObj* stream);                // 0x00bfc4a0
-    bool CombatantRead(VtObj* stream);                 // 0x00bfc540
+    void CombatantWrite(VtObj* stream);                // 0x00bfc4a0
+    void CombatantRead(VtObj* stream);                 // 0x00bfc540
     int TimedExpired();                                // 0x00bfc600
     void TimedAdd(unsigned int amount);                // 0x00bfc640
     void TimedStop();                                  // 0x00bfc6a0
@@ -142,12 +143,7 @@ struct AnimObj {                                       // 0x00bfc900 target obje
 // ---- items of slice s00bfcc80 begin (TODO(rewrite): local stubs, replace by canonical classes)
 #pragma pack(push, 1)
 #pragma pack(pop)
-struct RcMap    {                                                // 0x009A9600-style thiscall
-    void* mRoot;
-    void NukeSubtree(void* key);
-    // ~rbtree body: DoNukeSubtree(mAnchor.mpNodeParent), the anchor parent at tree +0x0c.
-    void NukeAll() { NukeSubtree(((void**)this)[3]); }
-};
+struct RcMap    { void* mRoot; void NukeSubtree(void* key); };  // 0x009A9600-style thiscall
 struct Combatant {
     void**   vftable;                                           // +0x00
     uint32_t pad04;                                             // +0x04
@@ -391,49 +387,37 @@ float Sim::NodeRatio()
     return this->m_038 / ((float (__thiscall*)(void*))this->vt[22])(this);
 }
 
-extern SP::cDataSerializerGeneric gCombatantSerializerList[]; // 0x01570858
-struct CombatantStreamHolder {
-    virtual void slot0(); virtual void slot1(); virtual void slot2();
-    virtual void slot3(); virtual void slot4(); virtual void slot5();
-    virtual void* GetStream(); // slot 6
-};
-struct CombatantArchive {
-    virtual void slot0(); virtual void slot1(); virtual void slot2();
-    virtual void slot3(); virtual void slot4(); virtual void slot5();
-    virtual void slot6(); virtual void slot7();
-    virtual CombatantStreamHolder* GetStreamHolder(); // slot 8
-};
-
 // @ 0x00bfc4a0
-bool Sim::CombatantWrite(VtObj* stream)
+void Sim::CombatantWrite(VtObj* stream)
 {
-    CombatantStreamHolder* __restrict holder = ((CombatantArchive*)stream)->GetStreamHolder();
     unsigned int value = 0x013f94d4;
-    void* writer = holder->GetStream();
+    void* sync = ((void* (__thiscall*)(void*))stream->vt[8])(stream);
+    void* writer = ((void* (__thiscall*)(void*))((VtObj*)sync)->vt[6])(sync);
     EA_IO_WriteUint32(writer, &value, 1, 0);
-    unsigned int fieldValue = (unsigned int)this->m_034;
-    CombatantStreamHolder* __restrict fieldHolder = ((CombatantArchive*)stream)->GetStreamHolder();
-    value = fieldValue;
-    writer = fieldHolder->GetStream();
+    value = (unsigned int)this->m_034;
+    sync = ((void* (__thiscall*)(void*))stream->vt[8])(stream);
+    writer = ((void* (__thiscall*)(void*))((VtObj*)sync)->vt[6])(sync);
     EA_IO_WriteUint32(writer, &value, 1, 0);
-    SP::cVarListSerializer serializer(this, gCombatantSerializerList, 0x01a80d26);
-    return serializer.Serialize(*(SP::cIObjectDatabaseOStream*)stream);
+    VarListSerializer s;
+    s.Init(this, (void*)0x01570858, 0x01a80d26);
+    s.Serialize(stream);
 }
 
 // @ 0x00bfc540
-bool Sim::CombatantRead(VtObj* stream)
+void Sim::CombatantRead(VtObj* stream)
 {
-    CombatantStreamHolder* __restrict holder = ((CombatantArchive*)stream)->GetStreamHolder();
-    int tag;
-    void* reader = holder->GetStream();
-    EA_IO_ReadInt32(reader, &tag, 1, 0);
-    holder = ((CombatantArchive*)stream)->GetStreamHolder();
-    int value;
-    reader = holder->GetStream();
-    EA_IO_ReadInt32(reader, &value, 1, 0);
-    this->m_034 = value;
-    SP::cVarListSerializer serializer(this, gCombatantSerializerList, 0x01a80d26);
-    return serializer.Serialize(*(SP::cIObjectDatabaseIStream*)stream);
+    int first = 0;
+    int second = 0;
+    void* sync = ((void* (__thiscall*)(void*))stream->vt[8])(stream);
+    void* reader = ((void* (__thiscall*)(void*))((VtObj*)sync)->vt[6])(sync);
+    EA_IO_ReadInt32(reader, &first, 1, 0);
+    sync = ((void* (__thiscall*)(void*))stream->vt[8])(stream);
+    reader = ((void* (__thiscall*)(void*))((VtObj*)sync)->vt[6])(sync);
+    EA_IO_ReadInt32(reader, &second, 1, 0);
+    this->m_034 = second;
+    VarListSerializer s;
+    s.Init(this, (void*)0x01570858, 0x01a80d26);
+    s.Read(stream);
 }
 
 // @ 0x00bfc600
@@ -534,14 +518,14 @@ void VtObj::GameDataCenter(Vec3* out)
 }
 
 // @ 0x00bfc900
-static bool TrikeCheck(VtObj* self, int arg)
+bool VtObj::TrikeCheck(int arg)
 {
     switch (GetCurrentGameMode()) {
     case 0x1654c01:
     case 0x1654c10: {
-        if (self == 0)
+        if (this == 0)
             return false;
-        AnimObj* o = (AnimObj*)((void* (__thiscall*)(void*, int))self->vt[3])(self, 0xce9f6639);
+        AnimObj* o = (AnimObj*)((void* (__thiscall*)(void*, int))this->vt[3])(this, 0xce9f6639);
         if (o == 0)
             return false;
         if (o->flags & 0x200)
@@ -561,28 +545,28 @@ static bool TrikeCheck(VtObj* self, int arg)
         return false;
     }
     case 0x1654c02:
-        if (F_b18850(self))
+        if (F_b18850(this))
             return true;
-        if (F_b187b0(self))
+        if (F_b187b0(this))
             return true;
         return false;
     case 0x1654c04:
-        if (F_b18810(self))
+        if (F_b18810(this))
             return true;
-        if (F_b187d0(self))
+        if (F_b187d0(this))
             return true;
-        if (F_b18830(self))
+        if (F_b18830(this))
             return true;
-        if (F_b18760(self))
+        if (F_b18760(this))
             return true;
         return false;
     case 0x1654c05: {
-        if (self == 0)
+        if (this == 0)
             return false;
-        AnimObj* o = (AnimObj*)((void* (__thiscall*)(void*, void*))self->vt[3])(self, (void*)0x013f94d4);
+        AnimObj* o = (AnimObj*)((void* (__thiscall*)(void*, void*))this->vt[3])(this, (void*)0x013f94d4);
         if (o == 0)
             return false;
-        if (!F_b187d0(self) && !F_b18870(self) && !F_b18760(self))
+        if (!F_b187d0(this) && !F_b18870(this) && !F_b18760(this))
             return false;
         int empire = GetPlayerEmpireID();
         if (arg != empire) {
@@ -598,7 +582,7 @@ static bool TrikeCheck(VtObj* self, int arg)
 // @ 0x00bfca80
 void TrikeNotify(void* obj, void* owner, int extra)
 {
-    if (TrikeCheck((VtObj*)obj, (int)owner) && F_b673c0(obj))
+    if (((VtObj*)obj)->TrikeCheck((int)owner) && F_b673c0(obj))
         FUN_00b69930(obj, FUN_00b685e0(obj), extra);
 }
 
@@ -724,7 +708,7 @@ void* __fastcall FUN_00bfcc80(Combatant* self, int, unsigned param_2)
 // @ 0x00bfcd00
 void __fastcall Combatant_dtor(Combatant* self)
 {
-    self->vftable = (void**)g_14698f0;
+    self->vftable = (void**)0x14698f0;
     // The three effect handles at +0xbc..+0xc8, released back-to-front.
     void** slot = self->mSlotsBc + 3;
     int n = 2;
@@ -756,7 +740,7 @@ void __fastcall Combatant_dtor(Combatant* self)
         ((RcSlot*)p)->Release4();
     if ((p = self->mNextTarget28) != 0)
         ((RcSlot*)p)->Release64();
-    self->mMap0c.NukeAll();
+    self->mMap0c.NukeSubtree(self->mList18);
 }
 
 // @ 0x00bfcdd0
@@ -938,7 +922,7 @@ void __fastcall FUN_00bfd2b0(OrientObject* self)
 // @ 0x00bfd3e0
 HostileEntry* __fastcall FUN_00bfd3e0(HostileEntry* self, int, const HostileEntry* src)
 {
-    self->vftable = (void*)g_1465d54;
+    self->vftable = (void*)0x1465d54;
     self->mRefCount4 = 0;
     self->mField08 = src->mField08;
     self->mField0c = src->mField0c;
@@ -946,7 +930,7 @@ HostileEntry* __fastcall FUN_00bfd3e0(HostileEntry* self, int, const HostileEntr
     self->mField14 = src->mField14;
     self->mByte18 = src->mByte18;
     self->mField1c = src->mField1c;
-    self->vftable = (void*)g_1464450;
+    self->vftable = (void*)0x1464450;
     self->mField20 = src->mField20;
     return self;
 }
@@ -956,7 +940,7 @@ HostileEntry* FUN_00bfd430(const HostileEntry* first, const HostileEntry* last, 
 {
     while (first != last) {
         if (out != 0) {
-            out->vftable = (void*)g_1465d54;
+            out->vftable = (void*)0x1465d54;
             out->mRefCount4 = 0;
             out->mField08 = first->mField08;
             out->mField0c = first->mField0c;
@@ -964,7 +948,7 @@ HostileEntry* FUN_00bfd430(const HostileEntry* first, const HostileEntry* last, 
             out->mField14 = first->mField14;
             out->mByte18 = first->mByte18;
             out->mField1c = first->mField1c;
-            out->vftable = (void*)g_1464450;
+            out->vftable = (void*)0x1464450;
             out->mField20 = first->mField20;
         }
         ++first;

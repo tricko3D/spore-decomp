@@ -2,11 +2,7 @@
 // Object file: SPGonzago/SPUITimeline.obj.  Function bodies keep the slice's code; types, members and virtual calls use the
 // canonical headers under src/game/include.  Each function keeps its '// @ 0xVA' marker.
 
-// addresses retail relocates here, named so the build relocates them too
-extern "C" char g_15a5a54[];
-
 #include "game/types.h"
-#include "SP/cTelemetry.h"
 #include "EA/Stopwatch.h"
 #include "cSPUIAnimator.h"
 #include "cSPUILayout.h"
@@ -263,7 +259,6 @@ struct Object {
 struct Rect  { float left, top, right, bottom; };
 struct Vector2 { float x, y; };
 struct Point { float x; float y; };
-struct IWinProc_s00e3_7910 { virtual void v00(); };              // window-proc interface (cSPUITimeline +0x04)
 struct IWindow : Object {
     virtual void pad0c();
     virtual IWindow* GetParent();
@@ -327,7 +322,7 @@ struct IWindow : Object {
     virtual void padF8();
     virtual void padFc();
     virtual void pad100();
-    virtual void AddWinProc(IWinProc_s00e3_7910* proc); // +0x104
+    virtual void SetParent(IWindow* parent);           // +0x104
 };
 class cSPUILayout_s00e3_6ff0 : public Object { public:
     IWindow* FindWindowByID(uint32_t id, bool recursive);   // 0x008105b0
@@ -411,9 +406,9 @@ static inline int ClampLoHi(int v, int lo, int hi) {
     return v;
 }
 struct VecContainer { bool IsMember(int id); };             // 0x00e45fe0
-struct cSPUITimelineBase_s00e3_7910 { virtual void v00(); };     // primary base, +0x00
-struct cSPUITimeline : cSPUITimelineBase_s00e3_7910, IWinProc_s00e3_7910 {
-    uint32_t      mEmbedded[0x0a];                            // +0x08
+struct cSPUITimeline {
+    void*         mvpVtbl;                                    // +0x00
+    uint32_t      mEmbedded[0x0b];                            // +0x04 embedded window subobject
     cSPUILayout_s00e3_6ff0*  mpLayout;                                   // +0x30
     uint32_t      pad34;                                      // +0x34
     IWindow*      mpWin38;                                    // +0x38
@@ -471,6 +466,7 @@ struct cSPUITimeline : cSPUITimelineBase_s00e3_7910, IWinProc_s00e3_7910 {
                                float c, float d, float e, float f,
                                float g, float h);             // 0x00e37840
     void          FUN_00e37910();                             // 0x00e37910
+    IWindow*      Self() { return (IWindow*)mEmbedded; }      // +0x04 embedded window
     void          BeginCloseTimeline();                       // 0x00e37970
     double        FUN_00e37b40(TimelineNode* n, float a, int b);// 0x00e37b40
     void          FUN_00e37be0();                             // 0x00e37be0
@@ -3125,25 +3121,20 @@ int32_t __cdecl GetGameLevel(int32_t nGameMode)
 // @ 0x00e36f50
 uint32_t __cdecl GetGameModeIndex(uint32_t nHash)
 {
-    uint32_t nIndex = 0;
-    switch ((int32_t)nHash) {
-    case (int32_t)0xa426730b:
-        nIndex = 0;
-        break;
-    case (int32_t)0xad56080c:
-        nIndex = 1;
-        break;
-    case (int32_t)0xf71fa311:
-        nIndex = 2;
-        break;
-    case (int32_t)0xbeb528cb:
-        nIndex = 3;
-        break;
-    case (int32_t)0x2db6dad3:
-        nIndex = 4;
-        break;
+    switch (nHash) {
+    case 0xa426730b:
+        return 0;
+    case 0xad56080c:
+        return 1;
+    case 0xf71fa311:
+        return 2;
+    case 0xbeb528cb:
+        return 3;
+    case 0x2db6dad3:
+        return 4;
+    default:
+        return 0;
     }
-    return nIndex;
 }
 
 // @ 0x00e36fb0
@@ -3454,13 +3445,13 @@ void cSPUITimeline::FUN_00e37840(IWindow* target, float a, float b, float c, flo
 void cSPUITimeline::FUN_00e37910()
 {
     if (IWindow* w = mpWin3c)
-        w->AddWinProc(this);
+        w->SetParent(Self());
     if (IWindow* w = mpWin4c)
-        w->AddWinProc(this);
+        w->SetParent(Self());
     if (IWindow* w = mpWin54)
-        w->AddWinProc(this);
+        w->SetParent(Self());
     if (IWindow* w = mpWin38)
-        w->AddWinProc(this);
+        w->SetParent(Self());
 }
 
 // @ 0x00e37970
@@ -4116,12 +4107,10 @@ void __fastcall FUN_00e39200(Timeline_s00e3_8ce0* self, void* dummy)
 void __fastcall FUN_00e39300(Timeline_s00e3_8ce0* self, void* dummy, s32 v)
 {
   (void)dummy;
-  s32 addr = (int)g_15a5a54;     // five window IDs at 0x015a5a54..0x015a5a68: the first test is known true
-  do {
+  for (s32 addr = 0x015a5a54; addr < 0x015a5a68; addr += 4) {
     Wnd* w = (Wnd*)self->p348->FindWindowByID(*(u32*)addr, 1);
     if (w != 0) ((WndVt*)w)->SetVisible(1, v);
-    addr += 4;
-  } while (addr < (int)((char*)&g_15a5a54 + 0x14));
+  }
 }
 
 // @ 0x00e39350
@@ -4138,10 +4127,10 @@ void __fastcall FUN_00e39350(Timeline_s00e3_8ce0* self, void* dummy, s32 v)
 s32 __fastcall FUN_00e393b0(Timeline_s00e3_8ce0* self, void* dummy)
 {
   (void)dummy;
-  if (self->b370 == 0) {
-    int visible = self->p30 != 0 ? self->p30->IsVisible() : 0;
-    if (visible == 0) return 0;
-  }
+  if (self->b370 != 0) goto ret1;
+  if (self->p30 != 0 && self->p30->IsVisible() != 0) goto ret1;
+  return 0;
+ret1:
   return 1;
 }
 
@@ -4738,17 +4727,7 @@ uint32_t cSPUITimeline_s00e3_a990::GetSelectedPaletteId()
 // @ 0x00e3b630
 bool IsPaletteIdPresent(uint32_t nId)
 {
-    const eastl::list<SP::cTelemetryItem>* items =
-        static_cast<SP::cTelemetry*>(FUN_0067de90())->GetItems(12);
-    if (items) {
-        for (eastl::ListNodeBase* node = items->mNode.mpNext;
-             node != &items->mNode; node = node->mpNext) {
-            const SP::cTelemetryItem& item =
-                static_cast<eastl::ListNode<SP::cTelemetryItem>*>(node)->mValue;
-            if (nId == item.mData.mpBegin[0].mUint)
-                return true;
-        }
-    }
+    (void)nId;
     return false;
 }
 

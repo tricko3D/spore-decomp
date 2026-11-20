@@ -2,11 +2,6 @@
 // Object file: SPGonzago/_at_00b50000.obj.  Function bodies keep the slice's code; types, members and virtual calls use the
 // canonical headers under src/game/include.  Each function keeps its '// @ 0xVA' marker.
 
-// addresses retail relocates here, named so the build relocates them too
-extern "C" char g_13ebb38[];
-extern "C" char g_13f8990[];
-extern "C" char g_167ecd0[];
-
 #include "game/types.h"
 
 // unnamed retail callees and globals (address in the comment)
@@ -862,7 +857,7 @@ struct CmdLink {
     void*   mpField8;           // +0x08
 };
 struct CmdChain { void Unlink(); };                 // 0x00b4d770 (thiscall)
-struct CmdTail  { void Run(int key); };             // 0x00b545b0 (thiscall, this unused)
+struct CmdTail  { void Run(); };                    // 0x00b545b0 (thiscall)
 struct __declspec(align(16)) Build830 { uint32_t b[0x84 / 4]; void* Build(int a, int b2); }; // 0x00b4f830 (thiscall)
 struct ReqRec {                       // &local_110
     void*    mpA;                     // +0x00  (= uVar1)
@@ -1142,7 +1137,7 @@ void  registerAllAgents(void*);              // 0x010c25a0
 void  FUN_00b54890(void*, void*, void*);     // 0x00b54890
 void  FUN_00b54970(void*, void*, void*);     // 0x00b54970
 void  FUN_010834f0(void*, void*);            // 0x010834f0
-#define DAT_0167ecd0 (*(void**)g_167ecd0)      // hkWorld*
+#define DAT_0167ecd0 (*(void**)0x0167ecd0)      // hkWorld*
 #define DAT_0167ecdc (*(void**)0x0167ecdc)      // editor callback object
 #define DAT_016e4178 (*(void**)0x016e4178)      // hkMemory::s_instance
 #define DAT_01569a94 (*(uint8_t*)0x01569a94)
@@ -2505,11 +2500,11 @@ int __cdecl FUN_00b521f0(void* a)
 {
     int it[2];
     void* key = a;
-    ((Ext*)&HT_16852e8)->FUN_00645ed0(it, &key);
+    ((Ext*)0x16852e8)->FUN_00645ed0(it, &key);
     int node = it[0];
     _ReadWriteBarrier();
-    int base = *(int*)((char*)&HT_16852e8 + 4);
-    int count = *(int*)((char*)&HT_16852e8 + 8);
+    int base = *(int*)0x16852ec;
+    int count = *(int*)0x16852f0;
     if (node != *(int*)(base + count * 4))
         return *(int*)(node + 4);
     return 0;
@@ -3103,20 +3098,20 @@ void FUN_00b54b80(void)
     }
 }
 
-extern "C" char g_1569c98[];
 // @ 0x00b54be0
 int* __cdecl FUN_00b54be0(int* param_1, int param_2)
 {
     Build830 scratch;
-    struct { bool b; } tag;
+    uint32_t flag = 0;
     void* u = scratch.Build(param_2, param_2);
-    tag.b = false;
-    ((TblA*)g_1569c98)->DoInsertValue(param_1, u, *(int*)&tag);
+    ((TblA*)0x1569c98)->DoInsertValue(param_1, u, flag);
     CmdNode* node = (CmdNode*)*param_1;
     ((CmdLink*)node->mpBack)->mpField8 = &node->m10;
     void* o = FUN_00b3d310();
-    if (((char*)o)[0x25] != 0)
-        ((CmdTail*)FUN_00b3d310())->Run(param_2);
+    if (((char*)o)[0x25] != 0) {
+        void* o2 = FUN_00b3d310(param_2);
+        ((CmdTail*)o2)->Run();
+    }
     return param_1;
 }
 
@@ -3245,7 +3240,7 @@ void HkNodePool::AddNode(const HkNodeData* data)
     else {
         void* allocator = m_allocator;
         node = (HkPoolNode*)opnew_f473a0(allocator, "Simulator", 0, 0,
-                                         (const char*)g_13ebb38, 0xd1);
+                                         (const char*)0x013ebb38, 0xd1);
     }
     if (node != 0) {
         node->m_a = data->m_a;
@@ -3260,7 +3255,7 @@ void HkContainerOwner::Destroy()
 {
     m_vec1.Clear();
     m_vec2.Clear();
-    m_vptr = (void*)g_13f8990;
+    m_vptr = (void*)0x013f8990;
 }
 
 // @ 0x00b57840

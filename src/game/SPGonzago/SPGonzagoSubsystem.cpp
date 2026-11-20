@@ -10,9 +10,6 @@
 extern "C" int  FUN_00b5b820();
 extern "C" void* FUN_00b3d320();
 extern char g_vt0dummy, g_vt1dummy;
-extern "C" char g_13ef094[], g_1461580[], g_1461578[];
-extern "C" void _ReadWriteBarrier(void);
-#pragma intrinsic(_ReadWriteBarrier)
 
 // ---- items of slice s00b5b540 begin (TODO(rewrite): local stubs, replace by canonical classes)
 struct cGonzagoSubsystem
@@ -127,12 +124,10 @@ void cGonzagoSubsystem::PreGameModeTransition(int, int mode)
 // @ 0x00b5b960
 cGonzagoSubsystem::cGonzagoSubsystem()
 {
-    vt4 = (void**)g_13ef094;   // GmeRefCount base vtable
-    _ReadWriteBarrier();
+    vt4 = (void**)&g_vt1dummy;
     m08 = 0;
-    _ReadWriteBarrier();
-    vt0 = (void**)g_1461580;
-    vt4 = (void**)g_1461578;
+    vt0 = (void**)&g_vt0dummy;
+    vt4 = (void**)&g_vt1dummy;
     mPreMode = -1;
     mPostMode = -1;
     mCurrent = -1;

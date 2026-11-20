@@ -314,6 +314,7 @@ class cCamInfo {
 public:
     int32_t mData[24];              // opaque camera description
     void Init(float* pCity);        // 0x00ad79d0
+    void Destroy();                 // 0x00ad7ad0
 };
 
 class cActionTarget {
@@ -473,8 +474,9 @@ static int32_t VectorCount(const SPVector& rVector)
 }
 
 // ---------------------------------------------------------------------------
-// 0x01008910 -- entry test: is the player about to meet an NPC UFO?
+// entry test: is the player about to meet an NPC UFO?
 // ---------------------------------------------------------------------------
+// @ 0x01008910
 void SP::cSPSimulatorSpaceGame::GalaxyTestForIntercept()
 {
     float fRadius = 10.0f;                      // 0x01473c70
@@ -482,7 +484,7 @@ void SP::cSPSimulatorSpaceGame::GalaxyTestForIntercept()
     cTerrainSphere* pTerrain = NounManager()->GetCurrentTerrainSphere();
     bool bNotSpace = (pTerrain->IsSpace() == false);
 
-    cProperty* pProperty = nullptr;
+    cProperty* pProperty;
     ISimPropertyHost* pPropertyHost = gSimUniverse->mpPropertyHost;
     if (pPropertyHost != nullptr) {
         if (pPropertyHost->GetProperty(0x55e7dad, (void**)&pProperty) &&
@@ -503,9 +505,9 @@ void SP::cSPSimulatorSpaceGame::GalaxyTestForIntercept()
     cGameData* pLocalCiv = GetLocalCiv();
     if (pLocalCiv != nullptr && pLocalCiv->GetAvatar() == nPlayerEmpire) {
         Vec3* pCity = (Vec3*)pLocalCiv->GetCities();
-        float dz = pCity->z - pPlayerPos->z;
-        float dy = pCity->y - pPlayerPos->y;
         float dx = pCity->x - pPlayerPos->x;
+        float dy = pCity->y - pPlayerPos->y;
+        float dz = pCity->z - pPlayerPos->z;
         float fDistSq = dz * dz + dy * dy + dx * dx;
         if (fDistSq < fRadiusSq)
             return;
@@ -529,9 +531,9 @@ void SP::cSPSimulatorSpaceGame::GalaxyTestForIntercept()
                 continue;
             }
             Vec3* pCity = (Vec3*)pCiv->GetCities();
-            float dz = pCity->z - pPlayerPos->z;
-            float dy = pCity->y - pPlayerPos->y;
             float dx = pCity->x - pPlayerPos->x;
+            float dy = pCity->y - pPlayerPos->y;
+            float dz = pCity->z - pPlayerPos->z;
             float fDistSq = dz * dz + dy * dy + dx * dx;
             if (fDistSq < gfCityInterceptScale * fRadiusSq)
                 return;
@@ -550,9 +552,9 @@ void SP::cSPSimulatorSpaceGame::GalaxyTestForIntercept()
             continue;
 
         Vec3* pCity = (Vec3*)pCiv->GetCities();
-        float dz = pCity->z - pPlayerPos->z;
-        float dy = pCity->y - pPlayerPos->y;
         float dx = pCity->x - pPlayerPos->x;
+        float dy = pCity->y - pPlayerPos->y;
+        float dz = pCity->z - pPlayerPos->z;
         float fDistSq = dz * dz + dy * dy + dx * dx;
         if (fRadiusSq <= fDistSq)
             continue;
@@ -570,7 +572,16 @@ void SP::cSPSimulatorSpaceGame::GalaxyTestForIntercept()
         }
 
         if (!bFound) {
-            if (UFOFactory()->HasUFOTypeA(pEmpire->GetUFOKey(0))) {
+            pEmpire = StarManager()->GetEmpireByID(nEmpire);
+            if (!UFOFactory()->HasUFOTypeA(pEmpire->GetUFOKey(0))) {
+                if (!UFOFactory()->HasUFOTypeB(pEmpire->GetUFOKey())) {
+                    ResourceKey key;
+                    key.mnInstanceId = 0;
+                    key.mnGroupId = 0;
+                    key.mnTypeId = 1;
+                    UFOFactory()->SetUFOTypeC(pEmpire->GetUFOKey(&key));
+                }
+            } else {
                 cSPGameDataUFO* pUFO = CreateUFOForSolarOrGalaxy(8, pEmpire);
                 pUFO->mpTarget = pCiv;
                 pUFO->SetTarget(pCiv);
@@ -586,9 +597,6 @@ void SP::cSPSimulatorSpaceGame::GalaxyTestForIntercept()
                         pStarMap->CreateStarRecordVisual(pCiv, 0x70930c64, 0xb7735c3);
                         pVisual = GetStarMap3(pCiv->mnStarId, 0xb7735c3, 0)->GetRecordVisual();
                         ResourceKey visualKey;
-                        visualKey.mnInstanceId = 0;
-                        visualKey.mnGroupId = 0;
-                        visualKey.mnTypeId = 1;
                         pVisual->SetFlags(1, &visualKey, 1);
                     }
                     if (!pVisual->IsVisible())
@@ -607,12 +615,7 @@ void SP::cSPSimulatorSpaceGame::GalaxyTestForIntercept()
                 actionTarget.Destroy();
 
                 ShowTutorialText("SPG_FirstEntryEnemyTerritory", 0x5079f9fa, 1);
-            } else if (!UFOFactory()->HasUFOTypeB(pEmpire->GetUFOKey())) {
-                ResourceKey key;
-                key.mnInstanceId = 0;
-                key.mnGroupId = 0;
-                key.mnTypeId = 1;
-                UFOFactory()->SetUFOTypeC(pEmpire->GetUFOKey(&key));
+                camInfo.Destroy();
             }
         }
 
@@ -866,7 +869,7 @@ void SP::cSPSimulatorSpaceGame::StartAmbush()
     GetAmbushContext()->mUFOTypeOwner.GetModelKey(&modelKey);
 
     float fRadius = 10.0f;
-    cProperty* pProperty = nullptr;
+    cProperty* pProperty;
     ISimPropertyHost* pPropertyHost = gSimUniverse->mpPropertyHost;
     if (pPropertyHost != nullptr &&
         pPropertyHost->GetProperty(0x55e7dad, (void**)&pProperty) &&

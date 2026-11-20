@@ -2,9 +2,6 @@
 // Object file: SPGonzago/SPCityVisualizer.obj.  Function bodies keep the slice's code; types, members and virtual calls use the
 // canonical headers under src/game/include.  Each function keeps its '// @ 0xVA' marker.
 
-// addresses retail relocates here, named so the build relocates them too
-extern "C" char g_167a3d0[];
-
 #include "game/types.h"
 struct RefPtr; struct RefPtrVector;   // used by the forward prototype of EraseRefValue (0x00d5aae0) before s00d5a260's stubs
 
@@ -42,19 +39,6 @@ extern char sz_file_13ebb38[]; // 0x013ebb38 "...allocator.h"
 #include "SP/cSPCreatureBase.h"
 #include "SP/cLocomotiveObject.h"
 #include "cSPQuaternion.h"
-
-struct CastingArchiveStreamHolder {
-    virtual void slot0(); virtual void slot1(); virtual void slot2();
-    virtual void slot3(); virtual void slot4(); virtual void slot5();
-    virtual void* GetStream(); // +0x18
-};
-struct CastingArchive {
-    virtual void slot0(); virtual void slot1(); virtual void slot2();
-    virtual void slot3(); virtual void slot4(); virtual void slot5();
-    virtual void slot6(); virtual void slot7();
-    virtual CastingArchiveStreamHolder* GetStreamHolder(); // +0x20
-};
-extern SP::cDataSerializerGeneric gCastingSerializerList[]; // 0x01565d68
 
 // ---- items of slice s00ac4060 begin (TODO(rewrite): local stubs, replace by canonical classes)
 typedef unsigned int  uint;
@@ -1496,7 +1480,6 @@ struct VO {
     void  FUN_00acd2d0(void* p);
     void  FUN_00acd410(void* p);
     void  FUN_00ac84f0(void* p);   // 0x00ac84f0, defined in another slice
-    int*  FUN_00acbd90(int* other);   // 0x00acbd90 (vector copy-assign; `this` is the vector)
 };
 void* FUN_00accec0(uchar* p, uchar* end, uchar* out);
 // declaration-only alias of the function defined below (0x00accec0): s00ad0510's FUN_00ad08f0 calls it out of line in the
@@ -1759,9 +1742,6 @@ public:
     char     mSub12c[0x34];        // +0x12c
     char     mSub160[0x34];        // +0x160
 
-    bool Write(SP::cIObjectDatabaseOStream& archive) const;        // 0x00ac8550
-    bool Read(SP::cIObjectDatabaseIStream& archive);               // 0x00ad0b30
-    void Reset();                                                // 0x00ad08f0
     cCastingManager* Construct();                                  // 0x00acf230
     void  InsertTribe(cTribeEntry* pos, const cTribeEntry& value);  // (unused helper slot)
     void  CastNoun(NounObj3* pNoun, char bFlag);                   // 0x00acebd0
@@ -1779,7 +1759,7 @@ extern "C" void   __fastcall FUN_00c8fc50(void*, int, int);                 // 0
 extern "C" void   __fastcall FUN_00c0bf00(void*, int, int);                 // 0x00c0bf00
 extern "C" void   __fastcall FUN_00d5bb30(void*, int);                      // 0x00d5bb30
 extern "C" void*  __cdecl FUN_00copy_Rec20(void*, void*, void*);            // 0x00951bf0
-extern "C" bool   __cdecl FUN_00b98c00(void*);                              // 0x00b98c00
+extern "C" int    __cdecl FUN_00b98c00(void*);                              // 0x00b98c00
 extern "C" void*  __cdecl FUN_00acc2d0(void*, void*, void*);                // clear helper (tribe)
 extern "C" void*  __cdecl FUN_00ac9740(void*, void*, void*);                // destroy range
 extern int  g_167a378;        // 0x0167a378
@@ -2054,22 +2034,24 @@ void CVis::FUN_00ac84f0(IObj_s00ac_7ab0* p)
 }
 
 // @ 0x00ac8550
-bool cCastingManager::Write(SP::cIObjectDatabaseOStream& archive) const
+bool FUN_00ac8550(void* self, IObj_s00ac_7ab0* p)
 {
-    CastingArchiveStreamHolder* __restrict holder = reinterpret_cast<CastingArchive*>(&archive)->GetStreamHolder();
-    uint32_t version = 0x01f73e49;
-    void* stream = holder->GetStream();
-    WriteUint32(stream, &version, 1, 0);
-    SP::cVarListSerializer serializer(this, gCastingSerializerList, SP::cVarListSerializer::kSignature);
-    if (serializer.Serialize(archive) && FUN_00b930c0(&archive))
-        return true;
+    IObj_s00ac_7ab0* q = (IObj_s00ac_7ab0*)p->b20();
+    uint32 tag = 0x1f73e49;
+    void* stream = q->b18();
+    WriteUint32(stream, &tag, 1, 0);
+    char srl[0xa14];
+    SP_cVarListSerializer_ctor(srl, self, (void*)0x1565d68, 0x1a80d26);
+    if (SP_cVarListSerializer_Serialize(srl, p)) {
+        if (FUN_00b930c0(p)) return true;
+    }
     return false;
 }
 
 // @ 0x00ac8660
 void FUN_00ac8660(void)
 {
-    LoadArithmeticaFile(0x25e94602, 0x24a4f5a, (void*)g_167a3d0);
+    LoadArithmeticaFile(0x25e94602, 0x24a4f5a, (void*)0x167a3d0);
 }
 
 // @ 0x00ac8690
@@ -2169,9 +2151,10 @@ void CVis::FUN_00ac8cd0(int a, int b)
 // @ 0x00ac8d00
 void CT::FUN_00ac8d00(int city, int a)
 {
-    if ((mpA4) && *(int*)((char*)(mpA4) + 0xaf0) == city) {
+    void* g = mpA4;
+    if (g && *(int*)((char*)g + 0xaf0) == city) {
         void* u = ((CCity*)city)->GetCivilization(a);
-        ((CGSub*)(mpA4))->FUN_00d57a60(u);
+        ((CGSub*)g)->FUN_00d57a60(u);
     }
 }
 
@@ -2218,16 +2201,15 @@ bool CT::FUN_00ac8d80(float* p)
 void* FUN_00accec0(uchar* p, uchar* end, uchar* out)
 {
     if (p != end) {
-        uchar* d = out + 9;
-        uchar* s = p + 9;
+        uchar* o = out;
         do {
-            *(int*)out = *(int*)p;
-            d[-1] = s[-1];
-            d[0] = s[0];
-            ((VO*)(d + 3))->FUN_00acbd90((int*)(s + 3));
-            p += 0x20; out += 0x20;
-            d += 0x20; s += 0x20;
+            *(int*)o = *(int*)p;
+            *(o + 8) = *(p + 8);
+            *(o + 9) = *(p + 9);
+            ((XC*)(o + 0xc))->FUN_00acbd90();
+            p += 0x20; o += 0x20;
         } while (p != end);
+        return o;
     }
     return out;
 }
@@ -2434,17 +2416,10 @@ void VO::FUN_00acd2d0(void* p)
     }
 }
 
-// The staged object's type query is virtual slot 8 (+0x20).
-struct ITypedObj_acd410 {
-    virtual void v00(); virtual void v04(); virtual void v08(); virtual void v0c();
-    virtual void v10(); virtual void v14(); virtual void v18(); virtual void v1c();
-    virtual int  GetType();                                  // +0x20
-};
-
 // @ 0x00acd410
 void VO::FUN_00acd410(void* p)
 {
-    switch (((ITypedObj_acd410*)p)->GetType()) {
+    switch (objType(p)) {
     case 0x18eb45e: {
         int key = ((CStage*)p)->mKey24;
         mCountMap.erase(&key);
@@ -3621,17 +3596,21 @@ void __fastcall FUN_00ad08f0(cCityVisualizer_s00ad_0510* self, int)
 }
 
 // @ 0x00ad0b30
-bool cCastingManager::Read(SP::cIObjectDatabaseIStream& archive)
+bool __fastcall FUN_00ad0b30(cCityVisualizer_s00ad_0510* self, int, void* stream)
 {
-    if (mField88 != mField8c)
-        Reset();
-    void* stream = reinterpret_cast<CastingArchive*>(&archive)->GetStreamHolder()->GetStream();
-    int version;
-    ReadInt32_s00ad_0510(stream, &version, 1, 0);
-    SP::cVarListSerializer serializer(this, gCastingSerializerList, SP::cVarListSerializer::kSignature);
-    if (serializer.Serialize(archive) && FUN_00b98c00(&archive))
-        return true;
-    return false;
+    if (self->registry.begin != self->registry.end)
+        FUN_00ad08f0(self, 0);
+
+    void* obj = VTC(stream, 0x20, TC_p0)(stream);
+    void* io  = VTC(obj, 0x18, TC_p0)(obj);
+    int count = 0;
+    ReadInt32_s00ad_0510(io, &count, 1, 0);
+
+    CVarListSerializer ser;
+    ser.ctor(self, (void*)0x01565d68, 0x1a80d26);
+    if (!ser.Read(stream))
+        return false;
+    return FUN_00b98c00(stream) != 0;
 }
 
 // @ 0x00ad0bd0
@@ -5469,15 +5448,12 @@ void __stdcall DeactivateCitizen(CCitizen* pCitizen)
 CRecord12* CCitizenManager::FindSlot(CCitizen* pCitizen)
 {
     int nCount = (int)(mpCitizensEnd - mpCitizens);
-    int i = 0;
     if (nCount > 0) {
-        CCitizen** pCitizen2 = *(CCitizen** volatile*)&mpCitizens;
-        do {
+        CCitizen** pCitizen2 = mpCitizens;
+        for (int i = 0; i < nCount; ++i, ++pCitizen2) {
             if (*pCitizen2 == pCitizen)
                 return &mpRecords[i];
-            ++i;
-            ++pCitizen2;
-        } while (i < nCount);
+        }
     }
     return (CRecord12*)pCitizen->mVisual.Resolve();
 }
@@ -6990,13 +6966,10 @@ void Vec3AllocVector::swap(Vec3AllocVector& other)
         Vec3* tb = mpBegin;
         mpBegin = ob;
         other.mpBegin = tb;
-        _ReadWriteBarrier();
         Vec3* te = mpEnd;
-        _ReadWriteBarrier();
         Vec3* oe = other.mpEnd;
         mpEnd = oe;
         other.mpEnd = te;
-        _ReadWriteBarrier();
         Vec3* oc = other.mpCapacity;
         Vec3* tc = mpCapacity;
         mpCapacity = oc;

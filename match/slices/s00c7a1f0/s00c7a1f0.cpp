@@ -469,3 +469,307 @@ haveBuffer:
     mpBegin = buffer;
     mpCapacity = (cTimerElem*)((char*)buffer + newCapacity * 0x28);
 }
+
+// ===========================================================================
+// 0x00c7a1f0  per-source key bookkeeping on the player's capture data
+// ===========================================================================
+// Retail counts every distinct 64-bit id of the caller's 0x1d8-stride record
+// list into a local map, looks each distinct id up in the active object
+// manager, reads eight named integer properties (and their text forms) and
+// then, `count` times per id, re-inserts two key vectors into the player's key
+// pool and randomly erases keys from the vectors named by the properties.
+//
+// The property-name block at 0x52c6cc0, the two list names at 0x46bf76c /
+// 0x4973416, the distribution table at 0x1601760 and the float at 0x1470f1c
+// are read by retail but are not part of the analysis image, so they are
+// declared as external data with their retail addresses recorded.
+namespace {
+
+typedef uint32_t u32;
+typedef uint64_t u64;
+
+struct cKey {                     // 8-byte key, halves ordered like the record
+    u32 mPart0;                   // +0x00  (built from the record's +0x04 word)
+    u32 mPart1;                   // +0x04  (built from the record's +0x00 word)
+};
+
+struct cKeyNode {                 // node of the local (key -> count) map
+    uint64_t  mKey;               // +0x00  (retail compares it as one qword)
+    u32       mCount;             // +0x08
+    u32       mPad0c;             // +0x0c
+    cKeyNode* mpNext;             // +0x10
+};
+
+struct cPoolKeyRecord {           // 0xc-stride record of the conversion vectors
+    u32 mLo;                      // +0x00
+    u32 mPad04;                   // +0x04
+    u32 mHi;                      // +0x08
+};
+
+struct cSourceRecord {            // 0x1d8-stride record of the caller's list
+    u32     mLo;                  // +0x00
+    u32     mHi;                  // +0x04
+    u32     mPad08;               // +0x08
+    u32     mLimit;               // +0x0c
+    uint8_t mPad10[0x1d8 - 0x10];
+};
+
+struct cConversionObject {        // ref-counted object from the active manager
+    virtual void v0();
+    virtual void Release();                                    // +0x04
+    virtual void v2();
+    virtual void v3();
+    virtual void v4();
+    virtual void v5();
+    virtual void v6();
+    virtual void v7();
+    virtual void v8();
+    virtual bool GetProperty(const char* name, void** out);     // +0x24
+};
+
+struct cObjectManager {           // active object manager (0x0067de30)
+    virtual void v0();
+    virtual void v1();
+    virtual void v2();
+    virtual void v3();
+    virtual void v4();
+    virtual void v5();
+    virtual void v6();
+    virtual void v7();
+    virtual void v8();
+    virtual void v9();
+    virtual void v10();
+    virtual bool Find(u32 lo, u32 hi, cConversionObject** out); // +0x2c
+};
+
+// RAII handle used for the manager result: the shipped code constructs it
+// (pointer cleared), re-checks it around the lookup and releases it when the
+// per-key block ends.
+struct cObjectRef {
+    cConversionObject* mpObject;                               // +0x00
+
+    cObjectRef() : mpObject(0) {}
+    cConversionObject** operator&() { return &mpObject; }
+    cConversionObject* operator->() const { return mpObject; }
+    operator cConversionObject*() const { return mpObject; }
+    // Releases the held object and drops the reference.
+    void Reset()
+    {
+        cConversionObject* pObject = mpObject;
+        mpObject = 0;
+        if (pObject != 0)
+            pObject->Release();
+    }
+};
+
+struct cKeyPool {                 // hashtable of 64-bit keys at cPlayer+0x10e8
+    void Insert(u32 lo, u32 hi, int extra);   // 0x00596da0
+    bool Contains(u32 lo, u32 hi);            // 0x00595110
+    void Erase(u32 lo, u32 hi, int extra);    // 0x005973a0
+};
+
+// ---------------------------------------------------------------------------
+// The local (64-bit key -> count) map.  Its layout is the game's fixed-size
+// eastl hash map: the hashtable header, the inline bucket buffer, the inline
+// node pool, and further inline storage the slice does not name.
+// ---------------------------------------------------------------------------
+struct cHashFunctor { uint8_t mDummy; };
+
+struct cFixedHashtable {          // 0x00 .. 0x34
+    uint8_t   mFunctors[0x04];    // +0x00  empty hash/equality keys
+    cKeyNode** mpBucketArray;     // +0x04
+    u32       mnBucketCount;      // +0x08
+    u32       mnElementCount;     // +0x0c
+    float     mfMaxLoadFactor;    // +0x10
+    float     mfGrowthFactor;     // +0x14
+    u32       mnNextResize;       // +0x18
+    void*     mpFreeListHead;     // +0x1c  (inline allocator)
+    void*     mpPoolNext;         // +0x20
+    void*     mpPoolBegin;        // +0x24
+    void*     mpPoolCapacity;     // +0x28
+    u32       mnNodeSize;         // +0x2c
+    void*     mpBucketBuffer;     // +0x30
+
+    // 0x00c78860  find-or-insert of the node's count word
+    u32& operator[](const cKey& key);
+    // 0x005941f0  release every node of the bucket array
+    void FreeNodes(cKeyNode** buckets, u32 count);
+
+    // fixed_hashtable_allocator::deallocate, inlined by the shipped build
+    void DeallocateBucketArray(void* pBlock)
+    {
+        if (pBlock != mpBucketBuffer) {
+            if (pBlock >= mpPoolBegin && pBlock < mpPoolCapacity)
+                *(void**)pBlock = mpFreeListHead;
+            else
+                EastlFree(pBlock);
+        }
+    }
+    // The shipped build tears the container down with an explicit call at the
+    // end of the function (no exception-unwind registration is emitted).
+    void Destroy()
+    {
+        FreeNodes(mpBucketArray, mnBucketCount);
+        mnElementCount = 0;
+        if (mnBucketCount > 1)
+            DeallocateBucketArray(mpBucketArray);
+    }
+};
+
+struct cLocalMap : cFixedHashtable {   // 0x45c on the stack
+    // 0x00c78790  fixed_hash_map(hash, equal)
+    void Construct(const cHashFunctor& hash, const cHashFunctor& equal);
+
+    uint8_t mBucketBuffer[0x88];  // +0x34  inline bucket array (34 slots)
+    uint8_t mNodeBuffer[0x300];   // +0xbc  inline 0x18-stride node pool
+    uint8_t mInlineTail[0x9C];    // +0x3bc further inline container storage
+};
+
+// external helpers (retail addresses; their bodies live in the game)
+cObjectManager* ActiveObjectManager();                       // 0x0067de30
+void ConvertNamedValue(cConversionObject* object, const char* name,
+                       void* outA, void* outB);              // 0x006a0ae0
+
+// 0x00a68fb0: cRandomGlobal::RandomUint32Uniform, __thiscall on 0x01601760.
+struct cRandomGlobal {
+    u32 RandomUint32Uniform(u32 limit);
+};
+
+// external data (retail addresses in the comments)
+extern char        g_propertyKeys[];   // 0x0052c6cc0  the eight property names
+extern char        g_propertyText[];   // 0x0052c6cda  their text forms
+extern char        g_listNameA[];      // 0x0046bf76c
+extern char        g_listNameB[];      // 0x004973416
+extern const float g_captureRatio;     // 0x01470f1c
+
+struct cCaptureOwner {            // the player view the pool handle belongs to
+    uint8_t   mPad0000[0x10e8];
+    cKeyPool* mpKeyPool;          // +0x10e8
+
+    void Update(void* source);
+};
+
+} // namespace
+
+// @ 0x00c7a1f0
+void cCaptureOwner::Update(void* source)
+{
+    if (mpKeyPool == 0)
+        return;
+    if (source == 0)
+        return;
+
+    cHashFunctor functor;
+    cLocalMap    map;
+    map.Construct(functor, functor);
+
+    // Count every distinct id of the caller's 0x1d8-stride record list.
+    cSourceRecord* begin = *(cSourceRecord**)((uint8_t*)source + 0x98);
+    cSourceRecord* end   = *(cSourceRecord**)((uint8_t*)source + 0x9c);
+    int count = end - begin;
+    for (unsigned i = 0; i < (unsigned)count; ++i) {
+        cSourceRecord* record = begin + i;
+        if (record->mLimit < i)
+            continue;
+        cKey key;
+        key.mPart0 = record->mHi;
+        key.mPart1 = record->mLo;
+        ++map[key];
+    }
+
+    // Walk the map through its bucket array; the end iterator is the bucket
+    // slot at index `mnBucketCount`.
+    cKeyNode** bucket = map.mpBucketArray;
+    cKeyNode*  node   = *bucket;
+    if (node == 0) {
+        do {
+            ++bucket;
+        } while (*bucket == 0);
+        node = *bucket;
+    }
+
+    while (node != map.mpBucketArray[map.mnBucketCount]) {
+        u64 key     = node->mKey;
+        u32 keyLo   = (u32)key;
+        // Retail shifts the node key by a 32-bit count and calls __aullshr
+        // (0x011e08d0) for it; keep the count in a variable to get that form.
+        int hiShift = 32;
+        u32 keyHi   = (u32)(key >> hiShift);
+        u32 repeats = node->mCount;
+
+        {
+        cObjectRef object;
+        cObjectManager* manager = ActiveObjectManager();
+        if (object != 0)
+            object.Reset();
+        if (manager->Find(keyLo, keyHi, &object)) {
+            u32   countA = 0;
+            u32   countB = 0;
+            void* baseA  = 0;
+            void* baseB  = 0;
+            ConvertNamedValue(object, g_listNameA, &countA, &baseA);
+            ConvertNamedValue(object, g_listNameB, &countB, &baseB);
+
+            u32   byName[8]  = {0, 0, 0, 0, 0, 0, 0, 0};
+            void* vectors[8] = {0, 0, 0, 0, 0, 0, 0, 0};
+            u32   byText[8]  = {0, 0, 0, 0, 0, 0, 0, 0};
+
+            unsigned i = 0;
+            for (int n = 8; n != 0; --n, ++i) {
+                void* property;
+                if (object != 0 && object->GetProperty(&g_propertyKeys[i], &property)) {
+                    uint8_t* entry = (uint8_t*)property;
+                    if (*(unsigned short*)(entry + 0x12) == 9) {
+                        if (entry[0x10] & 0x30)
+                            entry = *(uint8_t**)entry;
+                        byName[i] = *(u32*)entry;
+                    }
+                }
+                byText[i] = 0;
+                ConvertNamedValue(object, &g_propertyText[i], &byText[i], &vectors[i]);
+                if ((int)byName[i] >= (int)byText[i])
+                    byName[i] = byText[i];
+            }
+
+            for (u32 n = repeats; n > 0; --n) {
+                for (u32 j = 0; j < countA; ++j) {
+                    cPoolKeyRecord* record = (cPoolKeyRecord*)((uint8_t*)baseA + j * 0xc);
+                    mpKeyPool->Insert(record->mLo, record->mHi, 0);
+                }
+                for (u32 j = 0; j < countB; ++j) {
+                    cPoolKeyRecord* record = (cPoolKeyRecord*)((uint8_t*)baseB + j * 0xc);
+                    mpKeyPool->Insert(record->mLo, record->mHi, 0);
+                }
+                for (u32 j = 0; j < 8; ++j) {
+                    cPoolKeyRecord* records = (cPoolKeyRecord*)vectors[j];
+                    int limit = (int)byName[j];
+                    for (int k = 0; k < limit; ++k) {
+                        cPoolKeyRecord* pick;
+                        u32 attempt = 0;
+                        do {
+                            u32 index = ((cRandomGlobal*)0x01601760)->RandomUint32Uniform(byText[j]);
+                            pick = records + index;
+                            if (!mpKeyPool->Contains(pick->mLo, pick->mHi))
+                                break;
+                            ++attempt;
+                        } while ((float)(int)byText[j] * g_captureRatio > (float)attempt);
+                        mpKeyPool->Erase(pick->mLo, pick->mHi, 0);
+                    }
+                }
+            }
+        }
+        if (object != 0)
+            object->Release();
+        }
+
+        node = node->mpNext;
+        if (node == 0) {
+            do {
+                ++bucket;
+            } while (*bucket == 0);
+            node = *bucket;
+        }
+    }
+
+    map.Destroy();
+}

@@ -2,26 +2,6 @@
 // Object file: SPGonzago/SPCreatureMissions.obj.  Function bodies keep the slice's code; types, members and virtual calls use the
 // canonical headers under src/game/include.  Each function keeps its '// @ 0xVA' marker.
 
-// addresses retail relocates here, named so the build relocates them too
-extern "C" char g_146afcc[];
-extern "C" char g_146afdc[];
-extern "C" char g_146aff0[];
-extern "C" char g_146b0d8[];
-extern "C" char g_146b0e8[];
-extern "C" char g_146b0f8[];
-extern "C" char g_146b1f0[];
-extern "C" char g_146b200[];
-extern "C" char g_146b210[];
-extern "C" char g_146b318[];
-extern "C" char g_146b328[];
-extern "C" char g_146b338[];
-extern "C" char g_146b3fc[];
-extern "C" char g_146b40c[];
-extern "C" char g_146b420[];
-extern "C" char g_1572560[];
-extern "C" char g_1572960[];
-extern "C" char g_1572a18[];
-
 #include "game/types.h"
 #include "SP/cString.h"
 
@@ -47,7 +27,6 @@ extern "C" int*  __fastcall Property_GetInt(void*);        // 0x0041e990
 #include <float.h>
 #include "SP/cSPTimer.h"
 #include "SP/cVarListSerializer.h"
-extern SP::cDataSerializerGeneric gCreatureMissionSerializerList[]; // 0x01572560
 
 // ---- items of slice s00c2f830 begin (TODO(rewrite): local stubs, replace by canonical classes)
 typedef unsigned int u32;
@@ -103,18 +82,18 @@ virtual void v28();
 struct ResKey { int f0, f1, f2, f3; };
 struct ImageRes { void Set(void* img); };         // __thiscall 0x00576650
 extern "C" u32*  __fastcall Property_GetUInt(void*);       // 0x0041ea00
-#define VT_FIND              (int)g_146b338
-#define VT_FIND_2            (int)g_146b328
-#define VT_FIND_3            (int)g_146b318
-#define VT_SPECIES           (int)g_146b420
-#define VT_SPECIES_2         (int)g_146b40c
-#define VT_SPECIES_3         (int)g_146b3fc
-#define VT_TUTORIAL          (int)g_146b0f8
-#define VT_TUTORIAL_2        (int)g_146b0e8
-#define VT_TUTORIAL_3        (int)g_146b0d8
-#define VT_BASE              (int)g_146aff0
-#define VT_BASE_2            (int)g_146afdc
-#define VT_BASE_3            (int)g_146afcc
+#define VT_FIND              0x146b338
+#define VT_FIND_2            0x146b328
+#define VT_FIND_3            0x146b318
+#define VT_SPECIES           0x146b420
+#define VT_SPECIES_2         0x146b40c
+#define VT_SPECIES_3         0x146b3fc
+#define VT_TUTORIAL          0x146b0f8
+#define VT_TUTORIAL_2        0x146b0e8
+#define VT_TUTORIAL_3        0x146b0d8
+#define VT_BASE              0x146aff0
+#define VT_BASE_2            0x146afdc
+#define VT_BASE_3            0x146afcc
 struct cString {
     cString();                                                  // 0x006b5060
     cString(u32 table, u32 instance, const wchar_t* fallback);  // 0x006b5770
@@ -262,8 +241,6 @@ extern char DAT_01654c01;
 extern char DAT_01654c02;
 extern char DAT_01654c04;
 extern int* g_169e3e8;                  // 0x0169e3e8 creature token translator
-extern int* g_169b41c;                  // 0x0169b41c
-extern void* g_1581288;                 // 0x01581288
 extern "C" int   FUN_004df550_s00c2_e420(void*);
 int  __fastcall FUN_00b1f9d0(void*);    // 0x00b1f9d0 ?GetPlayerEmpireOrMinus1 (this in ECX)
 void __fastcall FUN_00d00a10(void*);    // 0x00d00a10 (this in ECX)
@@ -327,11 +304,12 @@ struct ImageKey { unsigned int mA; unsigned int mB; unsigned int mC; };
 // @ 0x00c2e420
 unsigned char MissionStub::FUN_00c2e420(int param_2)
 {
+    // cGameData::Read, then one cVarListSerializer pass over the mission var list.
     unsigned char a = ((unsigned char(__thiscall*)(void*, int))FUN_00b18600)(this, param_2);
-    SP::cVarListSerializer ser(this, gCreatureMissionSerializerList, 0x1a80d26);
-    unsigned char b = ser.Serialize(*(SP::cIObjectDatabaseIStream*)param_2);
-    a &= b;
-    return a;
+    cVarListSerializer ser;
+    ((void(__thiscall*)(void*, void*, int, int))FUN_00692f90)(&ser, this, (int)0x01572560, (int)0x01a80d26);
+    unsigned char b = ((unsigned char(__thiscall*)(void*, int))FUN_00693e10)(&ser, param_2);
+    return (unsigned char)(a & b);
 }
 
 // @ 0x00c2e4b0
@@ -431,10 +409,10 @@ unsigned char MissionStub::FUN_00c2e6c0(int param_2)
     cVarListSerializer ser2;
 
     unsigned char a = ((unsigned char(__thiscall*)(void*, int))FUN_00b18600)(self, param_2);
-    ((void(__thiscall*)(void*, void*, int, int))FUN_00692f90)(&ser1, self, (int)g_1572560, (int)0x01a80d26);
+    ((void(__thiscall*)(void*, void*, int, int))FUN_00692f90)(&ser1, self, (int)0x01572560, (int)0x01a80d26);
     unsigned char b = ((unsigned char(__thiscall*)(void*, int))FUN_00693e10)(&ser1, param_2);
     b &= a;
-    ((void(__thiscall*)(void*, void*, int, int))FUN_00692f90)(&ser2, self, (int)&g_tbl_1572618, (int)0x01a80d26);
+    ((void(__thiscall*)(void*, void*, int, int))FUN_00692f90)(&ser2, self, (int)0x01572618, (int)0x01a80d26);
     unsigned char c = ((unsigned char(__thiscall*)(void*, int))FUN_00693e10)(&ser2, param_2);
     c &= b;
     return c;
@@ -479,10 +457,10 @@ unsigned char MissionStub::FUN_00c2e8c0(int param_2)
     cVarListSerializer ser2;
 
     unsigned char a = ((unsigned char(__thiscall*)(void*, int))FUN_00b18600)(self, param_2);
-    ((void(__thiscall*)(void*, void*, int, int))FUN_00692f90)(&ser1, self, (int)g_1572560, (int)0x01a80d26);
+    ((void(__thiscall*)(void*, void*, int, int))FUN_00692f90)(&ser1, self, (int)0x01572560, (int)0x01a80d26);
     unsigned char b = ((unsigned char(__thiscall*)(void*, int))FUN_00693e10)(&ser1, param_2);
     b &= a;
-    ((void(__thiscall*)(void*, void*, int, int))FUN_00692f90)(&ser2, self, (int)g_1572960, (int)0x01a80d26);
+    ((void(__thiscall*)(void*, void*, int, int))FUN_00692f90)(&ser2, self, (int)0x01572960, (int)0x01a80d26);
     unsigned char c = ((unsigned char(__thiscall*)(void*, int))FUN_00693e10)(&ser2, param_2);
     c &= b;
     return c;
@@ -515,9 +493,10 @@ char MissionStub::FUN_00c2e9e0()
     char* self = (char*)this;
     if (*(int*)(self + 0x7c) != 5) {
         *(int*)(self + 0x7c) = 5;
-        ((VFn)(*(void***)self)[0xbc / 4])(self);
-        ((VFn)(*(void***)self)[0x6c / 4])(self);
-        ((SP::cSPTimer*)(self + 0x38))->Restart();
+        void** vt = *(void***)self;
+        ((VFn)vt[0xbc / 4])(self);
+        ((VFn)vt[0x6c / 4])(self);
+        SP_cSPTimer_Restart(self + 0x38);
         return 1;
     }
     return 0;
@@ -531,10 +510,10 @@ unsigned char MissionStub::FUN_00c2eaa0(int param_2)
     cVarListSerializer ser2;
 
     unsigned char a = ((unsigned char(__thiscall*)(void*, int))FUN_00b18600)(self, param_2);
-    ((void(__thiscall*)(void*, void*, int, int))FUN_00692f90)(&ser1, self, (int)g_1572560, (int)0x01a80d26);
+    ((void(__thiscall*)(void*, void*, int, int))FUN_00692f90)(&ser1, self, (int)0x01572560, (int)0x01a80d26);
     unsigned char b = ((unsigned char(__thiscall*)(void*, int))FUN_00693e10)(&ser1, param_2);
     b &= a;
-    ((void(__thiscall*)(void*, void*, int, int))FUN_00692f90)(&ser2, self, (int)g_1572a18, (int)0x01a80d26);
+    ((void(__thiscall*)(void*, void*, int, int))FUN_00692f90)(&ser2, self, (int)0x01572a18, (int)0x01a80d26);
     unsigned char c = ((unsigned char(__thiscall*)(void*, int))FUN_00693e10)(&ser2, param_2);
     c &= b;
     return c;
@@ -802,36 +781,28 @@ int* __fastcall FUN_00c2f340(int* self)
     ((void(__thiscall*)(void*))FUN_00c46500)(self);
     self[0x1e] = 0;
     self[0x1f] = 3;
-    self[0] = (int)g_146b0f8;
-    self[1] = (int)g_146b0e8;
-    self[0xd] = (int)g_146b0d8;
+    self[0] = 0x146b0f8;
+    self[1] = 0x146b0e8;
+    self[0xd] = 0x146b0d8;
     _ReadWriteBarrier();
     self[0x20] = 0;
     return self;
 }
 
-extern "C" char g_146b0f8[];   // 0x146b0f8: tutorial mission vtable (primary)
-extern "C" char g_146b0e8[];   // 0x146b0e8: tutorial mission vtable (+4 base)
-extern "C" char g_146b0d8[];   // 0x146b0d8: tutorial mission vtable (+0x34 base)
-extern "C" char g_146aff0[];   // 0x146aff0: base mission vtable (primary)
-extern "C" char g_146afdc[];   // 0x146afdc: base mission vtable (+4 base)
-extern "C" char g_146afcc[];   // 0x146afcc: base mission vtable (+0x34 base)
-
 // @ 0x00c2f3e0
 void __fastcall FUN_00c2f3e0(int* self)
 {
-    self[0] = (int)g_146b0f8;
-    self[1] = (int)g_146b0e8;
-    self[0xd] = (int)g_146b0d8;
-    _ReadWriteBarrier();
+    self[0] = 0x146b0f8;
+    self[1] = 0x146b0e8;
+    self[0xd] = 0x146b0d8;
     int* p = (int*)self[0x20];
     if (p != 0) {
         typedef void (__fastcall *Fn)(void*);
         ((Fn*)p[0])[1](p);
     }
-    self[0] = (int)g_146aff0;
-    self[1] = (int)g_146afdc;
-    self[0xd] = (int)g_146afcc;
+    self[0] = 0x146aff0;
+    self[1] = 0x146afdc;
+    self[0xd] = 0x146afcc;
     ((C45140Dtor*)self)->FUN_00c45140();
 }
 
@@ -843,9 +814,9 @@ int* __fastcall FUN_00c2f470(int* self) // Simulator::cTribeToTribeMission ctor
     self[0x1f] = 3;
     {
         volatile int* vt = self;
-        vt[0] = (int)g_146b210;               // vtbl_Simulator::cTribeToTribeMission
-        vt[1] = (int)g_146b200;
-        vt[0x0d] = (int)g_146b1f0;
+        vt[0] = 0x0146b210;               // vtbl_Simulator::cTribeToTribeMission
+        vt[1] = 0x0146b200;
+        vt[0x0d] = 0x0146b1f0;
         _ReadWriteBarrier();
     }
     self[0x20] = 0;
@@ -860,10 +831,9 @@ int* __fastcall FUN_00c2f470(int* self) // Simulator::cTribeToTribeMission ctor
 void MissionStub::FUN_00c2f520()
 {
     char* self = (char*)this;
-    *(int*)(self + 0x00) = (int)g_146b210;
-    *(int*)(self + 0x04) = (int)g_146b200;
-    *(int*)(self + 0x34) = (int)g_146b1f0;
-    _ReadWriteBarrier();
+    *(int*)(self + 0x00) = 0x0146b210;
+    *(int*)(self + 0x04) = 0x0146b200;
+    *(int*)(self + 0x34) = 0x0146b1f0;
 
     int* p = *(int**)(self + 0x88);
     if (p != 0)
@@ -875,9 +845,9 @@ void MissionStub::FUN_00c2f520()
     if (p != 0)
         ((void(__thiscall*)(void*))(*(void***)p)[4 / 4])(p);
 
-    *(int*)(self + 0x00) = (int)g_146aff0;
-    *(int*)(self + 0x04) = (int)g_146afdc;
-    *(int*)(self + 0x34) = (int)g_146afcc;
+    *(int*)(self + 0x00) = 0x0146aff0;
+    *(int*)(self + 0x04) = 0x0146afdc;
+    *(int*)(self + 0x34) = 0x0146afcc;
 
     ((void(__thiscall*)(void*))FUN_00c45140)(self);
 }
@@ -915,19 +885,14 @@ void MissionStub::FUN_00c2f5f0()
 }
 
 // @ 0x00c2f650
-struct cRelationshipManager {
-    float ClampRelationship(void* a, void* b, void* c);   // 0x00d00a10
-};
-struct PoliticalIdSource {
-    void* GetPlayerPoliticalID();                         // 0x00b1f9d0
-};
-float __fastcall FUN_00c2f650(int* self)
+void __fastcall FUN_00c2f650(int* self)
 {
     int* p = *(int**)((char*)self + 0x80);
-    return ((cRelationshipManager*)((void*(*)())FUN_00b3d2c0)())->ClampRelationship(
-        ((void*(__thiscall*)(void*))(*(void***)p)[0x4c / 4])(p),
-        ((PoliticalIdSource*)((void*(*)())FUN_00b3d300)())->GetPlayerPoliticalID(),
-        0);
+    void* noun = FUN_00b3d300(0);
+    int empire = FUN_00b1f9d0(noun);
+    int rel = ((int(__thiscall*)(void*, int))(*(void***)p)[0x4c / 4])(p, empire);
+    void* relMgr = FUN_00b3d2c0(rel);
+    FUN_00d00a10(relMgr);
 }
 
 // @ 0x00c2f690
@@ -1257,13 +1222,14 @@ void Mission::FUN_00c2fde0()
         char ok = ((char(__thiscall*)(void*, int, int*))(*(void***)obj)[0x24 / 4])(obj, 0x6b15b5cb, &temp);
         if (ok && *(unsigned short*)((char*)temp + 0x12) == 0xa) {
             u32 val = *Property_GetUInt((void*)temp);
-            g_169e3e8[0x10 / 4] = val;
+            *(u32*)((char*)*(int**)0x169e3e8 + 0x10) = val;
         }
     }
-    g_169e3e8[0x20 / 4] = self[0x21];
-    if (g_169b41c != 0) {
-        int r = FUN_004e1c30(g_1581288, 0xb79e0065, 0x28);
-        g_169b41c[0xc / 4] = r;
+    u32 m = self[0x21];
+    *(u32*)((char*)*(int**)0x169e3e8 + 0x20) = m;
+    if (*(int**)0x169b41c != 0) {
+        int r = FUN_004e1c30(*(void**)0x1581288, 0xb79e0065, 0x28);
+        *(int*)((char*)*(int**)0x169b41c + 0xc) = r;
     }
     if (obj != 0)
         ((VFn0)(*(void***)obj)[1])(obj);

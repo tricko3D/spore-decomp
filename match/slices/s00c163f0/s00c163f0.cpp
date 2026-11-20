@@ -10,8 +10,10 @@
 //     erasing finished ones);
 //  4. drives the locomotion sound (start/stop + speed/age/flag parameters);
 //  5. re-attaches the effects of the field_F84 list, dropping dead ones.
-#include <math.h>
+// @ 0x00C163F0  per-frame graphics/audio sync of a creature (Simulator::cCreatureBase::func6Ch).
 #include "types.h"
+#include "sse_helpers.h"
+#include <math.h>
 
 #define PVCAT2(a, b) a##b
 #define PVCAT(a, b) PVCAT2(a, b)
@@ -20,16 +22,7 @@
 #define PV4 PV2 PV2
 #define PV8 PV4 PV4
 
-__forceinline float Clamp(float value, float minValue, float maxValue)
-{
-    __asm {
-        movss xmm0, value
-        maxss xmm0, minValue
-        minss xmm0, maxValue
-        movss value, xmm0
-    }
-    return value;
-}
+#define Clamp(value, minValue, maxValue) SseClamp((value), (minValue), (maxValue))
 
 struct Vector3 {
     float x, y, z;
@@ -90,6 +83,22 @@ struct Transform {
         mRotation.row[0] = sIdentityMatrix.row[0];
         mRotation.row[1] = sIdentityMatrix.row[1];
         mRotation.row[2] = sIdentityMatrix.row[2];
+    }
+    // The same construction with the identity copy emitted element by element (no helper call).
+    struct FieldInit {};
+    __forceinline Transform(FieldInit) : mnFlags(0), mnTransformCount(0), mOffset(sZeroVector), mfScale(1.0f)
+    {
+        float* dst = &mRotation.row[0].x;
+        const float* src = &sIdentityMatrix.row[0].x;
+        dst[0] = src[0];
+        dst[1] = src[1];
+        dst[2] = src[2];
+        dst[3] = src[3];
+        dst[4] = src[4];
+        dst[5] = src[5];
+        dst[6] = src[6];
+        dst[7] = src[7];
+        dst[8] = src[8];
     }
     void SetOffset(const Vector3& v) { mOffset = v; mnFlags |= kFlagOffset; mnTransformCount += 1; }
     void SetRotation(const Matrix3& m) { mRotation = m; mnFlags |= kFlagRotation; mnTransformCount += 1; }
@@ -493,7 +502,7 @@ void cCreatureBase::func6Ch(int deltaTime)
 
     if (!field_F84.empty()) {
         list_node_base* it = field_F84.begin();
-        Transform xf((Transform::InlineInit()));
+        Transform xf((Transform::FieldInit()));
         xf.SetRotation(Matrix3FromQuaternion(mpAnimatedCreature->mOrientation));
         xf.SetOffset(mpAnimatedCreature->GetPosition());
         while (it != field_F84.end()) {

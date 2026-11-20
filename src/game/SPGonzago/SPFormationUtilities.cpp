@@ -270,14 +270,14 @@ int HashTable::erase(const u32& key)
   u32 bucket = key % mBucketCount;
   HashNode** link = &mpBuckets[bucket];
   if (*link) {
-    do {
-      HashNode* node = *link;
-      if (key == node->mKey) break;
+    HashNode* node = *link;
+    while (node->mKey != key) {
       link = &node->mpNext;
-    } while (*link);
-    while (*link) {
+      node = node->mpNext;
+      if (!node) break;
+    }
+    while (*link && (*link)->mKey == key) {
       HashNode* del = *link;
-      if (key != del->mKey) break;
       *link = del->mpNext;
       operator_delete_array(del);
       mCount--;

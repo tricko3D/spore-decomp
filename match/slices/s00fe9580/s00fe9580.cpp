@@ -1,3 +1,4 @@
+// @ 0x00fe9580
 // Slice s00fe9580 -- SP::cEmpireGrowthSim::TakeTurn (0x00fe9580, 3252 bytes).
 // Flags: /O2 /MD /Gy /TP /arch:SSE /fp:fast (no /EHsc: the vector / effect locals have no EH frame).
 //
@@ -57,17 +58,8 @@ struct Transform {
     }
 };
 
-// SSE clamp helper of this module (maxss/minss through inline asm).
-inline float Clamp(float value, float minValue, float maxValue)
-{
-    __asm {
-        movss xmm0, value
-        maxss xmm0, minValue
-        minss xmm0, maxValue
-        movss value, xmm0
-    }
-    return value;
-}
+// SSE clamp (maxss/minss) from the reviewed helper header.
+#include "sse_helpers.h"
 
 class cIVisualEffect {
 public:
@@ -392,7 +384,7 @@ void cEmpireGrowthSim::TakeTurn(uint32_t empireID)
                             planet->mAtmosphereScore = 0.5f;
                             planet->mTemperatureScore = 0.65f;
                             Vector2 range = GetWaterScoreRange(0.5f, 0.65f);
-                            planet->mWaterScore = Clamp(planet->mWaterScore, range.x, range.y);
+                            planet->mWaterScore = SseClamp(planet->mWaterScore, range.x, range.y);
                             planet->mType = 4;
                             if (planet->mFlags & 8) {
                                 planet->mFlags &= ~8;

@@ -92,11 +92,17 @@ void BoundingBox::TransformBy(const Transform& t)
 // @ 0x0040a0f0
 void Matrix3_Abs(const Matrix3& in, Matrix3& out)
 {
-    const Vec3Data& v9 = in[0];
-    const float* n28 = &v9[0];
-    Vec3Data& hi = out[0];
-    float* p30 = &hi[0];
-    int key;
-    for (key = 0; key < 9; key++)
-        p30[key] = Abs(n28[key]);
+    struct Traversal {
+        Vec3Data* outputRow;
+        const Vec3Data* inputRow;
+        int index;
+        const float* source;
+        float* destination;
+    } state;
+    state.inputRow = &in[0];
+    state.source = &(*state.inputRow)[0];
+    state.outputRow = &out[0];
+    state.destination = &(*state.outputRow)[0];
+    for (state.index = 0; state.index < 9; state.index++)
+        state.destination[state.index] = Abs(state.source[state.index]);
 }

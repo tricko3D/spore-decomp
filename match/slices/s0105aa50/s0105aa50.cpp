@@ -7,6 +7,8 @@ typedef unsigned int uint32_t;
 #define PA(a, n) P(a##n)
 
 struct Vec3 { float x, y, z; };
+// the second Init argument is a 16-byte vector (retail reserves 16 bytes for it)
+struct Vec4 { float x, y, z, w; };
 
 struct ActionTarget {
     uint32_t b[12];
@@ -112,7 +114,7 @@ struct M3 {
     void Finish(Plant* p, int one);                                       // 0x00b2c980
 };
 
-struct PlantX { P8(a) P8(b) P8(c) P8(d) P8(e) P4(f) P(g0) P(g1) P(g2) P(g3) P(g4) virtual void Set(int n); };  // slot 45
+struct PlantX { P8(a) P8(b) P8(c) P8(d) P8(e) P4(f) P(g0) virtual void Set(int n); };  // slot 45 (+0xb4)
 struct PlantSub {
     P8(a) P8(b) P8(c) P8(d) P8(e) P(f0) P(f1) P(f2)
     virtual int Dummy43(int a);                                           // +0xac (slot 43)
@@ -181,12 +183,14 @@ extern int g_behId;                                                       // 0x0
 
 static inline void* TargetOf(Beam* b) { return b ? (char*)b + 0x11c : 0; }
 
+// @ 0x0105aa50
 bool __stdcall StartTool(Tool* self, Vec3* a2, int a3)
 {
     if (!Base(self, a2, a3)) return true;
     ActionTarget at;
-    Vec3 dummy;
-    at.Init(a2, &dummy);
+    Vec4 dummy;
+    Vec3 pos, start, end, dir, d;
+    at.Init(a2, (Vec3*)&dummy);
     GetM1()->Start(0x5dce504a, &at, 0);
     Inv* inv = SpaceGameGet()->GetPlayerInventory();
     if (!inv) goto done;
@@ -203,7 +207,7 @@ bool __stdcall StartTool(Tool* self, Vec3* a2, int a3)
         Unk* held = 0;
         int count;
         if (bPlant || bAnimal || bAbd) {
-            if (!b4) count = 1; else count = item->f10;
+            if (b4) count = item->f10; else count = 1;
         } else if (b4) {
             count = item->f10;
         } else if (b5) {
@@ -213,13 +217,11 @@ bool __stdcall StartTool(Tool* self, Vec3* a2, int a3)
         }
         inv->Take(handle, (void**)&held, count);
         if (self->beam) {
-            Vec3 start, end, d, dir;
             self->beam->GetEndPoints(&start, &end);
             d.x = end.x - start.x;
             d.y = end.y - start.y;
             d.z = end.z - start.z;
             Vec3* n = normalized_safe(&dir, &d);
-            Vec3 pos;
             pos.x = n->x + start.x;
             pos.y = n->y + start.y;
             pos.z = n->z + start.z;
@@ -238,12 +240,13 @@ bool __stdcall StartTool(Tool* self, Vec3* a2, int a3)
                         YSub* sub = &y->sub;
                         sub->SetValue(sub->Value());
                         self->held.Assign(y);
-                        BehaviorManager()->Register((char*)y + 0x58);
+                        char* anchor = (char*)y + 0x58;
+                        BehaviorManager()->Register(anchor);
                         void* tgt = TargetOf(self->beam);
                         Abducted* ab = CastAbducted(BehaviorManager()->Find(g_behId, 0, tgt, 0));
                         if (ab) {
                             ab->SetFlag(1);
-                            ab->Attach((char*)y + 0x58);
+                            ab->Attach(anchor);
                         }
                     }
                 }
@@ -280,12 +283,13 @@ bool __stdcall StartTool(Tool* self, Vec3* a2, int a3)
                         x->Set(pl->sub.Dummy43(1));
                         GetM3()->Finish(pl, 1);
                         self->held.Assign(CastPlantUnk(pl));
-                        BehaviorManager()->Register((char*)pl + 0x5e8);
+                        char* anchor = (char*)pl + 0x5e8;
+                        BehaviorManager()->Register(anchor);
                         void* tgt = TargetOf(self->beam);
                         Abducted* ab = CastAbducted(BehaviorManager()->Find(g_behId, 0, tgt, 0));
                         if (ab) {
                             ab->SetFlag(1);
-                            ab->Attach((char*)pl + 0x5e8);
+                            ab->Attach(anchor);
                         }
                     }
                 }
@@ -296,12 +300,13 @@ bool __stdcall StartTool(Tool* self, Vec3* a2, int a3)
                     art->sub.SetPos(&pos);
                     art->Set(item->type, item->GetN(), item->f10, 1);
                     self->held.Assign(art);
-                    BehaviorManager()->Register((char*)art + 0x5d0);
+                    char* anchor = (char*)art + 0x5d0;
+                    BehaviorManager()->Register(anchor);
                     void* tgt = TargetOf(self->beam);
                     Abducted* ab = CastAbducted(BehaviorManager()->Find(g_behId, 0, tgt, 0));
                     if (ab) {
                         ab->SetFlag(1);
-                        ab->Attach((char*)art + 0x5d0);
+                        ab->Attach(anchor);
                     }
                     Planet* pl = GetActivePlanet();
                     Spawn(pl->f13c, item->type, art->Dir(&dir), art->f638, 1, pos, 0);

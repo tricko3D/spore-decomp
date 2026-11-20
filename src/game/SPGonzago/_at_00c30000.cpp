@@ -2,13 +2,6 @@
 // Object file: SPGonzago/_at_00c30000.obj.  Function bodies keep the slice's code; types, members and virtual calls use the
 // canonical headers under src/game/include.  Each function keeps its '// @ 0xVA' marker.
 
-// addresses retail relocates here, named so the build relocates them too
-extern "C" void FUN_013c3880();
-extern "C" char g_1466c14[];
-extern "C" char g_146c56c[];
-extern "C" char g_1573a60[];
-extern "C" char g_157a1f8[];
-
 #include "game/types.h"
 #include "SP/cGameData.h"
 #include "SP/cSpatialObject.h"
@@ -969,7 +962,7 @@ void cGameBundle::Read(uint32_t s)
     ((BaseSpatial*)mSpatial)->Read(s);
     ((BaseGameData*)this)->Read(s);
     ((SerObj*)buf)->Ctor(this, &g_p1573038, 0x1a80d26);
-    ((SerObj*)buf)->Read(s);
+    ((SerObj*)buf)->Serialize(s);
 }
 
 // @ 0x00c35d20
@@ -982,14 +975,7 @@ bool cGameBundle::IsState0Or4()
 // @ 0x00c35d40
 bool cGameBundle::IsState234()
 {
-    switch (mField12c) {
-    case 2:
-    case 3:
-    case 4:
-        return true;
-    default:
-        return false;
-    }
+    return (uint32_t)(mField12c - 2) <= 2U;
 }
 
 // @ 0x00c35d90
@@ -1406,41 +1392,31 @@ void __fastcall FUN_00c3e350(char* self)
     ((Vf)(*(void**)(*(char**)(self + 0x34) + 0x2c)))(self + 0x34);
 }
 
-// Stream views used by the game-plant and hit-sphere serializers.
-class PlantStreamHolder {
-public:
-    virtual void slot0(); virtual void slot1(); virtual void slot2();
-    virtual void slot3(); virtual void slot4(); virtual void slot5();
-    virtual void* GetStream(); // +0x18
-};
-class PlantArchive {
-public:
-    virtual void slot0(); virtual void slot1(); virtual void slot2();
-    virtual void slot3(); virtual void slot4(); virtual void slot5();
-    virtual void slot6(); virtual void slot7();
-    virtual PlantStreamHolder* GetStreamHolder(); // +0x20
-};
-class cGamePlant {
-public:
-    bool Write(SP::cIObjectDatabaseOStream& stream) const; // 0x00c3e3b0
-    bool Read(SP::cIObjectDatabaseIStream& stream);        // 0x00c3e9d0
-};
-extern SP::cDataSerializerGeneric gGamePlantFields[]; // 0x01573a60
-extern SP::cDataSerializerGeneric gHitSphereFields[]; // 0x01573d38
-
 // @ 0x00c3e3b0
-bool cGamePlant::Write(SP::cIObjectDatabaseOStream& stream) const
+char __cdecl FUN_00c3e3b0(char* self, void* stream)
 {
-    PlantStreamHolder* __restrict holder = reinterpret_cast<PlantArchive*>(&stream)->GetStreamHolder();
-    uint32_t version = 0xaeb336b4;
-    void* output = holder->GetStream();
-    FUN_0093aa70(output, &version, 1, 0);
-    bool ok = reinterpret_cast<const SP::cGameData*>(this)->SP::cGameData::Write(stream) &&
-        reinterpret_cast<const SP::cSpatialObject*>((const char*)this + 0x34)->SP::cSpatialObject::Write(stream);
-    SP::cVarListSerializer serializer(this, gGamePlantFields, SP::cVarListSerializer::kSignature);
-    if (ok && serializer.Serialize(stream))
-        return true;
-    return false;
+    char buf[8];
+    char ser[0x18];  // cVarListSerializer (>=0x14)
+    typedef void* (__thiscall* M0)(void*);
+    void* s2 = ((M0)(*(void**)(*(char**)stream + 0x20)))(stream);
+    typedef void* (__thiscall* M1)(void*);
+    void* s3 = ((M1)(*(void**)(*(char**)s2 + 0x18)))(s2);
+    *(int*)buf = (int)0xaeb336b4;
+    FUN_0093aa70(s3, buf, 1, 0);
+    char ok = (char)FUN_00b18590(self, stream);
+    if (ok) {
+        ok = (char)FUN_00c88a90(self + 0x34, stream);
+        if (ok) ok = 1; else ok = 0;
+    } else {
+        ok = 0;
+    }
+    FUN_00692f90(ser, self, (void*)0x1573a60, 0x1a80d26);
+    if (ok) {
+        if (FUN_00692900(ser, stream)) {
+            return 1;
+        }
+    }
+    return 0;
 }
 
 // @ 0x00c3e460
@@ -1457,9 +1433,9 @@ int cGameData::WriteAsText(void* pData)
     uint8_t serA[0xa14];
     uint8_t serB[0xa14];
     int n = ((FnB18420*)this)->f(pData);
-    ((CVarListSer*)serA)->ctor((char*)this + 0x34, (void*)g_157a1f8, 0x1a80d26);
+    ((CVarListSer*)serA)->ctor((char*)this + 0x34, (void*)0x157a1f8, 0x1a80d26);
     n += ((CVarListSer*)serA)->GetFields(pData);
-    ((CVarListSer*)serB)->ctor(this, (void*)g_1573a60, 0x1a80d26);
+    ((CVarListSer*)serB)->ctor(this, (void*)0x1573a60, 0x1a80d26);
     n += ((CVarListSer*)serB)->GetFields(pData);
     return n;
 }
@@ -1590,18 +1566,28 @@ void C3e8e0::f(int* p)
 }
 
 // @ 0x00c3e9d0
-bool cGamePlant::Read(SP::cIObjectDatabaseIStream& stream)
+char __cdecl FUN_00c3e9d0(char* self, void* stream)
 {
-    PlantStreamHolder* holder = reinterpret_cast<PlantArchive*>(&stream)->GetStreamHolder();
-    uint32_t version;
-    void* input = holder->GetStream();
-    FUN_0093a780(input, &version, 1, 0);
-    bool ok = reinterpret_cast<SP::cGameData*>(this)->SP::cGameData::Read(stream) &&
-        reinterpret_cast<SP::cSpatialObject*>((char*)this + 0x34)->SP::cSpatialObject::Read(stream);
-    SP::cVarListSerializer serializer(this, gGamePlantFields, SP::cVarListSerializer::kSignature);
-    bool result = ok && serializer.Serialize(stream);
-    reinterpret_cast<Fn3e8e0*>(this)->f((char*)this + 0x650);
-    return result;
+    char buf[4];
+    char ser[0x18];
+    typedef void* (__thiscall* M0)(void*);
+    void* s2 = ((M0)(*(void**)(*(char**)stream + 0x20)))(stream);
+    typedef void* (__thiscall* M1)(void*);
+    void* s3 = ((M1)(*(void**)(*(char**)s2 + 0x18)))(s2);
+    FUN_0093a780(s3, buf, 1, 0);
+
+    char bl;
+    if ((char)FUN_00b18600(self, stream)) {
+        if ((char)FUN_00c88b00(self + 0x34, stream)) bl = 1;
+        else bl = 0;
+    } else bl = 0;
+
+    FUN_00692f90(ser, self, (void*)0x1573a60, 0x1a80d26);
+    if (bl) {
+        if (FUN_00693e10(ser, stream)) bl = 1; else bl = 0;
+    } else bl = 0;
+    ((Fn3e8e0*)self)->f(self + 0x650);
+    return bl;
 }
 
 // @ 0x00c3ea80
@@ -1613,7 +1599,7 @@ void* __cdecl FUN_00c3ea80()
         g_168e568 = 0;
         g_168e56c = 0;
         g_168e570 = 0;
-        atexit((void(__cdecl*)(void))FUN_013c3880);
+        atexit((void(__cdecl*)(void))0x13c3880);
     }
     return &g_168e568;
 }
@@ -1663,7 +1649,7 @@ void* RetailSolarHitSphere::cSolarHitSphere::AsInterface(uint32_t type)
 void* cGameplayMarker::Destroy(int bDelete)
 {
     CMarkerBase* pBase = (CMarkerBase*)this;
-    pBase->mpVtbl00 = (void*)g_146c56c;
+    pBase->mpVtbl00 = (void*)0x146c56c;
     _ReadWriteBarrier();
     if (pBase->mpRef38 != nullptr)
         pBase->mpRef38->Release();
@@ -1683,9 +1669,9 @@ void cInteractableObject::Shutdown()
 {
     ((FnAc0520*)((uint8_t*)this + 0x210))->f();
     ((FnBfcd00*)((uint8_t*)this + 0x148))->f();
-    *(uint32_t*)((uint8_t*)this + 0x144) = (int)g_1466c14;
+    *(uint32_t*)((uint8_t*)this + 0x144) = 0x1466c14;
     ((FnC8a420*)((uint8_t*)this + 0x70))->f();
-    *(uint32_t*)((uint8_t*)this + 0x34) = (int)g_146c56c;
+    *(uint32_t*)((uint8_t*)this + 0x34) = 0x146c56c;
     _ReadWriteBarrier();
     IRefCounted* pOwner = *(IRefCounted**)((uint8_t*)this + 0x6c);
     if (pOwner != nullptr)
@@ -1716,24 +1702,25 @@ void cHitSphere::Shutdown()
 // @ 0x00c3f340
 bool cHitSphere::Write(void* pData)
 {
-    PlantStreamHolder* __restrict holder = reinterpret_cast<PlantArchive*>(pData)->GetStreamHolder();
+    IOStream* pStream = ((ISerializer*)pData)->GetStream();
     uint32_t nType = 0x2e71a5a;
-    void* stream = holder->GetStream();
-    FUN_0093aa70(stream, &nType, 1, 0);
-    SP::cIObjectDatabaseOStream& archive = *reinterpret_cast<SP::cIObjectDatabaseOStream*>(pData);
-    bool ok = reinterpret_cast<const SP::cGameData*>(this)->SP::cGameData::Write(archive) &&
-        reinterpret_cast<const SP::cSpatialObject*>((const char*)this + 0x70)->SP::cSpatialObject::Write(archive);
-    cGameData* delegate = mpDelegate;
-    if (delegate && ((bool (__thiscall*)(cGameData*))(*(void***)delegate)[0x2c / 4])(delegate)) {
-        delegate = mpDelegate;
-        if (delegate) {
-            mpDelegate = 0;
-            delegate->Release();
+    WriteUint32(pStream->GetStream(), &nType, 1, 0);
+
+    bool bOk = cGameData::Write(pData);
+    if (bOk)
+        bOk = cSpatialObject::Write(pData);
+
+    if (mpDelegate != nullptr) {
+        if (mpDelegate->Query(nullptr) != nullptr) {
+            cGameData* pOld = mpDelegate;
+            mpDelegate = nullptr;
+            pOld->Release();
         }
     }
-    SP::cVarListSerializer serializer(this, gHitSphereFields, SP::cVarListSerializer::kSignature);
-    if (ok && serializer.Serialize(archive))
-        return true;
+
+    cVarListSerializer serializer(this, sHitSphereFields, 0x1a80d26);
+    if (bOk)
+        return serializer.Serialize(pData);
     return false;
 }
 

@@ -3,13 +3,6 @@
 // canonical headers under src/game/include.  Each function keeps its '// @ 0xVA' marker.
 
 #include "game/types.h"
-// addresses retail relocates here, named so the build relocates them too
-extern "C" char g_1471ba0[];
-extern "C" char g_1471b8c[];
-extern "C" char g_1471ac8[];
-extern "C" char g_1471aac[];
-extern "C" void _ReadWriteBarrier(void);
-#pragma intrinsic(_ReadWriteBarrier)
 #include "SP/cGameData.h"
 #include "SP/cHerd.h"
 #include "SP/cPlanetModel.h"
@@ -103,7 +96,7 @@ extern float gWaterSearchDist;   // 0x01582e8c  100.0f
 extern float gFiftyF;            // 0x01582f5c  50.0f
 extern float gViewerOrigin[3];   // 0x01693e50..0x01693e58
 extern int   gViewerGuard;       // 0x01693e4c
-extern SP::cDataSerializerGeneric gEggSerializerList; // 0x015778f0
+extern void* gEggSerializerList; // 0x015778f0
 #pragma warning(disable : 4100)
 
 namespace EA {
@@ -138,9 +131,6 @@ class ThisStubs
     void G();   // 0x00ac0450 cInteractionTarget clear
     void H();   // 0x00c8b2e0 cSpatialObject clear
     void I();   // 0x00bbc3f0 TerraformingManager footstep
-    bool WriteGameData(void* stream);   // 0x00b18590
-    bool WriteSpatial(void* stream);    // 0x00c88a90
-    bool WriteCombatant(void* stream);  // 0x00bfc4a0
 };
 }
 namespace SP {
@@ -212,15 +202,6 @@ class RefObj
   public:
     virtual void AddRef();              // +0x00
     virtual void Release();             // +0x04
-    virtual void slot08();
-    virtual void slot0c();
-    virtual void slot10();
-    virtual void slot14();
-    virtual void slot18();
-    virtual void slot1c();
-    virtual void slot20();
-    virtual void slot24();
-    virtual void slot28();
     virtual bool IsValid();             // +0x2c
 };
 }
@@ -817,30 +798,25 @@ bool cHerd::ShouldActivate()
 namespace SP {
 bool SP::cEgg_s00c6_a550::Write(SP::IOStream* stream)
 {
-    IWriter* __restrict writer = static_cast<IWriter*>(stream->GetWriter());
     u32 tag = 0x2a0349a;
-    void* sink = writer->GetSink();
-    EA::IO::WriteUint32(sink, &tag, 1, 0);
-    bool ok = reinterpret_cast<ThisStubs*>(this)->WriteGameData(stream)
-        && reinterpret_cast<ThisStubs*>((char*)this + 0x34)->WriteSpatial(stream)
-        && reinterpret_cast<ThisStubs*>((char*)this + 0x120)->WriteCombatant(stream);
+    IWriter* writer = (IWriter*)stream->GetWriter();
+    EA::IO::WriteUint32(writer->GetSink(), &tag, 1, 0);
+    if (!FUN_00b18590((void*)this, stream))
+        return false;
+    if (!FUN_00c88a90((char*)this + 0x34, stream))
+        return false;
+    bool ok = FUN_00bfc4a0((char*)this + 0x120, stream) != 0;
     if (mpHerd != 0 && mpHerd->IsValid()) {
-        RefObj* previous = mpHerd;
-        if (previous != 0) {
-            mpHerd = 0;
-            previous->Release();
-        }
+        mpHerd = 0;
+        mpHerd->Release();
     }
     if (mpToHatch != 0 && mpToHatch->IsValid()) {
-        RefObj* previous = mpToHatch;
-        if (previous != 0) {
-            mpToHatch = 0;
-            previous->Release();
-        }
+        mpToHatch = 0;
+        mpToHatch->Release();
     }
-    SP::cVarListSerializer ser(this, &gEggSerializerList,
-        SP::cVarListSerializer::kSignature);
-    if (ok && ser.Serialize(*reinterpret_cast<SP::cIObjectDatabaseOStream*>(stream)))
+    cVarListSerializer_s00c6_a550 ser;
+    FUN_00692f90(&ser, (void*)this, (void**)&gEggSerializerList, 0x1a80d26);
+    if (ok && FUN_00692900(&ser, stream))
         return true;
     return false;
 }
@@ -912,11 +888,10 @@ SP::cNest_s00c6_a550::cNest_s00c6_a550()
     ((ThisStubs*)((char*)this + 0x108))->C();         // cInteractionTarget ctor
     mbShowPlacement = 0;
     mp124 = 0;
-    *(void**)this = (void*)g_1471ba0;
-    *(void**)((char*)this + 4) = (void*)g_1471b8c;
-    *(void**)((char*)this + 0x34) = (void*)g_1471ac8;
-    *(void**)((char*)this + 0x108) = (void*)g_1471aac;
-    _ReadWriteBarrier();
+    *(void**)this = (void*)0x1471ba0;
+    *(void**)((char*)this + 4) = (void*)0x1471b8c;
+    *(void**)((char*)this + 0x34) = (void*)0x1471ac8;
+    *(void**)((char*)this + 0x108) = (void*)0x1471aac;
     mpOwner128 = 0;
     mpFootprint12c = 0;
 }
@@ -926,11 +901,10 @@ SP::cNest_s00c6_a550::cNest_s00c6_a550()
 namespace SP {
 SP::cNest_s00c6_a550::~cNest_s00c6_a550()
 {
-    *(void**)this = (void*)g_1471ba0;
-    *(void**)((char*)this + 4) = (void*)g_1471b8c;
-    *(void**)((char*)this + 0x34) = (void*)g_1471ac8;
-    *(void**)((char*)this + 0x108) = (void*)g_1471aac;
-    _ReadWriteBarrier();
+    *(void**)this = (void*)0x1471ba0;
+    *(void**)((char*)this + 4) = (void*)0x1471b8c;
+    *(void**)((char*)this + 0x34) = (void*)0x1471ac8;
+    *(void**)((char*)this + 0x108) = (void*)0x1471aac;
     if (mpOwner128)
         mpOwner128->Release();
     ((ThisStubs*)((char*)this + 0x108))->D();         // cInteractionTarget dtor-ish
@@ -1037,16 +1011,12 @@ void SP::cNest_s00c6_a550::AddFootprint()
 namespace SP {
 void* SP::cHerd_s00c6_a550::GetProfileForGeneration(unsigned gen)
 {
-    void* profile = 0;
     unsigned count = (unsigned)((mEvolvedKeysEnd - mEvolvedKeysBegin) / 0xc);
-    if (gen < count) {
-        _ReadWriteBarrier();
-        const void* key = (const void*)(mEvolvedKeysBegin + gen * 0xc);
-        profile = ((cSpeciesMgr*)FUN_00401090())->GetProfile(key);
-    }
-    return profile;
+    if (gen < count)
+        return ((cSpeciesMgr*)FUN_00401090())->GetProfile((const void*)(mEvolvedKeysBegin + gen * 0xc));
+    return 0;
 }
-}
+}  // namespace SP
 
 // @ 0x00c6ac40
 namespace SP {

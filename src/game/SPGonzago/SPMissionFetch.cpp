@@ -76,6 +76,16 @@ struct cKeyVector {                    // eastl::vector<EA::ResourceMan::Key>-li
     u8  mPad0008[0xc];                 // capacity + allocator
     int size() const { return (int)(mpEnd - mpBegin); }
 };
+struct FetchKey {                      // 12-byte resource key used by the fetch payloads
+    u32 mInstance;                     // +0x00
+    u32 mType;                         // +0x04
+    u32 mGroup;                        // +0x08
+};
+struct FetchSampleLocal {              // 0x10-byte element of mSamplerPlate (+0x234)
+    u8       mIsAnimal;                // +0x00
+    u8       mPad01[3];
+    FetchKey mSpeciesKey;              // +0x04
+};
 struct cPlanetCounts {
     u8  mPad00bc[0xbc];
     cKeyVector mVecBc;                 // 0xbc (mpBegin 0xbc, mpEnd 0xc0)
@@ -108,9 +118,14 @@ struct cSPMissionFetch {
     u8              mPad0184[0x1f0 - 0x184];
     int             mState1f0;              // 0x1f0
     u32             mTag1f4;                // 0x1f4
-    u8              mPad01f8[0x234 - 0x1f8];
-    void*           mpData234;              // 0x234
-    u8              mPad0238[0x248 - 0x238];
+    FetchKey        mFetchArtifactCargoItemID; // 0x1f8
+    u8              mPad0204[0x210 - 0x204];   // +0x204 artifact position
+    FetchKey        mFetchPlantSpeciesKey;     // 0x210
+    FetchKey        mFetchAnimalSpeciesKey;    // 0x21c
+    FetchKey        mFetchCommodityKey;        // 0x228
+    void*           mpData234;              // 0x234 sampler-plate begin
+    void*           mpData238;              // 0x238 sampler-plate end
+    u8              mPad023c[0x248 - 0x23c];
     bool            mFlag248;               // 0x248
     float           mValue24c;              // 0x24c
     void*           mpData250;              // 0x250
@@ -124,6 +139,7 @@ struct cSPMissionFetch {
     cPlanet* GetTargetPlanet();             // 0x00970b30
     void  ValidateProgressEvent();          // 0x00c44f20
     void  TriggerUIUpdate();                // 0x00c47d80
+    void  OnComplete();                     // 0x00c52620
     void  AfterUpdate();                    // 0x00c472e0
     void  FinishUpdate();                   // 0x00c471c0
     ~cSPMissionFetch();                     // (destructor under test)
@@ -284,9 +300,14 @@ public:
     cSpeciesProfile* GetRandomAnimalSpecies();   // 0x00c70c10
     cSpeciesProfile* GetRandomPlantSpecies();    // 0x00c70c90
 };
+class cPlayerTribe {
+public:
+    void FUN_00fe5430(int nFlag, int nValue);    // 0x00fe5430
+};
 class cSpaceGame {
 public:
     cInventory* GetPlayerInventory();            // 0x00a1ad60
+    cPlayerTribe* GetPlayerTribe();              // 0x00bfc5f0
 };
 class cSPMission {
 public:
@@ -300,6 +321,7 @@ public:
     int32_t mGiveOnAcceptMoney;      // +0x184
     uint8_t mnPad188[0x68];          // +0x188
     int32_t Update(int32_t nDelta);                        // 0x00c478b0
+    void HandlerComplete();                                // 0x00c46b80
     void TriggerUIUpdate();                                // 0x00c47d80
     void ValidateProgressEvent();                          // 0x00c44f20
     void Fulfill();                                        // 0x00c2e4e0
@@ -1801,4 +1823,129 @@ void FUN_01342770()
          0x692ca0, 0xac8750, 0xac8780, 0x693090, 0x694fa0, 0xb1fbf0, 0x57ce00);
     ATTR(s_fetchAttrs[8], "mDropOffDistance", 0x3f69500, 0x24c,
          0x692ca0, 0x572810, 0xac88f0, 0x6930b0, 0x694fc0, 0xb1fbf0, 0xacbb80);
+}
+
+// ---- cSPMissionFetch::OnComplete and its inventory helpers --------------------
+
+__forceinline int InventoryAddByKey(cInventory* pInventory, int nFlags, const void* pKey)
+{
+    return ((int (__thiscall*)(cInventory*, int, const void*))
+            (*(void***)pInventory)[0x64 / 4])(pInventory, nFlags, pKey);
+}
+
+__forceinline bool InventoryGetByIndex(cInventory* pInventory, int nIndex, void** ppItem,
+                                       int nFlags)
+{
+    return ((bool (__thiscall*)(cInventory*, int, void**, int))
+            (*(void***)pInventory)[0x7c / 4])(pInventory, nIndex, ppItem, nFlags);
+}
+
+__forceinline int InventoryCount(cInventory* pInventory)
+{
+    return ((int (__thiscall*)(cInventory*))(*(void***)pInventory)[0x5c / 4])(pInventory);
+}
+
+__forceinline void* InventoryItemAt(cInventory* pInventory, int nIndex)
+{
+    return ((void* (__thiscall*)(cInventory*, int))
+            (*(void***)pInventory)[0x60 / 4])(pInventory, nIndex);
+}
+
+__forceinline void ReleaseInventoryItem(void* pItem)
+{
+    ((void (__thiscall*)(void*))(*(void***)pItem)[0x08 / 4])(pItem);
+}
+
+// Slot +0x64 creates (or finds) the inventory entry for a resource key; slot +0x7c
+// looks the new entry up so its reference can be balanced again.
+__forceinline void AddRewardItem(cInventory* pInventory, int nFlags, const FetchKey* pKey)
+{
+    int nIndex = InventoryAddByKey(pInventory, nFlags, pKey);
+    if (nIndex == -1)
+        return;
+    void* pItem = 0;
+    InventoryGetByIndex(pInventory, nIndex, &pItem, 1);
+    if (pItem != 0)
+        ReleaseInventoryItem(pItem);
+}
+
+// @ 0x00c52620
+void cSPMissionFetch::OnComplete()
+{
+    ((cSPMission*)this)->HandlerComplete();
+
+    cInventory* pInventory = SpaceGameGet()->GetPlayerInventory();
+    if (pInventory == 0)
+        return;
+
+    int nIndex = -1;
+
+    switch ((int)mTag1f4) {
+    case 0xbfb44ccc:
+        nIndex = InventoryAddByKey(pInventory, 4, &mFetchCommodityKey);
+        break;
+    case 0xfb3b1635:
+    case 0x3e994b2b:
+    case 0x69412983:
+        nIndex = InventoryAddByKey(pInventory, 6, &mFetchAnimalSpeciesKey);
+        break;
+    case 0x2dc69129:
+    case 0x6d5c48c:
+    case 0x19ec2c8b:
+    case 0x736c417f: {
+        const Key_s00c5_4110* pEmpty = &gNullKey;
+        if (mFetchArtifactCargoItemID.mInstance != pEmpty->a
+            || mFetchArtifactCargoItemID.mType != pEmpty->b
+            || mFetchArtifactCargoItemID.mGroup != pEmpty->c) {
+            nIndex = InventoryAddByKey(pInventory, 5, &mFetchArtifactCargoItemID);
+        } else if (mFetchAnimalSpeciesKey.mInstance != pEmpty->a
+                   || mFetchAnimalSpeciesKey.mType != pEmpty->b
+                   || mFetchAnimalSpeciesKey.mGroup != pEmpty->c) {
+            nIndex = InventoryAddByKey(pInventory, 1, &mFetchAnimalSpeciesKey);
+        } else if (KeyNe((const Key_s00c5_4110*)&mFetchPlantSpeciesKey, pEmpty)) {
+            nIndex = InventoryAddByKey(pInventory, 0, &mFetchPlantSpeciesKey);
+        }
+        break;
+    }
+    case 0x23da98ff: {
+        int nCount = (int)((char*)mpData238 - (char*)mpData234) >> 4;
+        for (int i = 0; i < nCount; ++i) {
+            FetchSampleLocal* pSample = &((FetchSampleLocal*)mpData234)[i];
+            AddRewardItem(pInventory, pSample->mIsAnimal ? 1 : 0, &pSample->mSpeciesKey);
+        }
+        break;
+    }
+    case 0x7ecbe6f5: {
+        if (mField78 == 0x809ab04a)
+            break;
+        int nCount = InventoryCount(pInventory);
+        for (int i = 0; i < nCount; ++i) {
+            void* pObject = InventoryItemAt(pInventory, i);
+            if (pObject == 0)
+                continue;
+            void* pKey = ((void* (__thiscall*)(void*))
+                          (*(void***)pObject)[0x18 / 4])(pObject);
+            if (!IsItemARare((Key_s00c5_4110*)pKey))
+                continue;
+            void* pItem = 0;
+            InventoryGetByIndex(pInventory, i, &pItem, 1);
+            if (pItem != 0)
+                ReleaseInventoryItem(pItem);
+        }
+        break;
+    }
+    default:
+        break;
+    }
+
+    if (nIndex != -1) {
+        void* pItem = 0;
+        InventoryGetByIndex(pInventory, nIndex, &pItem, 1);
+        if (pItem != 0)
+            ReleaseInventoryItem(pItem);
+    }
+
+    cPlayerTribe* pTribe = SpaceGameGet()->GetPlayerTribe();
+    if (pTribe != 0)
+        pTribe->FUN_00fe5430(7, 1);
 }

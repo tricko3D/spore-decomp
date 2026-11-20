@@ -17,9 +17,7 @@ struct CityObj {
     int GetNumBuildings();             // 0xff0870
     int GetNumTurrets();               // 0xff0760
 };
-struct RecordKeyLess {
-    bool operator()(void* a, void* b);     // 0xac0730
-};
+bool RecordKeyLess(void* a, void* b);      // 0xac0730
 // ---- items of slice s00bbb9d0 end
 
 // ---- items of slice s00bbca30 begin (TODO(rewrite): local stubs, replace by canonical classes)
@@ -456,32 +454,32 @@ bool CityLessBuildings(void* a, void* b)
 }
 
 // @ 0x00bbc700
-void** RecordMinSelect(void** first, void** last, RecordKeyLess less)
+void** RecordMinSelect(void** first, void** last)
 {
+    void** best = first;
     if (first != last) {
-        void** best = first;
-        while (++first != last) {
+        void** it = first;
+        while (it = it + 1, it != last) {
             void* ka = *best ? (char*)*best + 0x34 : 0;
-            void* kb = *first ? (char*)*first + 0x34 : 0;
-            if (less(kb, ka))
-                best = first;
+            void* kb = *it ? (char*)*it + 0x34 : 0;
+            if (RecordKeyLess(kb, ka))
+                best = it;
         }
-        return best;
     }
-    return first;
+    return best;
 }
 
 // @ 0x00bbc760
 void RecordInsertionSort(void** first, void** last, bool (__cdecl* cmp)(void*, void*))
 {
-    for (; first != last; ++first) {
+    for (; first != last; first = first + 1) {
         void* v = *first;
         void** dst = first;
-        void** prev = first - 1;
-        while (cmp(v, *prev)) {
-            *dst = *prev;
-            --prev;
-            --dst;
+        void** src = first;
+        while (cmp(v, src[-1])) {
+            *dst = src[-1];
+            dst = dst - 1;
+            src = src - 1;
         }
         *dst = v;
     }

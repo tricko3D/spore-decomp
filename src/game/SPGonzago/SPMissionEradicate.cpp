@@ -2,9 +2,6 @@
 // Object file: SPGonzago/SPMissionEradicate.obj.  Function bodies keep the slice's code; types, members and virtual calls use the
 // canonical headers under src/game/include.  Each function keeps its '// @ 0xVA' marker.
 
-// addresses retail relocates here, named so the build relocates them too
-extern "C" char g_13f01bc[];
-
 #include "game/types.h"
 #include "SP/cSPMissionBase.h"
 #include "EA/Random/RandomLinearCongruential.h"
@@ -56,6 +53,8 @@ public:
 
 // ---- items of slice s00c4dbf0 begin (TODO(rewrite): local stubs, replace by canonical classes)
 extern "C" void* __stdcall FUN_00b3d3e0a(int a);                     // SP::EventLog (1-arg, stdcall)
+extern "C" void  __cdecl FUN_00c44b80(void* self);
+extern "C" void  __cdecl FUN_00c44bd0(void* self);
 typedef unsigned int u32;
 extern "C" void* __stdcall FUN_00b3d3e0_s00c4_dbf0(int a, int b);              // SP::EventLog (2-arg, stdcall)
 namespace SP {
@@ -461,15 +460,10 @@ int __fastcall FUN_00c4ed50(void* ecx_this, void* edx)
     return (int)((a < b) ? 0xd19969f6u : 0xa2b7bfa8u);
 }
 
-struct MissionBase_c44b80 {
-    void FUN_00c44b80();   // 0x00c44b80 (thiscall)
-    void FUN_00c44bd0();   // 0x00c44bd0 (thiscall)
-};
-
 // @ 0x00c4edd0
 void __fastcall FUN_00c4edd0(void* ecx_this, void* edx)
 {
-    ((MissionBase_c44b80*)ecx_this)->FUN_00c44b80();
+    FUN_00c44b80(ecx_this);
     void** vt = *(void***)ecx_this;
     (*(void(__thiscall**)(void*, u32))(*(char**)ecx_this + 0x14c))(ecx_this, 0x1622184);
     (*(void(__thiscall**)(void*, u32))(*(char**)ecx_this + 0x14c))(ecx_this, 0x5e37a53);
@@ -482,7 +476,7 @@ void __fastcall FUN_00c4edd0(void* ecx_this, void* edx)
 // @ 0x00c4ee30
 void __fastcall FUN_00c4ee30(void* ecx_this, void* edx)
 {
-    ((MissionBase_c44b80*)ecx_this)->FUN_00c44bd0();
+    FUN_00c44bd0(ecx_this);
     (*(void(__thiscall**)(void*, u32))(*(char**)ecx_this + 0x150))(ecx_this, 0x1622184);
     (*(void(__thiscall**)(void*, u32))(*(char**)ecx_this + 0x150))(ecx_this, 0x5e37a53);
     (*(void(__thiscall**)(void*, u32))(*(char**)ecx_this + 0x150))(ecx_this, 0x2489760);
@@ -1082,31 +1076,31 @@ char __fastcall FUN_00c501e0(void* ecx_this, void* edx, int tag, void* out)
     (void)edx;
     Mob* self = (Mob*)ecx_this;
     if (tag == 0x3f80b6b3) {
-        FUN_0041e050(out, (void*)g_13f01bc, ld32(ecx_this, 0x1f8));
+        FUN_0041e050(out, (void*)0x13f01bc, ld32(ecx_this, 0x1f8));
         return 1;
     }
     if (tag == (int)0xcd3e21a2) {
-        FUN_0041e050(out, (void*)g_13f01bc, ld32(ecx_this, 0x208));
+        FUN_0041e050(out, (void*)0x13f01bc, ld32(ecx_this, 0x208));
         return 1;
     }
     if (tag == (int)0xc1a31746) {
-        FUN_0041e050(out, (void*)g_13f01bc, ld32(ecx_this, 0x1f8) - ld32(ecx_this, 0x208));
+        FUN_0041e050(out, (void*)0x13f01bc, ld32(ecx_this, 0x1f8) - ld32(ecx_this, 0x208));
         return 1;
     }
     if (tag == (int)0xd34ef208) {
-        FUN_0041e050(out, (void*)g_13f01bc, ld32(ecx_this, 0x210));
+        FUN_0041e050(out, (void*)0x13f01bc, ld32(ecx_this, 0x210));
         return 1;
     }
     if (tag == (int)0xbd31ee03) {
-        FUN_0041e050(out, (void*)g_13f01bc, ld32(ecx_this, 0x20c) - ld32(ecx_this, 0x210));
+        FUN_0041e050(out, (void*)0x13f01bc, ld32(ecx_this, 0x20c) - ld32(ecx_this, 0x210));
         return 1;
     }
     if (tag == 0x218e9bda) {
-        FUN_0041e050(out, (void*)g_13f01bc, ld32(ecx_this, 0x204) - ld32(ecx_this, 0x208));
+        FUN_0041e050(out, (void*)0x13f01bc, ld32(ecx_this, 0x204) - ld32(ecx_this, 0x208));
         return 1;
     }
     if (tag == (int)0x85df68ab) {
-        FUN_0041e050(out, (void*)g_13f01bc, ld32(ecx_this, 0x204));
+        FUN_0041e050(out, (void*)0x13f01bc, ld32(ecx_this, 0x204));
     }
     return (char)self->GetTagStringBase(tag, out);
 }

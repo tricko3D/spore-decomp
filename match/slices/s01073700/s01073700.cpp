@@ -1,3 +1,4 @@
+// @ 0x01073700
 // Slice s01073700 (batch op3_big) — 0x01073700, 3229 bytes.
 //
 // SP::cSPUISpace::Init()   (__thiscall, no args)
@@ -11,6 +12,7 @@
 // arguments, a cString local with a dtor but no EH frame -> no /EHsc).
 
 #include "types.h"
+#include "sse_helpers.h"
 
 #pragma pack(push, 8)
 
@@ -33,18 +35,11 @@ struct ResourceKey {
     ResourceKey(uint32_t i, uint32_t t, uint32_t g) : instanceID(i), typeID(t), groupID(g) {}
 };
 
-// EA math helper, hand-written SSE in the original (FloorToInt).
+// EA math helper, hand-written SSE in the original (FloorToInt); the reviewed copy lives in
+// match/include/sse_helpers.h.
 __forceinline int FloorToInt(float f)
 {
-    __asm {
-        movss    xmm0, f
-        cvtss2si eax, xmm0
-        cvtsi2ss xmm1, eax
-        mov      ecx, eax
-        sub      ecx, 1
-        ucomiss  xmm0, xmm1
-        cmovb    eax, ecx
-    }
+    return SseFloorToInt(f);
 }
 
 void* operator new(unsigned int size, const char* name, int flags, unsigned debugFlags,

@@ -1,3 +1,4 @@
+// @ 0x0106cc70
 // Slice s0106cc70 -- SP::cSPUISpace::UpdateTravelLine(target)   (__thiscall, ret 4)
 //
 // Space-stage rollover for the star / travel target under the cursor: hides everything while a
@@ -451,7 +452,7 @@ void cSPUISpace::UpdateTravelLine(cTravelTarget* pTarget)
                 pTravelText->Invalidate();
             }
 
-            for (int i = 0; i < 5; i++)
+            for (unsigned i = 0; i < 5; i++)
                 HideStarPlanet(m230, i);
 
             if (pRecord->FUN_00bb9af0(2) &&

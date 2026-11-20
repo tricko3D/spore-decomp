@@ -206,71 +206,23 @@ public:
     void AttachEffect(void* pEffect);
 };
 void* EffectsManager();
+bool ReadInteractableSubobject(void* pData);
 // Retail query views. Native construction puts the spatial base at +0x34;
 // the generated class layout still places it at +0x2c. Only base conversion
-// and direct game-data/spatial calls are needed here. The spatial view represents
+// and the direct game-data query are needed here. The spatial view represents
 // its vptr prefix only; no constructor, field access or sizeof uses this view.
-typedef eastl::vector<SP::cField, eastl::sp_vector_allocator> InteractableFields;
 namespace RetailInteractableObject {
 class cGameData {
     uint32_t mStorage[0x34 / 4];
 public:
     void* AsInterface(uint32_t type); // 0x00b18460, thiscall, ret 4
-    bool Write(void* data); // 0x00b18590
-    bool Read(void* data); // 0x00b18600
-    int GetFieldValues(InteractableFields& fields); // 0x00b18420
 };
 class cSpatialObject {
     const void* mVTable;
-public:
-    bool Write(void* data); // 0x00c88a90
-    bool Read(void* data); // 0x00c88b00
-};
-class cModel {
-public:
-    virtual void v00(); virtual void v04(); virtual void v08(); virtual void v0c();
-    virtual void v10(); virtual void v14(); virtual void v18(); virtual void v1c();
-    virtual void v20(); virtual void v24(); virtual void v28(); virtual void v2c();
-    virtual void v30(); virtual void v34(); virtual void v38(); virtual void v3c();
-    virtual void v40(); virtual void v44(); virtual void v48(); virtual void v4c();
-    virtual void v50(); virtual void v54(); virtual void v58(); virtual void v5c();
-    virtual void v60(); virtual void v64(); virtual void v68(); virtual void v6c();
-    virtual void v70(); virtual void v74(); virtual void v78(); virtual void v7c();
-    virtual void v80(); virtual void v84(); virtual void v88(); virtual void v8c();
-    virtual void v90(); virtual void v94(); virtual void v98(); virtual void v9c();
-    virtual void va0(); virtual void va4(); virtual void va8(); virtual void vac();
-    virtual void vb0(); virtual void vb4(); virtual void vb8(); virtual void vbc();
-    virtual void vc0();
-    virtual void SetModelVariant(int variant); // 0xc4
-};
-// The spatial base's virtual interface (only the slots used here).
-class cSpatialObjectView {
-public:
-    virtual void v00(); virtual void v04(); virtual void v08(); virtual void v0c();
-    virtual void v10(); virtual void v14(); virtual void v18(); virtual void v1c();
-    virtual void v20(); virtual void v24(); virtual void v28(); virtual void v2c();
-    virtual void v30(); virtual void v34(); virtual void v38(); virtual void v3c();
-    virtual void v40(); virtual void v44(); virtual void v48(); virtual void v4c();
-    virtual void v50(); virtual void v54(); virtual void v58(); virtual void v5c();
-    virtual void v60(); virtual void v64(); virtual void v68(); virtual void v6c();
-    virtual void v70(); virtual void v74(); virtual void v78(); virtual void v7c();
-    virtual void v80(); virtual void v84(); virtual void v88(); virtual void v8c();
-    virtual void v90(); virtual void v94(); virtual void v98(); virtual void v9c();
-    virtual void va0(); virtual void va4(); virtual void va8();
-    virtual int GetModelVariant(int state, int a, int b); // 0xac
-    virtual cModel* GetModel();                           // 0xb0
 };
 class cInteractableObject : public cGameData, public cSpatialObject {
-    uint8_t mPad38[0x12c - 0x38];
 public:
-    uint8_t mModelReady;      // 0x12c
-    uint8_t mModelStateIndex; // 0x12d
-    void SetModelState(int nState, bool bForce);
-    cSpatialObjectView* Spatial() { return (cSpatialObjectView*)static_cast<cSpatialObject*>(this); }
     void* AsInterface(uint32_t type);
-    bool Write(void* data);
-    bool Read(void* data);
-    int GetFieldValues(InteractableFields& fields);
 };
 }
 void SetModelVariant(cSpatialObject* pObject, int nVariant, int bA, int bB);
@@ -296,7 +248,7 @@ bool cInteractableObject::LoadModelChecked(void* pModel)
 }
 
 // @ 0x00c3f8b0
-void RetailInteractableObject::cInteractableObject::SetModelState(int nState, bool bForce)
+void cInteractableObject::SetModelState(int nState, bool bForce)
 {
     if (((uint8_t)nState == mModelStateIndex) && !bForce)
         return;
@@ -305,8 +257,9 @@ void RetailInteractableObject::cInteractableObject::SetModelState(int nState, bo
     if (mModelReady == 0)
         return;
 
-    if (Spatial()->GetModel() != nullptr)
-        Spatial()->GetModel()->SetModelVariant(Spatial()->GetModelVariant(nState, 1, 0));
+    if (GetModel() != nullptr) {
+        va8(nState, 1, 0);
+    }
 }
 
 // @ 0x00c3f9b0
@@ -346,68 +299,37 @@ void cInteractableObject::ClearEffectState()
     }
 }
 
-extern SP::cDataSerializerGeneric gInteractableSerializerList[]; // 0x01573ee8
-struct InteractableStreamHolder {
-    virtual void slot0(); virtual void slot1(); virtual void slot2();
-    virtual void slot3(); virtual void slot4(); virtual void slot5();
-    virtual IOStream* GetStream(); // slot 6
-};
-struct InteractableArchive {
-    virtual void slot0(); virtual void slot1(); virtual void slot2();
-    virtual void slot3(); virtual void slot4(); virtual void slot5();
-    virtual void slot6(); virtual void slot7();
-    virtual InteractableStreamHolder* GetStreamHolder(); // slot 8
-};
-
-extern SP::cDataSerializerGeneric gInteractableSpatialSerializerList[]; // 0x0157a1f8
-
-// @ 0x00c3f920
-int RetailInteractableObject::cInteractableObject::GetFieldValues(InteractableFields& fields)
-{
-    SP::cVarListSerializer spatial((char*)this + sizeof(cGameData), gInteractableSpatialSerializerList, 0x1a80d26);
-    int count = spatial.GetFields(fields);
-    count += cGameData::GetFieldValues(fields);
-    SP::cVarListSerializer own(this, gInteractableSerializerList, 0x1a80d26);
-    return own.GetFields(fields) + count;
-}
-
 // @ 0x00c3fb00
-bool RetailInteractableObject::cInteractableObject::Write(void* data)
+bool cInteractableObject::Write(void* pData)
 {
-    InteractableStreamHolder* __restrict holder = ((InteractableArchive*)data)->GetStreamHolder();
-    uint32_t type = 0x398420d;
-    IOStream* stream = holder->GetStream();
-    WriteUint32(stream, &type, 1, 0);
-    bool ok;
-    if (cSpatialObject::Write(data) && cGameData::Write(data))
-        ok = true;
-    else
-        ok = false;
-    SP::cVarListSerializer serializer(this, gInteractableSerializerList, 0x1a80d26);
-    if (ok) {
-        if (serializer.Serialize(*(SP::cIObjectDatabaseOStream*)data))
-            return true;
-    }
+    IOStream* pStream = ((ISerializer*)pData)->GetStream();
+    uint32_t nType = 0x398420d;
+    WriteUint32(pStream->GetStream(), &nType, 1, 0);
+
+    bool bOk = cSpatialObject::Write(pData);
+    if (bOk)
+        bOk = cGameData::Write(pData);
+
+    cVarListSerializer serializer(this, sInteractableFields, 0x1a80d26);
+    if (bOk)
+        return serializer.Serialize(pData);
     return false;
 }
 
 // @ 0x00c3fba0
-bool RetailInteractableObject::cInteractableObject::Read(void* data)
+bool cInteractableObject::Read(void* pData)
 {
-    InteractableStreamHolder* __restrict holder = ((InteractableArchive*)data)->GetStreamHolder();
-    uint32_t type;
-    IOStream* stream = holder->GetStream();
-    ReadInt32(stream, &type, 1, 0);
-    bool ok;
-    if (cSpatialObject::Read(data) && cGameData::Read(data))
-        ok = true;
-    else
-        ok = false;
-    SP::cVarListSerializer serializer(this, gInteractableSerializerList, 0x1a80d26);
-    if (ok) {
-        if (serializer.Serialize(*(SP::cIObjectDatabaseIStream*)data))
-            return true;
-    }
+    IOStream* pStream = ((ISerializer*)pData)->GetStream();
+    uint32_t nType = 0;
+    ReadInt32(pStream->GetStream(), &nType, 1, 0);
+
+    bool bOk = ReadInteractableSubobject(pData);
+    if (bOk)
+        bOk = cGameData::Read(pData);
+
+    cVarListSerializer serializer(this, sInteractableFields, 0x1a80d26);
+    if (bOk)
+        return serializer.Serialize(pData);
     return false;
 }
 

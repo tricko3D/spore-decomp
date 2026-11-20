@@ -308,13 +308,14 @@ void AdvanceBackgroundSim(int32_t nDelta)
         SimulateBackground(pManager->mpSimulator, nDelta);
     }
 
-    int32_t nState = (g_pBackgroundSim)->mnState;
+    cSPBackgroundSimManager* pManager = g_pBackgroundSim;
+    int32_t nState = pManager->mnState;
     if (nState != 0) {
         if (nState != 1)
             return;
     }
 
-    cStar* pStar = (cStar*)(g_pBackgroundSim)->mpStar;
+    cStar* pStar = (cStar*)pManager->mpStar;
     if (pStar == nullptr)
         return;
     cSolarSystem* pSystem = (cSolarSystem*)pStar->GetSolarSystem();

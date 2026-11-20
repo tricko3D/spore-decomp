@@ -30,7 +30,7 @@ public:
     void ReleaseOwner();
     void UpdateTransform();
     void SetEnabled(uint8_t bEnabled, float fRate);
-    void Update();
+    void Update(float fDelta);
     void SetTransform(const Vec4* pTransform, bool bSnap);
     void AddVelocity(const Vec4* pVelocity);
 
@@ -90,6 +90,8 @@ public:
 void DebugBehaviorInit();
 void DebugBehaviorShutdown();
 void DebugBehaviorStopTimers(void* pTimers);
+void DebugBehaviorBindAnimation(void* pAnimation);
+void DebugBehaviorFetchAnimation(void* pOwnerRef, int a);
 // ---- items of slice s00aee680 end
 
 // ---- items of slice s00aef610 begin (TODO(rewrite): local stubs, replace by canonical classes)
@@ -141,9 +143,6 @@ public:
     uint32_t pad54;
     hkRigidMotion* m_motion;                        // +0x58
     void setPosition(const hkVector4_s00ae_f610& pos);                       // 0x01087820
-    void setRotation(const void* rot);                                       // 0x01087840
-    void activate();                                                         // 0x01088AE0
-    void setMotionType(int motionType, int activation, int collisionUpdate); // 0x01087520
     void addCollisionListener(void* listener);                    // 0x01088C90
     void removeCollisionListener(void* listener);                 // 0x01088A70
     void addReference();                                          // 0x01082590
@@ -364,13 +363,13 @@ void cDebugBehavior::ReleaseOwner()
 // @ 0x00aef330
 void cDebugBehavior::UpdateTransform()
 {
-    if (((hkRigidBody_s00ae_f610*)mpOwnerRef)->m_field08 != 0) {
-        ((hkRigidBody_s00ae_f610*)mpOwnerRef)->setPosition(*(hkVector4_s00ae_f610*)&mTarget);
-        ((hkRigidBody_s00ae_f610*)mpOwnerRef)->setRotation(&mTransform);
-        hkRigidBody_s00ae_f610* pBody = (hkRigidBody_s00ae_f610*)mpOwnerRef;
-        pBody->activate();
-        ((void(__thiscall*)(void*, void*))((void**)*(void***)pBody->m_motion)[0x58 / 4])(pBody->m_motion, &mVelocity);
-        ((hkRigidBody_s00ae_f610*)mpOwnerRef)->setMotionType(1, 1, 0);
+    if (*(int*)((uint8_t*)mpOwnerRef + 8) != 0) {
+        DebugBehaviorBindAnimation((uint8_t*)this + 0x90);
+        ((cTimerThing*)mpOwnerRef)->BindAnimation((uint8_t*)this + 0x40);
+        void* pOwnerRef = mpOwnerRef;
+        ((cPropertyList*)pOwnerRef)->v0c();
+        ((cDebugOwner*)*(void**)((uint8_t*)pOwnerRef + 0x58))->SetPosition(&mVelocity);
+        DebugBehaviorFetchAnimation(pOwnerRef, 1);
     }
 }
 
@@ -387,7 +386,7 @@ void cDebugBehavior::SetEnabled(uint8_t bEnabled, float fRate)
 }
 
 // @ 0x00aef410
-void cDebugBehavior::Update()
+void cDebugBehavior::Update(float fDelta)
 {
     if (*(int*)((uint8_t*)mpOwnerRef + 8) == 0 || mbBlendActive != 0) {
         mCurrent.mX = mTarget.mX;
@@ -415,6 +414,7 @@ void cDebugBehavior::Update()
     mCurrent.mY = mTarget.mY * fInverse + *(float*)((uint8_t*)pOwner + 0x44) * fBlend;
     mCurrent.mZ = mTarget.mZ * fInverse + *(float*)((uint8_t*)pOwner + 0x48) * fBlend;
     mCurrent.mW = mTarget.mW * fInverse + *(float*)((uint8_t*)pOwner + 0x4c) * fBlend;
+    (void)fDelta;
 }
 
 // @ 0x00aef530
@@ -489,8 +489,8 @@ void SP::cHavokLocomotiveController::FUN_00aef690(char b)
 void SP::cHavokLocomotiveController::FUN_00aef6b0(int a, float f)
 {
     m_entityListener.FUN_00af8a10(a, f);
-    ((cDebugBehavior*)this)->Update();
-    ((cDebugBehavior*)this)->UpdateTransform();
+    FUN_00aef410();
+    FUN_00aef330();
 }
 
 // @ 0x00aef6e0

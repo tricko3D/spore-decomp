@@ -1,15 +1,11 @@
 // Slice s00d160c0 - SporeApp 0x00d160c0..0x00d16eb0
 // Gameplay-marker UI helpers plus the string-comparator sort template helpers.
 // Flags: /O2 /Ob1 /MD /Gy /EHsc /TP /arch:SSE /GS-
-
-// addresses retail relocates here, named so the build relocates them too
-extern "C" char g_1667bac[];
-extern "C" char g_1667bae[];
-
 #include "types.h"
 
-typedef unsigned char u8;
-typedef unsigned int  u32;
+typedef unsigned char  u8;
+typedef unsigned short u16;
+typedef unsigned int   u32;
 
 // ---------------------------------------------------------------------------------------------
 // Support types
@@ -82,15 +78,74 @@ static inline void cStrCmp_FreeStrings(cStrCmp& comp)
 }
 
 // ---------------------------------------------------------------------------------------------
+// Gameplay-marker UI refresh (0x00d160c0)
+// ---------------------------------------------------------------------------------------------
+struct Obj;
+
+#define VTSLOT(p, off) (*(void***)(p))[(off) / 4]
+
+typedef void  (__thiscall* Fn_v_p)(void*);
+typedef void  (__thiscall* Fn_v_pp)(void*, void*);
+typedef int   (__thiscall* Fn_i_p)(void*);
+typedef void* (__thiscall* Fn_p_pi)(void*, int);
+typedef void* (__thiscall* Fn_p_pui)(void*, u32);
+typedef char  (__thiscall* Fn_b_puip)(void*, u32, void**);
+
+// Intrusive counted pointer: slot 0 is AddRef, slot 1 is Release.
+template <class T>
+struct RefPtr {
+    T* mpPtr;
+
+    RefPtr() : mpPtr(0) {}
+
+    RefPtr& operator=(T* p)
+    {
+        T* pOld = mpPtr;
+        if (p != pOld) {
+            if (p != 0)
+                ((Fn_v_p)VTSLOT(p, 0))(p);
+            mpPtr = p;
+            if (pOld != 0)
+                ((Fn_v_p)VTSLOT(pOld, 4))(pOld);
+        }
+        return *this;
+    }
+
+    operator T*() const { return mpPtr; }
+    T* operator->() const { return mpPtr; }
+};
+
+// The layout block embedded at +0xe0 (only its head is addressed by this slice).
+struct cSPUILayout {
+    u8   mPad00[0x18];
+    Obj* FindWindowByID(int id, int flag);   // 0x008105b0
+};
+// 0x0067de30  SP::PropertyManager
+Obj* __cdecl SP_PropertyManager();
+// 0x00932f30  EA::Hash::FNV1_String16
+u32  __cdecl EA_Hash_FNV1_String16(const wchar_t* pString, u32 nSeed, int flag);
+// 0x006a0bc0  reads a string16 array property
+bool __cdecl GetPropertyAsString16Array(Obj* pProps, u32 id, int* pCount,
+                                        void** pData);
+
+// ---------------------------------------------------------------------------------------------
 // SP::cGameEditInputStrategy
 // ---------------------------------------------------------------------------------------------
 struct cGameEditInputStrategy {
     u8      mPad0000[0x7c];
     void*   mpField7c;                  // 0x7c  planet-name text edit object
-    u8      mPad0080[0xf8 - 0x80];
+    u8      mPad0080[0xb0 - 0x80];
+    RefPtr<Obj> mpFieldB0;              // 0xb0  marker selector control
+    RefPtr<Obj> mpWindowB4;             // 0xb4  marker window
+    RefPtr<Obj> mpComboB8;              // 0xb8  marker combo box
+    RefPtr<Obj> mpWindowBC;             // 0xbc  category window
+    RefPtr<Obj> mpComboC0;              // 0xc0  category combo box
+    u8      mPadC4[0xe0 - 0xc4];
+    cSPUILayout mLayout;                // 0xe0  cSPUILayout
     cVec3i  mPlanetF8;                  // 0xf8  selected planet
 
     void SetPlanet(const cVec3i* planet);   // 0x00d16b90
+    void RefreshGameplayMarkerUI();         // 0x00d160c0
 };
 
 // ---------------------------------------------------------------------------------------------
@@ -128,9 +183,9 @@ void cGameEditInputStrategy::SetPlanet(const cVec3i* planet)
     mPlanetF8 = *planet;
     if (mpField7c != 0) {
         cWString str;
-        str.mpBegin = (void*)g_1667bac;
-        str.mpEnd = (void*)g_1667bac;
-        str.mpCap = (void*)g_1667bae;
+        str.mpBegin = (void*)0x01667bac;
+        str.mpEnd = (void*)0x01667bac;
+        str.mpCap = (void*)0x01667bae;
         if (planet->y != 0)
             VT_7C_2(ObjectError(), (void*)planet, &str);
         VT_60_1(mpField7c, str.mpBegin, 0);
@@ -223,6 +278,117 @@ u32* Partition(u32* first, u32* last, u32 pivot, cStrCmp comp)
     }
     cStrCmp_FreeStrings(comp);
     return first;
+}
+
+typedef void (__thiscall* Fn_v_pi)(void*, int);
+typedef void (__thiscall* Fn_v_pip)(void*, int, void*);
+
+// @ 0x00d160c0
+// Re-populates the gameplay-marker UI: resolves the marker/category windows,
+// then fills the two combo boxes and the marker selector from the
+// "LevelEditor" string-array properties.
+void cGameEditInputStrategy::RefreshGameplayMarkerUI()
+{
+    mpWindowBC = mLayout.FindWindowByID(0x3a86cac, 1);
+    mpWindowB4 = mLayout.FindWindowByID(0x72b93473, 1);
+    {
+        Obj* pWindow = mLayout.FindWindowByID(0xf2b93090, 1);
+        mpComboB8 = pWindow != 0
+            ? (Obj*)((Fn_p_pi)VTSLOT(pWindow, 0xc))(pWindow, 0x2f5528d9)
+            : 0;
+    }
+
+    if (Obj* pCombo = mpComboB8) {
+        ((Fn_v_p)VTSLOT(pCombo, 0x2c))(pCombo);
+
+        RefPtr<Obj> pProp;
+        Obj* pProps = SP_PropertyManager();
+        pProp = (Obj*)0;
+        u32  nKey = EA_Hash_FNV1_String16((const wchar_t*)0x01479b30,
+                                          0x811c9dc5, 1);
+        if (((Fn_b_puip)VTSLOT(pProps, 0x30))(pProps, nKey, (void**)&pProp.mpPtr)) {
+            void* pItems = 0;
+            int   nCount = 0;
+            if (GetPropertyAsString16Array(pProp, 0xe5318b06, &nCount, &pItems)) {
+                for (int i = 0; i < nCount; ++i)
+                    ((Fn_v_pp)VTSLOT(mpComboB8.mpPtr, 0x20))(mpComboB8.mpPtr,
+                        *(void**)((char*)pItems + i * 16));
+            }
+        }
+        if (pProp.mpPtr != 0)
+            ((Fn_v_p)VTSLOT(pProp.mpPtr, 4))(pProp.mpPtr);
+    }
+
+    {
+        Obj* pWindow = mLayout.FindWindowByID(0x3a86cc3, 1);
+        mpComboC0 = pWindow != 0
+            ? (Obj*)((Fn_p_pi)VTSLOT(pWindow, 0xc))(pWindow, 0x2f5528d9)
+            : 0;
+    }
+
+    if (Obj* pCombo = mpComboC0) {
+        ((Fn_v_p)VTSLOT(pCombo, 0x2c))(pCombo);
+
+        RefPtr<Obj> pProp;
+        Obj* pProps = SP_PropertyManager();
+        pProp = (Obj*)0;
+        u32  nKey = EA_Hash_FNV1_String16((const wchar_t*)0x01479b30,
+                                          0x811c9dc5, 1);
+        if (((Fn_b_puip)VTSLOT(pProps, 0x30))(pProps, nKey, (void**)&pProp.mpPtr)) {
+            void* pItems = 0;
+            int   nCount = 0;
+            if (GetPropertyAsString16Array(pProp, 0x9e38ba8e, &nCount, &pItems)) {
+                for (int i = 0; i < nCount; ++i)
+                    ((Fn_v_pp)VTSLOT(mpComboC0.mpPtr, 0x20))(mpComboC0.mpPtr,
+                        *(void**)((char*)pItems + i * 16));
+            }
+        }
+        if (pProp.mpPtr != 0)
+            ((Fn_v_p)VTSLOT(pProp.mpPtr, 4))(pProp.mpPtr);
+    }
+
+    {
+        Obj* pWindow = mLayout.FindWindowByID(0x3e0691c, 1);
+        mpFieldB0 = pWindow != 0
+            ? (Obj*)((Fn_p_pi)VTSLOT(pWindow, 0xc))(pWindow, 0x2f5528d9)
+            : 0;
+    }
+
+    if (Obj* pSelector = mpFieldB0) {
+        ((Fn_v_pi)VTSLOT(pSelector, 0x50))(pSelector, 3);
+        int nSaved = ((Fn_i_p)VTSLOT(mpFieldB0.mpPtr, 0x40))(mpFieldB0.mpPtr);
+        ((Fn_v_p)VTSLOT(mpFieldB0.mpPtr, 0x2c))(mpFieldB0.mpPtr);
+        ((Fn_v_pp)VTSLOT(mpFieldB0.mpPtr, 0x20))(mpFieldB0.mpPtr,
+                                                  (void*)0x01467f58);
+
+        RefPtr<Obj> pProp;
+        Obj* pProps = SP_PropertyManager();
+        pProp = (Obj*)0;
+        u32  nKey = EA_Hash_FNV1_String16((const wchar_t*)0x01479b30,
+                                          0x811c9dc5, 1);
+        if (((Fn_b_puip)VTSLOT(pProps, 0x30))(pProps, nKey, (void**)&pProp.mpPtr)) {
+            void* pTable = ((Fn_p_pui)VTSLOT(pProp.mpPtr, 0x28))(pProp.mpPtr,
+                                                                 0x185a7a14);
+            u32 nCount = (*(u16*)((char*)pTable + 0x10) & 0x30) != 0
+                ? *(u32*)((char*)pTable + 0x08)
+                : (u32)(*(u16*)((char*)pTable + 0x12) != 0);
+            void* pBase = (*(u16*)((char*)pTable + 0x10) & 0x30) != 0
+                ? *(void**)pTable
+                : (*(u16*)((char*)pTable + 0x12) != 0 ? pTable : 0);
+            if (nCount > 0) {
+                do {
+                    ((Fn_v_pp)VTSLOT(mpFieldB0.mpPtr, 0x20))(mpFieldB0.mpPtr,
+                                                             *(void**)pBase);
+                    pBase = (char*)pBase + 16;
+                    --nCount;
+                } while (nCount != 0);
+            }
+            *(u32*)0x0169dc1c = 0;
+        }
+        ((Fn_v_pip)VTSLOT(mpFieldB0.mpPtr, 0x44))(mpFieldB0.mpPtr, nSaved, 0);
+        if (pProp.mpPtr != 0)
+            ((Fn_v_p)VTSLOT(pProp.mpPtr, 4))(pProp.mpPtr);
+    }
 }
 
 // @ 0x00d16eb0

@@ -399,8 +399,8 @@ void* SP::cTribe_s00c9_82a0::ReserveToolSlot(int weight, int* outIndex, cGameDat
 
 // @ 0x00c9ba80
 cTribeFoodMat::cTribeFoodMat()
-    : mFlag108(true)
 {
+    mFlag108 = true;
     mMaterialType = 2;
     mModelInstance = FNVHash("trg_sacrifice_altar1", 0x811c9dc5, 1);
     mModelGroup = FNVHash("TribalTools", 0x811c9dc5, 1);
@@ -420,15 +420,12 @@ void cTribeFoodMat::SetOwner(void* owner)
     }
 }
 
-static inline void WriteUint32Value(void* stream, uint32_t value)
-{
-    WriteUint32(stream, &value, 1, 0);
-}
-
 // @ 0x00c9bc00
 bool cTribeFoodMat::Write(void* io)
 {
-    WriteUint32Value(((IOStream*)((IODevice*)io)->GetStream())->GetBuffer(), 0x0629baec);
+    void* buf = ((IOStream*)((IODevice*)io)->GetStream())->GetBuffer();
+    uint32_t value = 0x0629baec;
+    WriteUint32(buf, &value, 1, 0);
     bool ok;
     if (cGameData_s00c9_afb0::Write(io) && ((cSpatialObject_s00c9_afb0*)((char*)this + 0x34))->Write(io))
         ok = true;

@@ -2,10 +2,6 @@
 // Object file: SPGonzago/_at_00e00000.obj.  Function bodies keep the slice's code; types, members and virtual calls use the
 // canonical headers under src/game/include.  Each function keeps its '// @ 0xVA' marker.
 
-// addresses retail relocates here, named so the build relocates them too
-extern "C" char g_13eb394[];
-extern "C" char g_147f604[];
-
 #include "game/types.h"
 #include <intrin.h>
 #pragma intrinsic(_ReadWriteBarrier)
@@ -358,7 +354,7 @@ void cGrid::LayoutCells()
 // @ 0x00e0a390
 void* cGrid::Init()
 {
-    mField00 = (void*)g_147f604;
+    mField00 = (void*)0x0147f604;
     mField04 = 0;
     mField08 = 0;
     mField0C = 0;
@@ -389,7 +385,7 @@ void* cGrid::Init()
 // @ 0x00e0a400
 void cGrid::Destroy()
 {
-    mField00 = (void*)g_147f604;
+    mField00 = (void*)0x0147f604;
     _ReadWriteBarrier();
     if (mHandler != 0) {
         void* handler = mHandler;
@@ -406,7 +402,7 @@ void cGrid::Destroy()
     if (mField04 != 0) {
         ((cRefObject*)mField04)->Release();
     }
-    mField00 = (void*)g_13eb394;
+    mField00 = (void*)0x013eb394;
 }
 
 // @ 0x00e0a480
@@ -528,14 +524,11 @@ bool __fastcall FUN_00e0a780(cPaletteGrid* ecx_this, void* edx, Float3* key, u32
     ecx_this->mKey0C = k[0];
     ecx_this->mKey10 = k[1];
     ecx_this->mKey14 = k[2];
-    {
-        cRefVector& pages = ecx_this->mPages;
-        pages.erase(pages.mBegin, pages.mEnd);
-    }
+    ecx_this->mPages.erase(ecx_this->mPages.mBegin, ecx_this->mPages.mEnd);
     ecx_this->mSel.erase(ecx_this->mSel.mBegin, ecx_this->mSel.mEnd);
     if (ecx_this->AddPages(count)) {
         ecx_this->FUN_00e09d10();
-        ok = ecx_this->LayoutCells();
+        return ecx_this->LayoutCells();
     }
     return ok;
 }

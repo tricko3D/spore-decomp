@@ -2,9 +2,6 @@
 // Object file: SPGonzago/SPCityGameTribeView.obj.  Function bodies keep the slice's code; types, members and virtual calls use the
 // canonical headers under src/game/include.  Each function keeps its '// @ 0xVA' marker.
 
-// addresses retail relocates here, named so the build relocates them too
-extern "C" char g_1486ca4[];
-
 #include "game/types.h"
 #include "EA/Random/RandomLinearCongruential.h"
 #include "SP/cSPTimer.h"
@@ -379,7 +376,9 @@ virtual void v24();
     uint8_t mField14;                                    // +0x14
     char    pad_15[3];
     Vec3    mColor;                                      // +0x18
-    Key      mModelKey;                                  // +0x24
+    uint32_t mField24;                                   // +0x24
+    uint32_t mField28;                                   // +0x28
+    uint32_t mField2c;                                   // +0x2c
     uint8_t mbField30;                                   // +0x30
     uint8_t mbDamageState;                               // +0x31
     uint8_t mbField32;                                   // +0x32
@@ -408,18 +407,23 @@ cSpatialObjectView_s00e9_2ca0::~cSpatialObjectView_s00e9_2ca0()
 
 // @ 0x00e93b80
 cTribeView_s00e9_2ca0::cTribeView_s00e9_2ca0()
-: mbDrawPerimeter(false), mbTransition(false), mTransitionEnd(0)
+: mbDrawPerimeter(false), mbTransition(false)
 {
     Vec3 v = { 0.0f, 1.0f, 0.0f };
     mColor = v;
-    Key key = { 0xd749c1, 0, 0x5c4fce4c };
-    mModelKey = key;
+    mField24 = 0xd749c1;
+    mField28 = 0;
+    mField2c = 0x5c4fce4c;
+    mTransitionEnd = 0;
+    // the stand-in class's own vtable copy is not the game's: point at the retail table once the
+    // members are in place (as ~cTribeView does), so the object's vtable slot matches the original.
+    *(void**)this = (void*)0x1486ca4;
 }
 
 // @ 0x00e93c00
 cTribeView_s00e9_2ca0::~cTribeView_s00e9_2ca0()
 {
-    *(void**)this = (void*)g_1486ca4;
+    *(void**)this = (void*)0x1486ca4;
     mpObject->KillEffect(0x50b2c615, 1);
     mpObject->KillEffect(0x50b2c617, 1);
     mpObject->KillEffect(0x50b2c616, 1);

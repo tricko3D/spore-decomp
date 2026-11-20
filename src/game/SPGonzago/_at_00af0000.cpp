@@ -2,9 +2,6 @@
 // Object file: SPGonzago/_at_00af0000.obj.  Function bodies keep the slice's code; types, members and virtual calls use the
 // canonical headers under src/game/include.  Each function keeps its '// @ 0xVA' marker.
 
-// addresses retail relocates here, named so the build relocates them too
-extern "C" char g_145c1bc[];
-
 #include "game/types.h"
 
 // unnamed retail callees and globals (address in the comment)
@@ -977,16 +974,6 @@ struct hkArrayUint {
   int m_size;                // +0x4
   int m_capacityAndFlags;    // +0x8
 
-  int indexOf(unsigned int v) const {
-    for (int i = 0; i < m_size; ++i)
-      if (m_data[i] == v) return i;
-    return -1;
-  }
-  void removeAt(int i) {
-    m_size--;
-    m_data[i] = m_data[m_size];
-  }
-
   void push_back(unsigned int v) {
     if (m_size == (m_capacityAndFlags & 0x3fffffff))
       hkArrayUtil::_reserveMore(this, 4);
@@ -1720,16 +1707,7 @@ bool __thiscall LayoutMgr::LookupC(void* entity, int key, float* out)
 // @ 0x00af0db0
 void __thiscall HashTable::FreeChains(HashNode** buckets, u32 count)
 {
-    struct SavedState
-    {
-        u32 index;
-        HashNode* node;
-    };
-    // Restore the saved values only after the inner cleanup calls.
-    volatile SavedState saved;
-    u32 i = 0;
-    saved.index = i;
-    while (i < count)
+    for (u32 i = 0; i < count; i++)
     {
         HashNode* n = buckets[i];
         while (n != 0)
@@ -1737,26 +1715,16 @@ void __thiscall HashTable::FreeChains(HashNode** buckets, u32 count)
             HashNode* cur = n;
             n = n->next;
             InnerNode* p = *(InnerNode**)((char*)cur + 0x10);
-            XClear* const valueAllocator = (XClear*)((char*)cur + 4);
-            saved.node = cur;
-            if (p != 0)
+            while (p != 0)
             {
-                do
-                {
-                    valueAllocator->ClearValue(p->val);
-                    InnerNode* pn = p->next;
-                    FreeMem(p);
-                    p = pn;
-                } while (p != 0);
-                i = saved.index;
-                cur = saved.node;
+                ((XClear*)((char*)cur + 4))->ClearValue(p->val);
+                InnerNode* pn = p->next;
+                FreeMem(p);
+                p = pn;
             }
             FreeMem(cur);
         }
-        HashNode*& slotToReset = buckets[i];
-        slotToReset = 0;
-        ++i;
-        saved.index = i;
+        buckets[i] = 0;
     }
 }
 
@@ -1921,7 +1889,7 @@ void __cdecl CreateLayoutManager()
 // @ 0x00af1430
 void __thiscall TimerOwner::Dtor()
 {
-    vtable = (int)g_145c1bc;
+    vtable = 0x0145c1bc;
     ((XGonzago*)timer)->Dtor();
     ((XList*)&head)->DoClear();
 }
@@ -1946,7 +1914,7 @@ void __thiscall TimerOwner::Add(const void* wstr)
 // @ 0x00af14b0
 TimerOwner* __thiscall TimerOwner::Ctor()
 {
-    vtable = (int)g_145c1bc;
+    vtable = 0x0145c1bc;
     ListHead* h = &head;
     h->next = (ListNode*)h;
     h->prev = (ListNode*)h;
@@ -1974,7 +1942,7 @@ TimerOwner* __thiscall TimerOwner::Ctor()
 // @ 0x00af1540
 TimerOwner* __thiscall TimerOwner::Delete(u32 flags)
 {
-    vtable = (int)g_145c1bc;
+    vtable = 0x0145c1bc;
     ((XGonzago*)timer)->Dtor();
     ((XList*)&head)->DoClear();
     if (flags & 1)
@@ -4243,9 +4211,22 @@ void SP::cEntityListener::AddId(unsigned int id)
 // @ 0x00af9b00
 void SP::cEntityListener::RemoveId(unsigned int id)
 {
-  int i = m9c.indexOf(id);
-  if (i != -1)
-    m9c.removeAt(i);
+  int i = 0;
+  int n = m9c.m_size;
+  if (0 < n) {
+    unsigned int* p = m9c.m_data;
+    do {
+      if (*p == id) goto found;
+      i++;
+      p++;
+    } while (i < n);
+    return;
+  found:
+    if (i != -1) {
+      m9c.m_size--;
+      m9c.m_data[i] = m9c.m_data[m9c.m_size];
+    }
+  }
 }
 
 // @ 0x00af9b50
@@ -4394,7 +4375,6 @@ void SP::cActionCircle_s00af_9aa0::tSlot::ReserveId(unsigned int id)
 {
   mOccupied = true;
   mReservingId = id;
-  _ReadWriteBarrier();
   cGameData_s00af_9aa0* old = mpReservingNoun.mpObject;
   mpReservingNoun.mpObject = (cGameData_s00af_9aa0*)0;
   if (old) old->Release();

@@ -2,9 +2,6 @@
 // Object file: SPGonzago/SPSpaceTradeRouteManager.obj.  Function bodies keep the slice's code; types, members and virtual calls use the
 // canonical headers under src/game/include.  Each function keeps its '// @ 0xVA' marker.
 
-// addresses retail relocates here, named so the build relocates them too
-extern "C" char g_1499a30[];
-
 #include "game/types.h"
 #include "SP/cCivData.h"
 #include "SP/cGonzagoSubsystem.h"
@@ -37,28 +34,19 @@ public:
     cCivData* GetCivData();                                     // 0x00ba6d80
 };
 class cTradeRouteData;
-class cStreamInterface;
 class cStreamHandle {
 public:
-    virtual void slot_0();
-    virtual void slot_1();
-    virtual void slot_2();
-    virtual void slot_3();
-    virtual void slot_4();
-    virtual void slot_5();
-    virtual void slot_6();
-    virtual void slot_7();
-    virtual cStreamInterface* GetStreamInterface();             // slot 8, +0x20
+    void* mpVtable;                                             // 0x00
+    void* GetStreamInterface() {
+        return ((void* (__thiscall*)(cStreamHandle*))((void**)mpVtable)[0x20 / 4])(this);
+    }
 };
 class cStreamInterface {
 public:
-    virtual void slot_0();
-    virtual void slot_1();
-    virtual void slot_2();
-    virtual void slot_3();
-    virtual void slot_4();
-    virtual void slot_5();
-    virtual void* GetRawStream();                              // slot 6, +0x18
+    void* mpVtable;                                             // 0x00
+    void* GetRawStream() {
+        return ((void* (__thiscall*)(cStreamInterface*))((void**)mpVtable)[0x18 / 4])(this);
+    }
 };
 class cVarListSerializer {
 public:
@@ -134,14 +122,6 @@ cRBNodeBase* eastl_RBTreeDecrement(cRBNodeBase* pNode);         // 0x009215c0
 class cTradeRouteTree {
 public:
     void erase(cRBNodeBase* pNode);                             // 0x010380b0
-    void clear() {
-        erase(mAnchor.mpNodeParent);
-        mAnchor.mpNodeLeft = &mAnchor;
-        mAnchor.mpNodeParent = 0;
-        mAnchor.mColor = 0;
-        mnSize = 0;
-        mAnchor.mpNodeRight = &mAnchor;
-    }
     void InsertNode(cRouteNode** ppOut, cRBNodeBase* pParent,
                     const cTradeRoutePair* pValue, uint8_t bSide);   // 0x010380f0
     cRouteNode** DoInsertValue(cRouteNode** ppOut, const cTradeRoutePair* pValue,
@@ -183,7 +163,7 @@ cTradeRoutePair::cTradeRoutePair(const cTradeRoutePair& src)
 {
     mnKeyA = src.mnKeyA;
     mnKeyB = src.mnKeyB;
-    mData.mpVtable = (void*)g_1499a30;
+    mData.mpVtable = (void*)0x1499a30;
     mData.mnEmpireA = src.mData.mnEmpireA;
     mData.mnEmpireB = src.mData.mnEmpireB;
     mData.mnSystemA = src.mData.mnSystemA;
@@ -199,15 +179,11 @@ cTradeRoutePair::cTradeRoutePair(const cTradeRoutePair& src)
 // @ 0x01037ae0
 bool cTradeRouteData::Write(cStreamHandle* pStream)
 {
-    cStreamInterface* __restrict pInterface = pStream->GetStreamInterface();
+    void* pRaw = ((cStreamInterface*)pStream->GetStreamInterface())->GetRawStream();
     uint32_t nVersion = 0x5527100;
-    void* pRaw = pInterface->GetRawStream();
     EA_IO_WriteUint32(pRaw, &nVersion, 1, 0);
-    SP::cVarListSerializer serializer(this,
-        reinterpret_cast<SP::cDataSerializerGeneric*>(&gTradeRouteSerializerList),
-        SP::cVarListSerializer::kSignature);
-    bool result = serializer.Serialize(*reinterpret_cast<SP::cIObjectDatabaseOStream*>(pStream)) ? true : false;
-    return result;
+    cVarListSerializer serializer(this, &gTradeRouteSerializerList, 0x1a80d26);
+    return serializer.SerializeOut(pStream);
 }
 
 // @ 0x01037b50
@@ -224,15 +200,11 @@ bool cTradeRouteData::Read(cStreamHandle* pStream)
 // @ 0x01037bc0
 bool cSpaceTradeRouteManager::Write(cStreamHandle* pStream)
 {
-    cStreamInterface* __restrict pInterface = pStream->GetStreamInterface();
+    void* pRaw = ((cStreamInterface*)pStream->GetStreamInterface())->GetRawStream();
     uint32_t nVersion = 0x5526a59;
-    void* pRaw = pInterface->GetRawStream();
     EA_IO_WriteUint32(pRaw, &nVersion, 1, 0);
-    SP::cVarListSerializer serializer(this,
-        reinterpret_cast<SP::cDataSerializerGeneric*>(&gRouteManagerSerializerList),
-        SP::cVarListSerializer::kSignature);
-    bool result = serializer.Serialize(*reinterpret_cast<SP::cIObjectDatabaseOStream*>(pStream)) ? true : false;
-    return result;
+    cVarListSerializer serializer(this, &gRouteManagerSerializerList, 0x1a80d26);
+    return serializer.SerializeOut(pStream);
 }
 
 // @ 0x01037c30
@@ -411,7 +383,7 @@ void cTradeRouteTree::erase(cRBNodeBase* pNode)
     while (pNode != 0) {
         erase(pNode->mpNodeRight);
         cRBNodeBase* pNext = pNode->mpNodeLeft;
-        ((cRouteNode*)pNode)->mData.mpVtable = (void*)g_1499a30;
+        ((cRouteNode*)pNode)->mData.mpVtable = (void*)0x1499a30;
         cRouteNode_Free(pNode);
         pNode = pNext;
     }
@@ -495,17 +467,18 @@ void cSpaceTradeRouteManager::Destroy()
 bool cSpaceTradeRouteManager::Read(cStreamHandle* pStream)
 {
     mnLastStarID = 0;
-    mRoutes.clear();
+    mRoutes.erase(mRoutes.mAnchor.mpNodeParent);
+    mRoutes.mAnchor.mpNodeLeft = &mRoutes.mAnchor;
+    mRoutes.mAnchor.mpNodeParent = 0;
+    mRoutes.mAnchor.mColor = 0;
+    mRoutes.mnSize = 0;
+    mRoutes.mAnchor.mpNodeRight = &mRoutes.mAnchor;
 
-    cStreamInterface* __restrict pInterface = pStream->GetStreamInterface();
+    void* pRaw = ((cStreamInterface*)pStream->GetStreamInterface())->GetRawStream();
     uint32_t nVersion;
-    void* pRaw = pInterface->GetRawStream();
     EA_IO_ReadInt32(pRaw, &nVersion, 1, 0);
-    SP::cVarListSerializer serializer(this,
-        reinterpret_cast<SP::cDataSerializerGeneric*>(&gRouteManagerSerializerList),
-        SP::cVarListSerializer::kSignature);
-    bool result = serializer.Serialize(*reinterpret_cast<SP::cIObjectDatabaseIStream*>(pStream)) ? true : false;
-    return result;
+    cVarListSerializer serializer(this, &gRouteManagerSerializerList, 0x1a80d26);
+    return serializer.SerializeIn(pStream);
 }
 
 // @ 0x01038300

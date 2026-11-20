@@ -9,17 +9,8 @@ typedef void *P;
 
 struct Vec3 { float x, y, z; };
 
-// Inline SSE clamp helper used by this module (maxss/minss with SSE NaN semantics).
-inline float Clamp(float x, float lo, float hi)
-{
-    __asm {
-        movss xmm0, x
-        maxss xmm0, lo
-        minss xmm0, hi
-        movss x, xmm0
-    }
-    return x;
-}
+// SSE clamp (maxss/minss with SSE NaN semantics) comes from the reviewed helpers.
+#include "sse_helpers.h"
 template <class T> inline const T &Max(const T &a, const T &b) { return (a < b) ? b : a; }
 
 #include <math.h>
@@ -148,7 +139,7 @@ struct AbductionBeamLoco {
     void Update(LocoCtx *ctx);    // ret 4
 };
 
-// SP::cAbductionBeamLocomotion::Update @ 0x010317d0
+// @ 0x010317d0
 void AbductionBeamLoco::Update(LocoCtx *ctx)
 {
     if (mFirstUpdate) {
@@ -185,18 +176,19 @@ void AbductionBeamLoco::Update(LocoCtx *ctx)
     mpBeam->GetEndPoints(&a, &b);
     Vec3 *cur = ctx->obj->GetPosition();
 
-    if (mDistance < 0.0f) {
+    const float zero = 0.0f;
+    if (mDistance < zero) {
         if (mbTractor) {
             float dx = a.x - cur->x, dy = a.y - cur->y, dz = a.z - cur->z;
-            mDistance = (float)sqrt((double)(dy * dy + (dx * dx + dz * dz)));
+            mDistance = (float)sqrt((double)(dx * dx + dz * dz + dy * dy));
         } else {
-            mDistance = 0.0f;
+            mDistance = zero;
         }
     }
 
     float len0 = Length(cur);
     float height = len0 - PlanetModel()->GetRadiusAt(cur);
-    float t = Clamp(height, 0.0f, 500.0f) * 0.002f;
+    float t = SseClamp(height, zero, 500.0f) * 0.002f;
     float smooth = (3.0f - t * 2.0f) * t * t;
 
     Tuning *tune = GetTuning();
@@ -230,13 +222,13 @@ void AbductionBeamLoco::Update(LocoCtx *ctx)
     p2.y = dir.y * mDistance + a.y;
     p2.z = dir.z * mDistance + a.z;
     PlanetModelT *model = PlanetModel();
+    Vec3 n;
     if (model) {
         model->Func_b81630(&d, &p2);
         float lenD = (float)sqrt((double)((d.y * d.y + d.z * d.z) + d.x * d.x));
         float lenP = (float)sqrt((double)((p2.z * p2.z + p2.y * p2.y) + p2.x * p2.x));
         if (lenP < lenD) {
-            Vec3 tmp;
-            p2 = *model->Func_b82110(&tmp, &a, &dir);
+            p2 = *model->Func_b82110(&n, &a, &dir);
             float dx = a.x - p2.x, dy = a.y - p2.y, dz = a.z - p2.z;
             mDistance = (float)sqrt((double)((dz * dz + dy * dy) + dx * dx));
         }
@@ -247,21 +239,22 @@ void AbductionBeamLoco::Update(LocoCtx *ctx)
     ctx->vel.y = (p2.y - cur->y) * inv;
     ctx->vel.z = (p2.z - cur->z) * inv;
 
-    d.x = -dir.x; d.y = -dir.y; d.z = -dir.z;
-    Vec3 n = d;
-    if (d.x != g_016ded38.x || d.y != g_016ded38.y || d.z != g_016ded38.z) {
+    float nx = -dir.x, ny = -dir.y, nz = -dir.z;
+    d.x = nx; d.y = ny; d.z = nz;
+    n.x = nx; n.y = ny; n.z = nz;
+    if (nx != g_016ded38.x || ny != g_016ded38.y || nz != g_016ded38.z) {
         Vec3 u;
         ctx->obj->GetUp(&u);
         Vec3 c;
         c.x = u.y * d.z - u.z * d.y;
         c.y = u.z * d.x - d.z * u.x;
         c.z = d.y * u.x - u.y * d.x;
-        Vec3 w;
-        w.x = d.y * c.z - c.y * d.z;
-        w.y = d.z * c.x - d.x * c.z;
-        w.z = c.y * d.x - d.y * c.x;
+        // w reuses the (dead) p2 local, as the original's stack colouring shows.
+        p2.x = d.y * c.z - c.y * d.z;
+        p2.y = d.z * c.x - d.x * c.z;
+        p2.z = c.y * d.x - d.y * c.x;
         Matrix3 m;
-        FUN_00afa0c0(&m, &w, &n, &c);
+        FUN_00afa0c0(&m, &p2, &n, &c);
         SpatialObj *o = ctx->obj;
         Quat4 q;
         o->SetOrientation(FUN_00c64ad0(&q, FUN_0046d660(&n, &m)));
@@ -335,12 +328,11 @@ struct AgentMap {
 
 void AgentMap::Init()
 {
-    RBNodeBase *a = &mAnchor;
-    a->mpNodeLeft = 0;
-    a->mpNodeParent = 0;
-    a->mColorWord = 0;
-    mAnchor.mpNodeLeft = a;
-    a->mpNodeRight = a;
+    mAnchor.mpNodeLeft = 0;
+    mAnchor.mpNodeParent = 0;
+    mAnchor.mColorWord = 0;
+    mAnchor.mpNodeLeft = &mAnchor;
+    mAnchor.mpNodeRight = &mAnchor;
     mAnchor.mpNodeParent = 0;
     mAnchor.mColor = 0;
     mnSize = 0;

@@ -20,16 +20,16 @@ extern "C" void  operator_delete_array(void *p);                                
 // --------------------------------------------------------------- extern decls
 extern "C" void  *SP_GetCurrentGameMode();          // 0x00b5b800
 extern "C" void  *SP_NounManager();                 // 0x00b3d300
-extern "C" void  *FUN_00d2e490(u32 a);              // 0x00d2e490
+extern "C" void  *FUN_00d2e490();                   // 0x00d2e490 (retail pushes no argument)
 extern "C" void  *FUN_00d4a5f0(void *w);            // 0x00d4a5f0
-extern "C" void   sActivatePanel(void *a, void *b);// 0x00d49300
+extern "C" void   sActivatePanel(void *a, bool b);// 0x00d49300
 extern "C" void  *EA_UTFWin_GetManager();           // 0x00957f30
 extern "C" void  *cTribeModeStrategy_Instance();    // 0x00cd40b0
 extern "C" void  *FUN_00d39000();                   // 0x00d39000
 extern "C" void  *FUN_00cc8990();                   // 0x00cc8990
 extern "C" void  *FUN_00ef0dc0(void *a);            // 0x00ef0dc0
 extern "C" void  *FUN_00d1e830(u32 id);             // 0x00d1e830
-extern "C" u8     FUN_00d201f0(void *o);            // 0x00d201f0
+extern "C" bool   FUN_00d201f0(void *o);            // 0x00d201f0
 extern "C" void  *FUN_00d49270(u32 id);             // 0x00d49270
 extern "C" void  *FUN_00d1e610();                   // 0x00d1e610
 extern "C" float  SP_ScoreAbilityRange(i32 id);     // 0x00d200a0
@@ -505,4 +505,218 @@ void *FUN_00d4bbd0(Vec3 *out)
     out->y = gVec0169e440[1];
     out->z = gVec0169e440[2];
     return out;
+}
+
+// ============================================================== verb tray update
+// The tray table sits behind a global pointer: five rows of five {id, active}
+// entries, then the live row/column counts and the two per-row id bases.
+struct VerbEntry {
+    i32 m_id;                // +0x00
+    u8  m_active;            // +0x04
+    u8  m_pad05[3];
+};
+
+struct VerbGrid {
+    VerbEntry m_entries[5][5];   // +0x000
+    i32       m_rowCount;        // +0xc8
+    i32       m_colCount;        // +0xcc
+    u32       m_base0;           // +0xd0
+    u32       m_base1;           // +0xd4
+};
+
+extern VerbGrid *gVerbGrid;      // 0x0169e3ec
+extern void     *gModeCContext;  // 0x016c7aa4
+
+// The per-verb score rows looked up by id: 16-byte entries whose +4 slot is the
+// float score, behind a {first,last} range inside the ability table.
+struct ScoredVerb {
+    u32   m_kind;            // +0x00
+    float m_score;           // +0x04
+    u8    m_pad08[8];        // +0x08
+};
+
+struct VerbScoreTable {
+    u8          m_pad0000[0xc28];
+    ScoredVerb *m_pFirst;    // +0xc28
+    ScoredVerb *m_pLast;     // +0xc2c
+};
+
+extern "C" void *FUN_008105b0(void *mgr, u32 id, int flag); // noun lookup by id
+extern "C" void *FUN_00d1e830(u32 id);                      // verb -> creature
+extern "C" bool  FUN_00d201f0(void *o);                     // creature predicate
+extern "C" void *FUN_00d49270(u32 id);                      // verb -> instance
+extern "C" void *FUN_00d1e610();                            // ability/score table
+
+// The species/game frame tag that SP_GetCurrentGameMode (0x00b5b800) reports.
+enum ModeTag {
+    kModeTagA = 0x1654c01,
+    kModeTagB = 0x1654c02,
+    kModeTagC = 0x1654c10
+};
+
+typedef void *(__thiscall *SlotArgPtrFn)(void *self, int a);
+typedef void *(__thiscall *SlotPtrFn)(void *self);
+typedef u8    (__thiscall *SlotBoolFn)(void *self);
+typedef void  (__thiscall *SlotSetFn)(void *self, int a, bool b);
+typedef void *(__thiscall *SlotHashFn)(void *self, u32 a);
+typedef void  (__thiscall *SlotVoidFn)(void *self);
+typedef void *(__thiscall *FindNounFn)(void *self, u32 id, int flag);
+typedef void *(__thiscall *GetAvatarFn)(void *self);
+
+// The id base of one tray row.  Retail re-reads the frame tag before picking
+// the base, and the pick itself is a second dispatch on the row: row 3 (and
+// anything past 4) falls straight through without touching the base.
+FORCEINLINE void LoadRowBase(i32 row, u32 *pBase)
+{
+    SP_GetCurrentGameMode();
+    switch (row) {
+    case 0:
+        *pBase = gVerbGrid->m_base0;
+        break;
+    case 1:
+        *pBase = gVerbGrid->m_base1;
+        break;
+    case 2:
+        *pBase = 0x1012030;
+        break;
+    case 4:
+        *pBase = 0x1012040;
+        break;
+    }
+}
+
+// The state object behind a verb is reached through slot 0x0c and toggled
+// through its own slot 0x28: (4, enabled).
+FORCEINLINE void SetVerbState(void *verb, int enabled)
+{
+    void *state = ((SlotHashFn)(*(void ***)verb)[0x0c / 4])(verb, 0x8ed27e7a);
+    ((SlotSetFn)(*(void ***)state)[0x28 / 4])(state, 4, enabled);
+}
+
+// @ 0x00d4a930
+void RefreshVerbTray()
+{
+    u32  base;
+    i32  i;
+    i32  selected = 1;
+    bool shown = true;
+
+    switch ((u32)(size_t)SP_GetCurrentGameMode()) {
+    case kModeTagA:
+    case kModeTagC:
+        selected = (i32)FUN_00d2e490();
+        break;
+    case kModeTagB:
+        selected = *(i32 *)((u8 *)cTribeModeStrategy_Instance() + 0x390);
+        shown = false;
+        break;
+    }
+
+    void *ui = EA_UTFWin_GetManager();
+    void *panel = ((SlotArgPtrFn)(*(void ***)ui)[0x48 / 4])(ui, 1);
+    if (panel != 0) {
+        panel = ((SlotPtrFn)(*(void ***)panel)[0x1c / 4])(panel);
+    }
+    FUN_00d4a5f0(panel);
+
+    for (i = 0; i < gVerbGrid->m_rowCount; i++) {
+        switch (i) {
+        case 0:
+        case 1:
+        case 2:
+        case 4:
+            LoadRowBase(i, &base);
+            break;
+        default:
+            continue;
+        }
+
+        for (i32 j = 0; j < gVerbGrid->m_colCount; j++) {
+            VerbEntry *entry = &gVerbGrid->m_entries[i][j];
+            if (entry->m_id == -1) {
+                continue;
+            }
+
+            void *noun;
+            switch ((u32)(size_t)SP_GetCurrentGameMode()) {
+            case kModeTagA:
+                noun = FUN_00d39000();
+                break;
+            case kModeTagB:
+                noun = FUN_00cc8990();
+                break;
+            case kModeTagC:
+                noun = ((void *(__thiscall *)(void *))FUN_00ef0dc0)(gModeCContext);
+                break;
+            default:
+                noun = 0;
+                break;
+            }
+
+            // The reactor id of a tray cell is its row's base plus the column.
+            u32 id = base + (u32)j;
+            void *verb = ((FindNounFn)FUN_008105b0)(noun, id, 1);
+            if (verb == 0) {
+                continue;
+            }
+
+            i32 verbId = entry->m_id;
+            void *info = FUN_00d1e830((u32)verbId);
+            if (info != 0) {
+                bool want = FUN_00d201f0(info);
+                bool has = ((SlotBoolFn)(*(void ***)verb)[0x28 / 4])(verb) & 1;
+                if (i == selected && want) {
+                    shown = true;
+                }
+                if (want != has) {
+                    ((SlotSetFn)(*(void ***)verb)[0x7c / 4])(verb, 1, want);
+                }
+                if (want && FUN_00d49270((u32)verbId) == 0) {
+                    SetVerbState(verb, 0);
+                    goto scored;
+                }
+            }
+            SetVerbState(verb, 1);
+
+        scored:
+            {
+                i32 id2 = entry->m_id;
+                float score = 0.0f;
+                bool haveScore = false;
+
+                VerbScoreTable *table = (VerbScoreTable *)FUN_00d1e610();
+                if (table != 0) {
+                    ScoredVerb *first = table->m_pFirst;
+                    if (id2 >= 0 && id2 < (i32)(table->m_pLast - first)) {
+                        score = first[id2].m_score;
+                        haveScore = true;
+                    } else if ((u32)(size_t)SP_GetCurrentGameMode() == kModeTagB) {
+                        score = SP_ScoreAbilityRange(id2);
+                        haveScore = true;
+                    }
+                }
+
+                if (haveScore && score == kOne) {
+                    if (entry->m_active != 0) {
+                        ((SlotVoidFn)(*(void ***)verb)[0x90 / 4])(verb);
+                    }
+                } else {
+                    entry->m_active = 1;
+                    ((SlotVoidFn)(*(void ***)verb)[0x90 / 4])(verb);
+                }
+            }
+        }
+    }
+
+    switch ((u32)(size_t)SP_GetCurrentGameMode()) {
+    case kModeTagA:
+    case kModeTagC:
+        if (((GetAvatarFn)FUN_00b1fdb0)(SP_NounManager()) != 0) {
+            sActivatePanel(FUN_00d2e490(), shown);
+        }
+        break;
+    case kModeTagB:
+        sActivatePanel(*(void **)((u8 *)cTribeModeStrategy_Instance() + 0x390), shown);
+        break;
+    }
 }

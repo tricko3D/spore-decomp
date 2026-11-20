@@ -1456,12 +1456,12 @@ void S00de6e80::FUN_00de6e80(int param_2)
     }
     CFind1c* t = (CFind1c*)((char*)this + 0x1c);
     t->find(out, &param_2);
-    if (out[0] != (char*)t + 4) {
-        void* node = out[0];
+    unsigned int node = (unsigned int)(unsigned long)out[0];
+    if (node != (unsigned int)(unsigned long)((char*)t + 4)) {
         *(int*)((char*)t + 0x14) -= 1;
-        RBTreeIncrement(node);
-        RBTreeErase(node, (char*)t + 4);
-        freeNode(node);
+        RBTreeIncrement((void*)(unsigned long)node);
+        RBTreeErase((void*)(unsigned long)node, (void*)((char*)t + 4));
+        freeNode((void*)(unsigned long)node);
     }
 }
 

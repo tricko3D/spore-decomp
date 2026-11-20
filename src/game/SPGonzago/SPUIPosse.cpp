@@ -2,32 +2,6 @@
 // Object file: SPGonzago/SPUIPosse.obj.  Function bodies keep the slice's code; types, members and virtual calls use the
 // canonical headers under src/game/include.  Each function keeps its '// @ 0xVA' marker.
 
-// addresses retail relocates here, named so the build relocates them too
-extern "C" void FUN_00e22760();
-extern "C" char g_1480788[];
-extern "C" char g_1480798[];
-extern "C" char g_14807b0[];
-extern "C" char g_1480894[];
-extern "C" char g_14808a4[];
-extern "C" char g_14808c0[];
-extern "C" char g_14809a4[];
-extern "C" char g_14809b4[];
-extern "C" char g_14809d0[];
-extern "C" char g_1480ab4[];
-extern "C" char g_1480ac4[];
-extern "C" char g_1480ae0[];
-extern "C" char g_1480bc4[];
-extern "C" char g_1480bd4[];
-extern "C" char g_1480bf0[];
-extern "C" char g_1480cd4[];
-extern "C" char g_1480ce4[];
-extern "C" char g_1480d00[];
-extern "C" char g_1480de4[];
-extern "C" char g_1480df4[];
-extern "C" char g_1480e10[];
-extern "C" char g_15a5524[];
-extern "C" char g_16ac2c8[];
-
 #include "game/types.h"
 #include "cSPUILayout.h"
 #include <math.h>
@@ -1114,12 +1088,12 @@ void __fastcall FUN_00e21530(void* self_, void*, int id, void* layout, void* ext
 }
 
 // @ 0x00e21590
-u32 __stdcall FUN_00e21590(int idx)
+const wchar_t* __stdcall FUN_00e21590(int idx)
 {
   switch (idx) {
-  case 0: return 0x3d99162;
-  case 1: return 0x3d99184;
-  default: return 0x3d99162;
+  case 1:  return (const wchar_t*)0x3d99184;
+  case 0:
+  default: return (const wchar_t*)0x3d99162;
   }
 }
 
@@ -1391,14 +1365,13 @@ void cSPUIPosseItem_s00e2_1880::SetItemKeyIcon(const ResourceKey* pKey, int32_t 
     SPUIHelpers::SetWindowImage(pWindow, &mItemKey, 0);
 }
 
-struct ResourceKeyZero_e21ea0 : ResourceKey {
-    ResourceKeyZero_e21ea0() { mInstanceID = 0; mGroupID = 0; mTypeID = 0; }
-};
 // @ 0x00e21ea0
 void cSPUIPosseItem_s00e2_1880::SetItemIcon(void* pImage, int32_t nUnused)
 {
-    mItemKey = ResourceKeyZero_e21ea0();
     uint32_t nNone = 0;
+    mItemKey.mInstanceID = nNone;
+    mItemKey.mGroupID = nNone;
+    mItemKey.mTypeID = nNone;
     IWindow* pWindow = mpFieldD4->mpWindow10->FindWindowByID(0x3d99151, true);
     UI::SetWindowImage(pWindow, pImage, nNone);
 }
@@ -1818,12 +1791,8 @@ void cSPUIPosse_s00e2_2860::SetWindowRect(const cVec3* rect, int unused)
 {
     if (mpField50 != 0) {
         cVec3& target = mRect70;
-        u32 x = *(const u32*)rect;
-        cPossePart* part = mpPartD4;
-        *(u32*)&target = x;
-        ((u32*)&target)[1] = ((const u32*)rect)[1];
-        ((u32*)&target)[2] = ((const u32*)rect)[2];
-        void* image = VT_F0_2(part->mpField10, 0x3d99151, 1);
+        target = *rect;
+        void* image = VT_F0_2(mpPartD4->mpField10, 0x3d99151, 1);
         SetWindowImage(image, &target, 0);
     }
 }
@@ -1904,36 +1873,34 @@ void __cdecl FUN_00e238b0(void* dst, u32 n, void* src)
 // @ 0x00e23900
 void* __cdecl FUN_00e23900(void* first, void* last, void* out)
 {
-  if (first != last) {
-    do {
-      if (out) {
-        Ref a = *(Ref*)first;
-        *(Ref*)out = a;
-        if (a) ((TFv)(*(void***)a)[0])(a);
-        Ref b = *(Ref*)((char*)first + 4);
-        *(Ref*)((char*)out + 4) = b;
-        if (b) ((TFv)(*(void***)b)[0])(b);
-      }
-      first = (char*)first + 8;
-      out = (char*)out + 8;
-    } while (first != last);
-  }
+  if (first == last) return out;
+  do {
+    if (out) {
+      Ref a = *(Ref*)first;
+      *(Ref*)out = a;
+      if (a) ((TFv)(*(void***)a)[0])(a);
+      Ref b = *(Ref*)((char*)first + 4);
+      *(Ref*)((char*)out + 4) = b;
+      if (b) ((TFv)(*(void***)b)[0])(b);
+    }
+    first = (char*)first + 8;
+    out = (char*)out + 8;
+  } while (first != last);
   return out;
 }
 
 // @ 0x00e23950
 void* __cdecl FUN_00e23950(void* first, void* last, void* out)
 {
-  if (first != last) {
-    do {
-      Ref b = *(Ref*)((char*)first + 4);
-      if (b) ((TFv)(*(void***)b)[1])(b);
-      Ref a = *(Ref*)first;
-      if (a) ((TFv)(*(void***)a)[1])(a);
-      first = (char*)first + 8;
-      out = (char*)out + 8;
-    } while (first != last);
-  }
+  if (first == last) return out;
+  do {
+    Ref b = *(Ref*)((char*)first + 4);
+    if (b) ((TFv)(*(void***)b)[1])(b);
+    Ref a = *(Ref*)first;
+    if (a) ((TFv)(*(void***)a)[1])(a);
+    first = (char*)first + 8;
+    out = (char*)out + 8;
+  } while (first != last);
   return out;
 }
 
@@ -1983,7 +1950,7 @@ s32 __fastcall FUN_00e23ae0(void* self, void* dummy, u32 id)
   }
   u8 ok = ((TFuii)(*(void***)pm)[0x30 / 4])(pm, 0x5c770db7, &DAT_016ac278);
   if (ok) {
-    ((CopyImplC*)g_15a5524)->Copy(DAT_016ac278);
+    ((CopyImplC*)0x15a5524)->Copy(DAT_016ac278);
   }
   u8 r = ((SPUILayoutC*)((char*)self + 0x1bc))->Init(id, 1, 0x8d0f4fb);
   if (r) {
@@ -2004,7 +1971,7 @@ s32 __fastcall FUN_00e23b70(void* self, void* dummy, void* name, int id)
   }
   u8 ok = ((TFuii)(*(void***)pm)[0x30 / 4])(pm, 0x5c770db7, &DAT_016ac278);
   if (ok) {
-    ((CopyImplC*)g_15a5524)->Copy(DAT_016ac278);
+    ((CopyImplC*)0x15a5524)->Copy(DAT_016ac278);
   }
   u8 r = ((SPUILayoutC*)((char*)self + 0x1bc))->InitStr(name, id, 1, 0x8d0f4fb);
   if (r) {
@@ -2058,14 +2025,16 @@ void __fastcall FUN_00e23d50(void* self, void* dummy)
 void __fastcall FUN_00e23de0(void* self, void* dummy)
 {
   (void)dummy;
-  void** end = *(void***)((char*)self + 0x10);
-  void** begin = *(void***)((char*)self + 0xc);
-  while (end > begin) {
-    if (((TFi)(*(void***)end[-1])[0xbc / 4])(end[-1]) == 3 ||
-        ((TFi)(*(void***)end[-1])[0xbc / 4])(end[-1]) == 4) {
-      ((TFv)(*(void***)end[-1])[0xa8 / 4])(end[-1]);
+  void* end = *(void**)((char*)self + 0x10);
+  void* begin = *(void**)((char*)self + 0xc);
+  while ((u32)end > (u32)begin) {
+    end = (char*)end - 4;
+    void* item = *(void**)end;
+    if (((TFi)(*(void***)item)[0xbc / 4])(item) == 3) {
+      ((TFv)(*(void***)item)[0xa8 / 4])(item);
+    } else if (((TFi)(*(void***)item)[0xbc / 4])(item) == 4) {
+      ((TFv)(*(void***)item)[0xa8 / 4])(item);
     }
-    --end;
   }
 }
 
@@ -2108,7 +2077,7 @@ void* __fastcall FUN_00e23e80(void* self, void* dummy, void** src)
 }
 
 // @ 0x00e23ee0
-void* __cdecl FUN_00e23ee0(void* first, void* last, u32* key)
+void __cdecl FUN_00e23ee0(void* first, void* last, u32* key)
 {
   s32 n = (s32)((char*)last - (char*)first) >> 4;
   while (n > 0) {
@@ -2121,7 +2090,6 @@ void* __cdecl FUN_00e23ee0(void* first, void* last, u32* key)
       n = half;
     }
   }
-  return first;
 }
 
 // @ 0x00e23f30
@@ -2242,26 +2210,25 @@ void __cdecl FUN_00e24220(void* first, void* last, void* src)
 // @ 0x00e24290
 void* __cdecl FUN_00e24290(void* first, void* last, void* out)
 {
-  if (first != last) {
-    do {
-      Ref ns0 = *(Ref*)first;
-      Ref os0 = *(Ref*)out;
-      if (ns0 != os0) {
-        if (ns0) ((TFv)(*(void***)ns0)[0])(ns0);
-        *(Ref*)out = ns0;
-        if (os0) ((TFv)(*(void***)os0)[1])(os0);
-      }
-      Ref ns1 = *(Ref*)((char*)first + 4);
-      Ref os1 = *(Ref*)((char*)out + 4);
-      if (ns1 != os1) {
-        if (ns1) ((TFv)(*(void***)ns1)[0])(ns1);
-        *(Ref*)((char*)out + 4) = ns1;
-        if (os1) ((TFv)(*(void***)os1)[1])(os1);
-      }
-      first = (char*)first + 8;
-      out = (char*)out + 8;
-    } while (first != last);
-  }
+  if (first == last) return out;
+  do {
+    Ref ns0 = *(Ref*)first;
+    Ref os0 = *(Ref*)out;
+    if (ns0 != os0) {
+      if (ns0) ((TFv)(*(void***)ns0)[0])(ns0);
+      *(Ref*)out = ns0;
+      if (os0) ((TFv)(*(void***)os0)[1])(os0);
+    }
+    Ref ns1 = *(Ref*)((char*)first + 4);
+    Ref os1 = *(Ref*)((char*)out + 4);
+    if (ns1 != os1) {
+      if (ns1) ((TFv)(*(void***)ns1)[0])(ns1);
+      *(Ref*)((char*)out + 4) = ns1;
+      if (os1) ((TFv)(*(void***)os1)[1])(os1);
+    }
+    first = (char*)first + 8;
+    out = (char*)out + 8;
+  } while (first != last);
   return out;
 }
 
@@ -2603,9 +2570,9 @@ void* cUIPosse15::ctor()
 void* cSPUIPosseItemTribe_s00e2_5710::ctor(int a2)
 {
   cSPUIPosseItemBase::ctor(a2, L"PosseItemTribe", 0x40464100);
-  *(void**)this = (void*)g_14807b0;
-  *(void**)((char*)this + 4) = (void*)g_1480798;
-  *(void**)((char*)this + 0xc) = (void*)g_1480788;
+  *(void**)this = (void*)0x14807b0;
+  *(void**)((char*)this + 4) = (void*)0x1480798;
+  *(void**)((char*)this + 0xc) = (void*)0x1480788;
   this->f14c = 1.0f;
   return this;
 }
@@ -2614,9 +2581,9 @@ void* cSPUIPosseItemTribe_s00e2_5710::ctor(int a2)
 void* cSPUIPosseItemTribeBaby_s00e2_5710::ctor(int a2)
 {
   cSPUIPosseItemBase::ctor(a2, L"PosseItemTribeBaby", 0x40464100);
-  *(void**)this = (void*)g_14808c0;
-  *(void**)((char*)this + 4) = (void*)g_14808a4;
-  *(void**)((char*)this + 0xc) = (void*)g_1480894;
+  *(void**)this = (void*)0x14808c0;
+  *(void**)((char*)this + 4) = (void*)0x14808a4;
+  *(void**)((char*)this + 0xc) = (void*)0x1480894;
   this->f14c = 0.0f;
   return this;
 }
@@ -2625,9 +2592,9 @@ void* cSPUIPosseItemTribeBaby_s00e2_5710::ctor(int a2)
 void* cSPUIPosseItemCiv::ctor(int a2)
 {
   cSPUIPosseItemBase::ctor(a2, L"PosseItemCiv", 0x40464100);
-  *(void**)this = (void*)g_14809d0;
-  *(void**)((char*)this + 4) = (void*)g_14809b4;
-  *(void**)((char*)this + 0xc) = (void*)g_14809a4;
+  *(void**)this = (void*)0x14809d0;
+  *(void**)((char*)this + 4) = (void*)0x14809b4;
+  *(void**)((char*)this + 0xc) = (void*)0x14809a4;
   return this;
 }
 
@@ -2635,9 +2602,9 @@ void* cSPUIPosseItemCiv::ctor(int a2)
 void* cSPUIPosseItemSpace_s00e2_5710::ctor(int a2)
 {
   cSPUIPosseItemBase::ctor(a2, a2 ? L"PosseItemSpace" : L"PosseItemSpaceGhostShell", 0x40464100);
-  *(void**)this = (void*)g_1480ae0;
-  *(void**)((char*)this + 4) = (void*)g_1480ac4;
-  *(void**)((char*)this + 0xc) = (void*)g_1480ab4;
+  *(void**)this = (void*)0x1480ae0;
+  *(void**)((char*)this + 4) = (void*)0x1480ac4;
+  *(void**)((char*)this + 0xc) = (void*)0x1480ab4;
   if (a2 == 0) this->mState = 0x7fffffff;
   return this;
 }
@@ -2646,9 +2613,9 @@ void* cSPUIPosseItemSpace_s00e2_5710::ctor(int a2)
 void* cSPUIPosseItem2_s00e2_5710::ctor(int a2, int a3)
 {
   cScenarioEditPosseItemBase::ctor(a2, a3);
-  *(void**)this = (void*)g_1480bf0;
-  *(void**)((char*)this + 4) = (void*)g_1480bd4;
-  *(void**)((char*)this + 0xc) = (void*)g_1480bc4;
+  *(void**)this = (void*)0x1480bf0;
+  *(void**)((char*)this + 4) = (void*)0x1480bd4;
+  *(void**)((char*)this + 0xc) = (void*)0x1480bc4;
   return this;
 }
 
@@ -2656,9 +2623,9 @@ void* cSPUIPosseItem2_s00e2_5710::ctor(int a2, int a3)
 void* cSPUIPosseItem3::ctor(int a2)
 {
   cScenarioEditPosseItemBase::ctor(0, a2);
-  *(void**)this = (void*)g_1480d00;
-  *(void**)((char*)this + 4) = (void*)g_1480ce4;
-  *(void**)((char*)this + 0xc) = (void*)g_1480cd4;
+  *(void**)this = (void*)0x1480d00;
+  *(void**)((char*)this + 4) = (void*)0x1480ce4;
+  *(void**)((char*)this + 0xc) = (void*)0x1480cd4;
   *(int*)((char*)this + 0x98) = 0x7fffffff;
   return this;
 }
@@ -2667,9 +2634,9 @@ void* cSPUIPosseItem3::ctor(int a2)
 void* cSPUIPosseItemTribeGhostShell::ctor()
 {
   cSPUIPosseItemBase::ctor(0, L"PosseItemTribeGhostShell", 0x40464100);
-  *(void**)this = (void*)g_1480e10;
-  *(void**)((char*)this + 4) = (void*)g_1480df4;
-  *(void**)((char*)this + 0xc) = (void*)g_1480de4;
+  *(void**)this = (void*)0x1480e10;
+  *(void**)((char*)this + 4) = (void*)0x1480df4;
+  *(void**)((char*)this + 0xc) = (void*)0x1480de4;
   this->mState = 0x7fffffff;
   return this;
 }
@@ -3504,7 +3471,7 @@ u8 cSPUIPosseItemTribeBaby::init(cSPUIPosse_s00e2_7310* posse)
         void* sys = FUN_00a206f0();
         void* r = sys != 0 ? ((void* (__thiscall*)(void*))VT(sys)[0x20 / 4])(sys) : 0;
 
-        FUN_00435ed0(*(u32*)g_16ac2c8, r);
+        FUN_00435ed0(*(u32*)0x16ac2c8, r);
         mBlinkerStart = FUN_00805080();
         return 1;
     }
@@ -3706,7 +3673,7 @@ void cSPUIPosseItem_s00e2_7310::FUN_00e281a0(u8 flag)
 // @ 0x00e28230
 void cSPUIPosseItem_s00e2_7310::FUN_00e28230()
 {
-    FUN_00e26de0(mRefs.mpBegin, mRefs.mpEnd, (void*)FUN_00e22760);
+    FUN_00e26de0(mRefs.mpBegin, mRefs.mpEnd, (void*)0x00e22760);
 }
 
 // @ 0x00e28250

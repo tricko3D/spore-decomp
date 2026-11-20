@@ -2,9 +2,6 @@
 // Object file: SPGonzago/_at_00b70000.obj.  Function bodies keep the slice's code; types, members and virtual calls use the
 // canonical headers under src/game/include.  Each function keeps its '// @ 0xVA' marker.
 
-// addresses retail relocates here, named so the build relocates them too
-extern "C" char g_13ebb38[];
-
 #include "game/types.h"
 #include "SP/cGameNounManager.h"
 #include "SP/cVarListSerializer.h"
@@ -373,7 +370,6 @@ struct MapView
     TreeNode* m_end;             // +0x04 (sentinel address)
     TreeNode* m_begin;           // +0x08
 };
-typedef eastl::rbtree_iterator<eastl::pair<void*, void*> > FeedbackIterator;
 struct MotiveMap
 {
     int    m_pad0;               // +0x00
@@ -384,7 +380,7 @@ struct MotiveMap
     unsigned char m_pad11[3];    // +0x11
     int    m_size;               // +0x14
 
-    FeedbackIterator erase(FeedbackIterator position); // 0x00b71730
+    void  erase(void** out, TreeNode* node);      // 0x00b71730
     void  deleteTree(TreeNode* node);             // 0x00b71790
 };
 struct MotiveObjectTree
@@ -411,6 +407,12 @@ struct NewNode
     void* m_ref14;               // +0x14
 };
 void __cdecl WriteUint32(void* stream, const void* value, int count, int flags);   // 0x0093aa70
+struct cVarListSerializer
+{
+    char m_data[0xa14];
+    void ctor(void* owner, void* name, int line);        // 0x00692f90
+    void Serialize(void* object);                        // 0x00692900
+};
 struct RBTreeFind
 {
     void** find(void** out, void** key);                 // 0x00e5c780
@@ -1372,7 +1374,7 @@ struct QuadVec {
     __forceinline void erase(Quad16* first, Quad16* last)
     {
         copy_705250(last, last, first);
-        mpEnd -= last - first;
+        mpEnd += first - last;
     }
 };
 void FUN_00b76950(Vec3* first, Vec3* last, int depth,
@@ -1674,8 +1676,7 @@ struct Sub {
 struct ObMgr {
     void* Construct();                                 // 0xb79740
     void* Init(int* a, int* b);                        // 0xb794e0
-    struct InsertResult { int* node; int* bucket; };
-    InsertResult Insert(int* key, int unused);          // 0xb795c0 (returned by value)
+    int*  Insert(int* out, int* key, int unused);      // 0xb795c0
     int*  FindNode(int* bucket, int* key, unsigned h); // 0xb72f10
     void  Destroy();                                   // 0xb79aa0
     void  Query(V3* dir, PointerVec* out, unsigned mask, float radius,
@@ -2655,44 +2656,40 @@ void cTuning_b708d0::Load(uint32_t instanceID)
 // @ 0x00b714a0
 void cTuning_b708d0::SerializeObject(void* object)
 {
-    cDevice* __restrict writer = (cDevice*)((IStream*)object)->Slot8();
+    void* writer = ((void* (__thiscall*)(void*))VTFN(object, 0x20 / 4))(object);
+    void* stream = ((void* (__thiscall*)(void*))VTFN(writer, 0x18 / 4))(writer);
     uint32_t id = 0x6ef3ce7;
-    void* stream = writer->GetStream();
     WriteUint32(stream, &id, 1, 0);
-    SP::cVarListSerializer serializer(this, reinterpret_cast<SP::cDataSerializerGeneric*>(&DAT_0156b308), 0x01a80d26);
-    serializer.Serialize(*(SP::cIObjectDatabaseOStream*)object);
+    cVarListSerializer serializer;
+    serializer.ctor(this, (void*)0x0156b308, 0x01a80d26);
+    serializer.Serialize(object);
 }
 
 // @ 0x00b71510
 bool MotiveObjectTree::findEvent(void* event)
 {
-    void* key = event;
-    void* const retained = key;
-    if (retained)
-        ((void (__thiscall*)(void*))VTFN(retained, 0xbc / 4))(retained);
+    if (event)
+        ((void (__thiscall*)(void*))VTFN(event, 0xbc / 4))(event);
 
-    void* const end = &m_map.m_end;
-    void* it;
-    void** slot = ((RBTreeFind*)&m_map)->find(&it, &key);
-    bool found = *slot != end;
+    void* it = 0;
+    void** slot = ((RBTreeFind*)&m_map)->find(&it, &event);
+    bool found = *slot != (void*)&m_map.m_end;
 
-    if (retained)
-        ((void (__thiscall*)(void*))VTFN(retained, 0xc0 / 4))(retained);
+    if (event)
+        ((void (__thiscall*)(void*))VTFN(event, 0xc0 / 4))(event);
     return found;
 }
 
 // @ 0x00b71570
 bool __cdecl FUN_00b71570(void* arg, MapView* map)
 {
-    TreeNode* node = map->m_begin;
     TreeNode* const end = (TreeNode*)&map->m_end;
-    for (; node != end; node = (TreeNode*)FUN_00921580(node)) {
-        void* ref = node->m_ref10;
-        if (ref)
-            ((void (__thiscall*)(void*, void*))VTFN(ref, 0x1c / 4))(ref, arg);
-        ref = node->m_ref14;
-        if (ref)
-            ((void (__thiscall*)(void*, void*))VTFN(ref, 0x1c / 4))(ref, arg);
+    for (TreeNode* node = map->m_begin; node != end;
+         node = (TreeNode*)FUN_00921580(node)) {
+        if (node->m_ref10 != 0)
+            ((void (__thiscall*)(void*, void*))VTFN(node->m_ref10, 0x1c / 4))(node->m_ref10, arg);
+        if (node->m_ref14 != 0)
+            ((void (__thiscall*)(void*, void*))VTFN(node->m_ref14, 0x1c / 4))(node->m_ref14, arg);
     }
     return true;
 }
@@ -2720,15 +2717,14 @@ void* NodeFactory::newNode(RefPair* pair)
 // @ 0x00b71680
 void FUN_00b71680(void* serial, MotiveMap* map)
 {
-    const uint32_t size = (uint32_t)map->m_size;
-    cDevice* __restrict writer = (cDevice*)((IStream*)serial)->Slot8();
-    uint32_t count = size;
-    void* stream = writer->GetStream();
+    uint32_t count = (uint32_t)map->m_size;
+    void* writer = ((void* (__thiscall*)(void*))VTFN(serial, 0x20 / 4))(serial);
+    void* stream = ((void* (__thiscall*)(void*))VTFN(writer, 0x18 / 4))(writer);
     WriteUint32(stream, &count, 1, 0);
 
-    void* node = map->m_begin;
     void* const end = (char*)map + 4;
-    for (; node != end; node = FUN_00921580(node)) {
+    for (void* node = map->m_begin; node != end;
+         node = FUN_00921580(node)) {
         void* value = 0;
         void* ref = *(void**)((char*)node + 0x10);
         if (ref)
@@ -2747,22 +2743,19 @@ void FUN_00b71680(void* serial, MotiveMap* map)
 }
 
 // @ 0x00b71730
-FeedbackIterator MotiveMap::erase(FeedbackIterator position)
+void MotiveMap::erase(void** out, TreeNode* node)
 {
     m_size--;
-    TreeNode* const erased = (TreeNode*)position.mpNode;
-    position.mpNode = (eastl::rbtree_node<eastl::pair<void*, void*> >*)FUN_00921580(erased);
-    FUN_00921880(erased, &m_end);
+    TreeNode* next = (TreeNode*)FUN_00921580(node);
+    FUN_00921880(node, &m_end);
 
-    void* ref = erased->m_ref14;
-    if (ref)
-        ((void (__thiscall*)(void*))VTFN(ref, 4 / 4))(ref);
-    ref = erased->m_ref10;
-    if (ref)
-        ((void (__thiscall*)(void*))VTFN(ref, 0xc0 / 4))(ref);
+    if (node->m_ref14 != 0)
+        ((void (__thiscall*)(void*))VTFN(node->m_ref14, 4 / 4))(node->m_ref14);
+    if (node->m_ref10 != 0)
+        ((void (__thiscall*)(void*))VTFN(node->m_ref10, 0xc0 / 4))(node->m_ref10);
 
-    FUN_00f47380(erased);
-    return position;
+    FUN_00f47380(node);
+    *out = next;
 }
 
 // @ 0x00b71790
@@ -2799,23 +2792,22 @@ void __fastcall FUN_00b71a30(MotiveObjectTree* self)
 // @ 0x00b71a60
 void cOwner::ReadFeedback(IStream* pStream)
 {
-    typedef eastl::map<uint32_t, void*> FeedbackMap;
-    FeedbackMap* feedback = reinterpret_cast<FeedbackMap*>(&mFeedback);
-    ((FeedbackTree*)feedback)->Purge((FeedbackNode*)feedback->mAnchor.mpNodeParent);
-    eastl::rbtree_node_base* anchor = &feedback->mAnchor;
-    feedback->mAnchor.mpNodeLeft = anchor;
-    feedback->mAnchor.mpNodeParent = 0;
-    feedback->mAnchor.mColor = 0;
-    feedback->mnSize = 0;
-    feedback->mAnchor.mpNodeRight = anchor;
+    mFeedback.Purge((FeedbackNode*)mFeedback.mAnchor.mpNodeParent);
 
-    int version;
+    eastl::nb* pAnchor = &mFeedback.mAnchor;
+    pAnchor->mpNodeRight  = pAnchor;
+    pAnchor->mpNodeLeft   = pAnchor;
+    pAnchor->mpNodeParent = 0;
+    pAnchor->mColor       = 0;
+    mFeedback.mnSize = 0;
+
+    int count;
     cDevice* pDevice = (cDevice*)pStream->Slot8();
     void* pRaw = pDevice->GetStream();
-    SP_ReadInt32(pRaw, &version, 1, 0);
+    SP_ReadInt32(pRaw, &count, 1, 0);
 
-    SP::cVarListSerializer serializer(this, reinterpret_cast<SP::cDataSerializerGeneric*>(&DAT_0156b308), 0x1a80d26);
-    serializer.Serialize(*(SP::cIObjectDatabaseIStream*)pStream);
+    cVarListSerializer_s00b7_1a60 serializer(this, &DAT_0156b308, 0x1a80d26);
+    serializer.Serialize(*pStream);
 }
 
 // @ 0x00b71af0
@@ -2898,15 +2890,14 @@ void __cdecl Fn_00b71b90(IStream* pStream, FeedbackTree* pTree)
 // @ 0x00b71dc0
 cOwner::cOwner()
 {
-    _ReadWriteBarrier();
     eastl::nb* pAnchor = &mFeedback.mAnchor;
     pAnchor->mpNodeLeft   = 0;
     pAnchor->mpNodeParent = 0;
     pAnchor->mColor       = 0;
-    mFeedback.mAnchor.mpNodeLeft = pAnchor;
+    pAnchor->mpNodeLeft   = pAnchor;
     pAnchor->mpNodeRight  = pAnchor;
-    mFeedback.mAnchor.mpNodeParent = 0;
-    *(char*)&mFeedback.mAnchor.mColor = 0;
+    pAnchor->mpNodeParent = 0;
+    pAnchor->mColor       = 0;
     mFeedback.mnSize      = 0;
 }
 
@@ -3351,11 +3342,9 @@ uint Sim::FUN_00b72b60(V3* a, V3* b, float c, Op* obj, char flag, float* outDist
 // @ 0x00b72d80
 HIt* HIt::advance(HIt* out, int)
 {
-    HashNode* node = mpNode;
-    out->mpNode = node;
-    HashNode* next = node->mpNext;
+    out->mpNode = mpNode;
     out->mpBucket = mpBucket;
-    mpNode = next;
+    mpNode = mpNode->mpNext;
     while (!mpNode) {
         ++mpBucket;
         mpNode = *mpBucket;
@@ -4017,10 +4006,9 @@ void FUN_00b749c0(float* a, float* b, float x, float y, float z)
 // @ 0x00b74a60
 void FUN_00b74a60(int* m, int* it)
 {
-    const unsigned int size = (unsigned int)it[3];
-    cDevice* __restrict writer = (cDevice*)((IStream*)m)->Slot8();
-    unsigned int k3 = size;
-    int* ser = (int*)writer->GetStream();
+    int* a = (*(int*(__thiscall**)(int*))(*(int*)m + 0x20))(m);
+    unsigned int k3 = (unsigned int)it[3];
+    int* ser = (int*)(*(int*(__thiscall**)(int*))(*(int*)a + 0x18))(a);
     WriteUint32_s00b7_3e70(ser, &k3, 1, 0);
     int* bucket = (int*)it[1];
     int* node = (int*)*bucket;
@@ -4051,8 +4039,7 @@ void* Simulator_cObstacle::AllocNode3(int* src)
     if (node != 0) {
         *(int**)((char*)this + 0x1c) = (int*)node->f0;
     } else {
-        const int nodeSize = *(int*)((char*)this + 0x2c);
-        node = (Node3View*)EAAllocate(nodeSize, "Simulator", 0, 0, (int)&g_13ebb38, 0xd1);
+        node = (Node3View*)EAAllocate(*(int*)((char*)this + 0x2c), "Simulator", 0, 0, 0x13ebb38, 0xd1);
     }
     if (node != 0) {
         node->f0 = src[0];
@@ -4074,8 +4061,7 @@ void* Simulator_cObstacle::AllocNode2(int* src)
     if (node != 0) {
         *(int**)((char*)this + 0x1c) = (int*)node->f0;
     } else {
-        uint32_t nodeSize = *(uint32_t*)((char*)this + 0x2c);
-        node = (Node2View*)EAAllocate(nodeSize, "Simulator", 0, 0, (int)g_13ebb38, 0xd1);
+        node = (Node2View*)EAAllocate(*(int*)((char*)this + 0x2c), "Simulator", 0, 0, 0x13ebb38, 0xd1);
     }
     if (node != 0) {
         node->f0 = src[0];
@@ -4174,9 +4160,8 @@ int ObstacleMgr::FindById(unsigned int* a, int b, int id)
     int* end = it.end;
     int* bucket = it.bucket;
     while (cur != end) {
-        int obj = *(int*)((char*)cur + 8);
-        if (*(int*)(obj + 0x5c) == id)
-            return obj;
+        if (*(int*)(*(int*)((char*)cur + 8) + 0x5c) == id)
+            return *(int*)((char*)cur + 8);
         cur = *(int**)((char*)cur + 0x10);
         while (cur == 0) {
             bucket++;
@@ -4210,7 +4195,7 @@ int ObstacleMgr::Lookup(unsigned int* key)
 {
     int local[2];
     Hashtable2* ht = (Hashtable2*)((char*)this + 0x56c0);
-    ((C74860*)ht)->Find(&local[0], (int*)key);
+    ht->Find(&local[0], key);
     if (local[0] != ht->mBegin[ht->mCount])
         return local[0] + 0xc;
     return 0;
@@ -4485,7 +4470,7 @@ void __cdecl FUN_00b768d0(void* first, void* last, void* a3, void* a4)
 {
     int n = (int)((char*)last - (char*)first) / 0xc;
     if (n > 1) {
-        char* buf = (char*)EAAllocate(n * 0xc, "Simulator", 0, 0, (int)g_13ebb38, 0xd1);
+        char* buf = (char*)EAAllocate(n * 0xc, "Simulator", 0, 0, 0x13ebb38, 0xd1);
         char uninit[12];
         FUN_00b74c20(buf, buf + n * 0xc, uninit);
         FUN_00b75c60(first, last, buf, a4);
@@ -5422,7 +5407,7 @@ void* ObMgr::Init(int* a, int* b)
 }
 
 // @ 0x00b795c0
-ObMgr::InsertResult ObMgr::Insert(int* key, int unused)
+int* ObMgr::Insert(int* out, int* key, int unused)
 {
     FindRes fr;
     ((BucketAlloc*)((char*)this + 0x10))->Find(&fr, *(int*)((char*)this + 8),
@@ -5446,11 +5431,10 @@ ObMgr::InsertResult ObMgr::Insert(int* key, int unused)
     }
 
     ++*(int*)((char*)this + 0xc);
-    InsertResult r;
-    r.node = node;
-    r.bucket = (int*)(*(int*)((char*)this + 4) + idx);
+    out[0] = (int)node;
+    out[1] = *(int*)((char*)this + 4) + idx;
     (void)unused;
-    return r;
+    return out;
 }
 
 // @ 0x00b79740
@@ -6368,14 +6352,13 @@ void cSPPieMenu::sub_b7bd50(int a, int b)
 // @ 0x00b7c160
 void cSPPieMenu::SetSomething(int value)
 {
-    volatile unsigned& flags = *(volatile unsigned*)((char*)this + 0x20);
     if (b2) {
-        flags &= ~4u;
+        b2 = 0;
         mField55a0 = 0;
         sub_b77aa0();
     }
-    if (b0) flags |= 4;
-    else                                      flags &= ~4u;
+    if (b0) b2 = 1;
+    else    b2 = 0;
     if (b2) {
         mField55a0 = value;
         sub_b7a710();
@@ -6824,10 +6807,10 @@ void __fastcall FUN_00b7d180(int* vec, int /*edx unused*/, int* pos, int* value)
 // @ 0x00b7d420
 bool ServerObj::OnPieMsg(int msg, int arg)
 {
+    bool r = true;
     if (msg == 0x29ffa8d && mMode == 3)
         mMode = 4;
-    _ReadWriteBarrier();
-    return true;
+    return r;
 }
 
 // @ 0x00b7d440

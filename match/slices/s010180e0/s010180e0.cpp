@@ -11,93 +11,104 @@ template <class T> inline const T &Min(const T &a, const T &b) { return (b < a) 
 extern float g_016dd390;   // 0x016dd390
 extern float g_016dd38c;   // 0x016dd38c
 
+struct ClipVec3 {
+    float x, y, z;
+    ClipVec3(float ax, float ay, float az) : x(ax), y(ay), z(az) {}
+};
+
 struct ConeClip {
     char  pad00[0x8c];
     float cx, cy, cz;       // +0x8c, +0x90, +0x94
     char  pad98[0xbc - 0x98];
     float mRatio;           // +0xbc
 
-    void Clip(float *out, float px, float py, float pz, float dx, float dy, float dz, float unused);
+    void Clip(ClipVec3 *out, float px, float py, float pz, float dx, float dy, float dz, float unused);
 };
 
-// ConeClip::Clip @ 0x010180e0
-void ConeClip::Clip(float *out, float px, float py, float pz, float dx, float dy, float dz, float unused)
+// @ 0x010180e0
+void ConeClip::Clip(ClipVec3 *out, float px, float py, float pz, float dx, float dy, float dz, float unused)
 {
+    float t0 = 1.0f - mRatio;
     float r = mRatio;
-    float t0 = 1.0f - r;
-    float ey = py - cy;
     float ez = pz - cz;
+    float ey = py - cy;
     float ex = px - cx;
-    out[0] = px;
-    out[1] = py;
-    out[2] = pz;
+    out->x = px;
+    out->y = py;
+    out->z = pz;
     if (1.0f < (ez * ez + ey * ey) + ex * ex) {
-        float s3c = px - (cx + dx);
-        float s38 = py - (cy + dy);
-        float s34 = pz - (cz + dz);
         float s48 = px - cx;
         float s44 = py - cy;
         float s40 = pz - cz;
+        float s3c = px - (cx + dx);
+        float s38 = py - (cy + dy);
+        float s34 = pz - (cz + dz);
 
-        float inv = 1.0f / sqrtf(dy * dy + (dz * dz + dx * dx));
-        dz = inv * dz;
-        dx = inv * dx;
-        dy = dy * inv;
-        float ny = -dy;
-        inv = 1.0f / sqrtf(dx * dx + ny * ny);
-        float a2c = dx * inv;
-        float a28 = inv * 0.0f;
-        inv = inv * ny;
-        float a24 = -dz * a2c - ny * a28;
-        float a20 = a28 * -dx - -dz * inv;
-        float a1c = ny * inv - a2c * -dx;
+        float inv = 1.0f / sqrtf(dx * dx + dz * dz + dy * dy);
+        float ux = dx * inv;
+        float uy = dy * inv;
+        float uz = dz * inv;
+        float nuy = -uy;
+        float nux = -ux;
+
+        float inv2 = 1.0f / sqrtf(nuy * nuy + ux * ux);
+        float a2c = ux * inv2;
+        float a28 = inv2 * 0.0f;
+        float invn = inv2 * nuy;
+        float c1 = -uz * a2c - nuy * a28;
+        float c2 = a28 * nux + uz * invn;
+        float c3 = nuy * invn - a2c * nux;
 
         float k = r * g_016dd390;
-        float a4 = dz * k + a1c;
-        float ac = dx * k + a24;
-        float a8 = dy * k + a20;
-        float n = 1.0f / sqrtf(ac * ac + (a8 * a8 + a4 * a4));
-        ac = n * ac;
-        a8 = a8 * n;
-        a4 = a4 * n;
-        a1c = dz * k - a1c;
-        a24 = dx * k - a24;
-        a20 = dy * k - a20;
-        n = 1.0f / sqrtf(a24 * a24 + (a20 * a20 + a1c * a1c));
-        a24 = n * a24;
-        a20 = a20 * n;
-        a1c = a1c * n;
+        float z1 = uz * k + c3;
+        float x1 = ux * k + c1;
+        float y1 = uy * k + c2;
+        float n1 = 1.0f / sqrtf(z1 * z1 + y1 * y1 + x1 * x1);
+        float X1 = x1 * n1;
+        float Y1 = y1 * n1;
+        float Z1 = z1 * n1;
 
-        k = r * g_016dd38c;
-        float a18 = dx * k + inv;
-        float a10 = dz * k + a28;
-        float a14 = dy * k + a2c;
-        n = 1.0f / sqrtf(a14 * a14 + (a10 * a10 + a18 * a18));
-        a10 = a10 * n;
-        a14 = a14 * n;
-        float f2 = dx * k - inv;
-        a28 = dz * k - a28;
-        a2c = dy * k - a2c;
-        float n2 = 1.0f / sqrtf(a2c * a2c + (a28 * a28 + f2 * f2));
+        float z2 = uz * k - c3;
+        float x2 = ux * k - c1;
+        float y2 = uy * k - c2;
+        float n2 = 1.0f / sqrtf(z2 * z2 + y2 * y2 + x2 * x2);
+        float X2 = x2 * n2;
+        float Y2 = y2 * n2;
+        float Z2 = z2 * n2;
 
-        float t = (ac * s3c + a4 * s34) + a8 * s38;
+        float k2 = r * g_016dd38c;
+        float x3 = ux * k2 + invn;
+        float z3 = uz * k2 + a28;
+        float y3 = uy * k2 + a2c;
+        float n3 = 1.0f / sqrtf(x3 * x3 + z3 * z3 + y3 * y3);
+        float X3 = x3 * n3;
+        float Y3 = y3 * n3;
+        float Z3 = z3 * n3;
+
+        float x4 = ux * k2 - invn;
+        float z4 = uz * k2 - a28;
+        float y4 = uy * k2 - a2c;
+        float n4 = 1.0f / sqrtf(x4 * x4 + z4 * z4 + y4 * y4);
+        float X4 = x4 * n4;
+        float Y4 = y4 * n4;
+        float Z4 = z4 * n4;
+
+        float t = (X1 * s3c + Z1 * s34) + Y1 * s38;
         if (0.0f < t)
-            t0 = Max(t0, t / ((ac * s48 + a4 * s40) + a8 * s44));
-        t = (a24 * s3c + a1c * s34) + a20 * s38;
+            t0 = Max(t0, t / ((X1 * s48 + Z1 * s40) + Y1 * s44));
+        t = (X2 * s3c + Z2 * s34) + Y2 * s38;
         if (0.0f < t)
-            t0 = Max(t0, t / ((a24 * s48 + a1c * s40) + a20 * s44));
-        t = ((n * a18) * s3c + a10 * s34) + a14 * s38;
+            t0 = Max(t0, t / ((X2 * s48 + Z2 * s40) + Y2 * s44));
+        t = (X3 * s3c + Z3 * s34) + Y3 * s38;
         if (0.0f < t)
-            t0 = Max(t0, t / (((n * a18) * s48 + a10 * s40) + a14 * s44));
-        t = ((a28 * n2) * s34 + (a2c * n2) * s38) + (n2 * f2) * s3c;
+            t0 = Max(t0, t / ((X3 * s48 + Z3 * s40) + Y3 * s44));
+        t = (Z4 * s34 + Y4 * s38) + X4 * s3c;
         if (0.0f < t)
-            t0 = Max(t0, t / (((a28 * n2) * s40 + (a2c * n2) * s44) + (n2 * f2) * s48));
+            t0 = Max(t0, t / ((Z4 * s40 + Y4 * s44) + X4 * s48));
 
         float f = Min(t0, 1.0f);
-        float oy = cy, oz = cz;
-        out[0] = cx + (px - cx) * f;
-        out[1] = oy + (py - oy) * f;
-        out[2] = oz + (pz - oz) * f;
+        ClipVec3 res(cx + (px - cx) * f, cy + (py - cy) * f, cz + (pz - cz) * f);
+        *out = res;
     }
 }
 

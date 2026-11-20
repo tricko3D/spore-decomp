@@ -14,14 +14,11 @@ void EASTL_allocator_deallocate(void* p);                                       
 void FixedVec_Destroy();   // 0x004c0b80 (called on an element address)
 struct Keyed { char pad[0x60]; float k60; float k64; };
 inline float KeyOf(Keyed* p) { return p->k64 - p->k60; }
-inline bool KeyLess(Keyed* value, Keyed* cur, uint8_t desc)
+inline bool StopCmp(Keyed* value, Keyed* cur, uint8_t desc)
 {
     const float a = KeyOf(value);
     const float b = KeyOf(cur);
-    if (desc)
-        return b > a;
-    else
-        return a > b;
+    return desc ? (b <= a) : (a <= b);
 }
 void QuickSortCmp(Keyed** first, Keyed** last, int n, uint8_t desc);   // 0x0050f950
 Keyed** MedianCmp(Keyed** a, Keyed** b, Keyed** c, uint8_t d1, uint8_t d2);  // 0x005111b0
@@ -566,24 +563,7 @@ struct cPropertyList {
     uint32_t f34;               // +0x34
     bool Read(void* stream);    // 0x006a2f60
     cPropertyList();            // 0x006a1c40 (Editor::cPropertyList ctor, out of slice)
-};
-// the destructor's view of cPropertyList: the editor-resource base (vtable 0x13eb938 restored on exit), the property
-// hashtable at +0x18 destroyed by its out-of-line destructor (0x00685ed0), and the modification-count reference at
-// +0x30, released through vtable slot 1
-struct cPropertyListBase { virtual void Slot0(); ~cPropertyListBase() {} };
-struct cPropertyListMap { uint32_t mData[6]; ~cPropertyListMap(); };
-struct IPropertyModCount { virtual void Slot0(); virtual void Release(); };
-struct cPropertyListModRef {
-    IPropertyModCount* mp;
-    ~cPropertyListModRef() { if (mp != 0) mp->Release(); }
-};
-struct __declspec(novtable) cPropertyListObj : cPropertyListBase {
-    volatile int mRef;          // +0x04
-    uint32_t f08, f0c, f10, f14;
-    cPropertyListMap mPropertyMap;    // +0x18
-    cPropertyListModRef mModCount;    // +0x30
-    uint32_t f34;               // +0x34
-    ~cPropertyListObj();
+    ~cPropertyList();
 };
 // ---- items of slice s006860e0 end
 
@@ -985,7 +965,7 @@ void InsertionSortCmp(Keyed** first, Keyed** last, uint8_t desc)
         for (++iSorted; iSorted != last; ++iSorted) {
             Keyed* const temp(*iSorted);
             iNext = iCurrent = iSorted;
-            for (--iCurrent; (iNext != first) && KeyLess(temp, *iCurrent, desc); --iNext, --iCurrent)
+            for (--iCurrent; (iNext != first) && !StopCmp(temp, *iCurrent, desc); --iNext, --iCurrent)
                 *iNext = *iCurrent;
             *iNext = temp;
         }
@@ -999,7 +979,7 @@ void InsertionSortSimpleCmp(Keyed** first, Keyed** last, uint8_t desc)
         Keyed** end = current;
         Keyed** prev = current;
         Keyed* value = *current;
-        for (--prev; KeyLess(value, *prev, desc); --end, --prev)
+        for (--prev; !StopCmp(value, *prev, desc); --end, --prev)
             *end = *prev;
         *end = value;
     }
@@ -1674,8 +1654,12 @@ void cDecalBuilder::Project(const Mesh& mesh, const DecalParams& params)
 }
 
 // @ 0x00686320
-cPropertyListObj::~cPropertyListObj()
+cPropertyList::~cPropertyList()
 {
+    if (mModCount != 0)
+        ((void (__thiscall*)(void*))VT(mModCount)[1])(mModCount);
+    mPropertyMap.FreeNodes();
+    vtbl = (void*)0x013eb938;   // Editor::cEditorResource vtable
 }
 
 // @ 0x01326120

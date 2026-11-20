@@ -1,15 +1,3 @@
-// addresses retail relocates here, named so the build relocates them too
-extern "C" char g_13eb394[];
-extern "C" char g_13eb938[];
-extern "C" char g_13ec458[];
-extern "C" char g_148d5c4[];
-extern "C" char g_148d5d4[];
-extern "C" char g_148d5dc[];
-
-#include <stddef.h>
-extern "C" size_t __cdecl wcslen(const wchar_t*);
-extern "C" wchar_t* __cdecl wcscpy(wchar_t*, const wchar_t*);
-#pragma intrinsic(wcscpy)
 // src/game/SPGonzago/MemoryMan.cpp -- migrated from slice(s) s00f46560, s009013e0, s00900410, s006ab3d0, s005fe1d0 by tools/migrate/rewrite.py
 // Object file: SPGonzago/MemoryMan.obj.  Function bodies keep the slice's code; types, members and virtual calls use the
 // canonical headers under src/game/include.  Each function keeps its '// @ 0xVA' marker.
@@ -421,8 +409,6 @@ struct Token {
         int  mnValueLength;  // +0x14 (text tokens)
     };
     int    mnEntryCount; // +0x18
-
-    explicit Token(int type) : mToken(type) {}
 };
 struct MemoryStream_s0090_0410 {
     void** vftable;             // +0x00
@@ -757,10 +743,11 @@ bool cSPUIChoiceDialog::HandleUIMessage(IWindow_s005f_e1d0* pWindow, const EA::U
   if (mpLayout) {
     switch (message.eventType) {
       case 0x287259f6:
-        if (message.param0C == 0x61c282f)
+        if (message.param0C == 0x61c282f) {
           Cancel();
-        else if (message.param0C == 0x61c282e)
-          Accept();
+          return true;
+        }
+        if (message.param0C == 0x61c282e) Accept();
         return true;
       case 2:
       case 5:
@@ -825,7 +812,9 @@ void FUN_006abeb0(void* p)
 // @ 0x00900900
 void* FUN_00900900(short* s, EA::Allocator::StackAllocator_s0090_0410* a)
 {
-    uint32 n = ((uint32)wcslen((const wchar_t*)s) * 2 + 9) & ~7u;
+    short* p = s;
+    do { } while (*p++ != 0);
+    uint32 n = ((uint32)((p - (s + 1)) * 2) + 9) & ~7u;
     char* dst;
     if ((int)((a->mpCurrentBlockEnd - a->mpCurrentObjectBegin) - n) < 0 && !a->AllocateNewBlock(n)) {
         dst = 0;
@@ -835,7 +824,7 @@ void* FUN_00900900(short* s, EA::Allocator::StackAllocator_s0090_0410* a)
         a->mpCurrentObjectEnd = dst + n;
     }
     short* d = (short*)dst;
-    wcscpy((wchar_t*)d, (const wchar_t*)s);
+    while ((*d++ = *s++) != 0) { }
     return dst;
 }
 
@@ -964,7 +953,11 @@ void OnStartElement2(XmlTextReader* t, void* a2, void* a3, void* a4)
 {
     if ((t->mnFlags & 8) == 0)
         return;
-    Token* p = new (AllocToken(t, 0x20)) Token(6);
+    Token* p = AllocToken(t, 0x20);
+    if (p != 0)
+        p->mToken = 6;
+    else
+        p = 0;
     p->field8 = (int)t->FUN_00900970(a2);
     p->fieldc = 0;
     p->mpEntries = (int*)t->FUN_00900970(a3);
@@ -983,7 +976,9 @@ void OnStartElement2(XmlTextReader* t, void* a2, void* a3, void* a4)
 // @ 0x00900e60
 void OnStartElement(XmlTextReader* t, void* a2, int* a3)
 {
-    Token* p = new (AllocToken(t, 0x20)) Token(1);
+    Token* p = AllocToken(t, 0x20);
+    if (p != 0)
+        p->mToken = 1;
     int n = 0;
     while (a3[n] != 0)
         n++;
@@ -1010,7 +1005,9 @@ void OnStartElement(XmlTextReader* t, void* a2, int* a3)
 // @ 0x00900f70
 void OnEndElement(XmlTextReader* t, void* a2)
 {
-    Token* p = new (AllocToken(t, 0x18)) Token(2);
+    Token* p = AllocToken(t, 0x18);
+    if (p != 0)
+        p->mToken = 2;
     p->field8 = (int)t->FUN_00900970(a2);
     p->fieldc = 0;
     t->mnDepth--;
@@ -1022,7 +1019,11 @@ void OnEndElement(XmlTextReader* t, void* a2)
 // @ 0x00900ff0
 void OnCharacterData(XmlTextReader* t, void* a2, int a3)
 {
-    Token* p = new (AllocToken(t, 0x18)) Token(4);
+    Token* p = AllocToken(t, 0x18);
+    if (p != 0)
+        p->mToken = 4;
+    else
+        p = 0;
     p->field8 = 0;
     uint32 size = (uint32)(a3 * 2);
     uint32 n = (size + 9) & ~7u;
@@ -1041,7 +1042,9 @@ void OnComment(XmlTextReader* t, void* a2)
 {
     if ((t->mnFlags & 1) == 0)
         return;
-    Token* p = new (AllocToken(t, 0x18)) Token(3);
+    Token* p = AllocToken(t, 0x18);
+    if (p != 0)
+        p->mToken = 3;
     p->field8 = 0;
     p->fieldc = (int)t->FUN_00900970(a2);
     p->mpNext = 0;
@@ -1054,7 +1057,9 @@ void OnPI(XmlTextReader* t, void* a2, void* a3)
 {
     if ((t->mnFlags & 2) == 0)
         return;
-    Token* p = new (AllocToken(t, 0x18)) Token(5);
+    Token* p = AllocToken(t, 0x18);
+    if (p != 0)
+        p->mToken = 5;
     p->field8 = (int)t->FUN_00900970(a2);
     p->fieldc = (int)t->FUN_00900970(a3);
     p->mpNext = 0;
@@ -1131,9 +1136,9 @@ bool XmlTextReader_s0090_13e0::FUN_009013e0()
 // @ 0x00f46c00
 void cOnlineTab::FUN_00f46c00()
 {
-    *(void**)((char*)this + 0) = (void*)g_148d5dc;
-    *(void**)((char*)this + 4) = (void*)g_148d5d4;
-    *(void**)((char*)this + 8) = (void*)g_148d5c4;
+    *(void**)((char*)this + 0) = (void*)0x148d5dc;
+    *(void**)((char*)this + 4) = (void*)0x148d5d4;
+    *(void**)((char*)this + 8) = (void*)0x148d5c4;
     _ReadWriteBarrier();
 
     if (mpHandler) {
@@ -1152,9 +1157,9 @@ void cOnlineTab::FUN_00f46c00()
     if (p) (*(FnP)Vslot(p, 4))(p);
 
     FrameAt(this, 0x10)->FUN_009968a0();
-    *(void**)((char*)this + 8) = (void*)g_13ec458;
-    *(void**)((char*)this + 4) = (void*)g_13eb394;
-    *(void**)((char*)this + 0) = (void*)g_13eb938;
+    *(void**)((char*)this + 8) = (void*)0x13ec458;
+    *(void**)((char*)this + 4) = (void*)0x13eb394;
+    *(void**)((char*)this + 0) = (void*)0x13eb938;
 }
 
 // @ 0x00f47380

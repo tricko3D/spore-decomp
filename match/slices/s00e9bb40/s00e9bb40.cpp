@@ -285,6 +285,7 @@ public:
     HitEffectVector mHitEffects;                        // +0xc0
 };
 
+// @ 0x00e9bb40
 void cSPUFOGfx::CreateHitEffects()
 {
     cGameObject* object = mpObject;

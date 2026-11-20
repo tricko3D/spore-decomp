@@ -3,8 +3,6 @@
 // canonical headers under src/game/include.  Each function keeps its '// @ 0xVA' marker.
 
 #include "game/types.h"
-#include <intrin.h>
-#pragma intrinsic(_ReadWriteBarrier)
 #include "EA/COM/IFactory.h"
 #include "sse_helpers.h"
 #include <math.h>
@@ -715,9 +713,9 @@ extern float  g_16b3c30;
 extern char   g_15a7c40[];
 extern char   g_16b3dac[];
 extern float  g_16b3c28_s00e6_1000;
-int   __cdecl FUN_00e5c9d0(void);                                               // 0x00e5c9d0
-void  __cdecl FUN_00e83910(void*, int, int, int);                               // 0x00e83910
-void  __cdecl FUN_00e828c0(void);                                               // 0x00e828c0
+int   __cdecl f5c9d0(void);                                               // 0x00e5c9d0
+void  __cdecl f83910(void*, int, int, int);                               // 0x00e83910
+void  __cdecl f828c0(void);                                               // 0x00e828c0
 int*  __cdecl f4ce40(void*);                                              // 0x00e4ce40
 int   __cdecl f82970(void);                                               // 0x00e82970
 void  __cdecl f82920(void*);                                              // 0x00e82920
@@ -763,12 +761,13 @@ struct cSPTransform_s00e6_1000 {
     cSPTransform_s00e6_1000& operator=(const cSPTransform_s00e6_1000&);   // 0x00537dc0 (out of line)
 };
 struct CellObj5190;
+struct Invoker1c { int Call(); };
 struct Sub10 { char pad[0xc]; };
 struct CellObj5190 {
     char            pad0[0xc];
     int             field_0c;        // +0x0c
     Sub10           sub10;           // +0x10
-    int             field_1c;        // +0x1c (level)
+    Invoker1c*      field_1c;        // +0x1c
     int             field_20;        // +0x20
     int             field_24;        // +0x24
     int             field_28;        // +0x28
@@ -836,20 +835,16 @@ struct CellAbility : B1, B2 {
         b_e9 = 0;
     }
 };
-// GmeRefCount-style base at +4: its own vtable, then the reference count.
-struct SaveGameRefCount {
-    SaveGameRefCount() : mnRefCount(0) {}
-    virtual void rc0();
-    int mnRefCount;
-};
-struct SaveGameObj : B1, SaveGameRefCount {
+struct SaveGameObj : B1, B2 {
+    int f08;
     int pad0c;
-    struct Triple {
-        int a, b, c;
-        Triple() : a(0), b(0), c(0) {}
-    } f10;
+    int f10, f14, f18;
     char pad1c[0xec - 0x1c];
-    SaveGameObj() {}
+    SaveGameObj()
+    {
+        f08 = 0;
+        f10 = 0; f14 = 0; f18 = 0;
+    }
 };
 // ---- items of slice s00e61000 end
 
@@ -1446,7 +1441,7 @@ bool FUN_00e5c410(int handle, int v);   // 0x00e5c410
 void FUN_00743b50(void* iter);          // 0x00743b50
 void FUN_00e82130(void* iter);          // 0x00e82130
 void* FUN_00e52910_s00e6_cbd0(int x);              // 0x00e52910
-static void FUN_00e51930(char* self);  // 0x00e51930 (static: self arrives in esi)
+void FUN_00e51930();                    // 0x00e51930
 struct IContext;
 struct IDelegate {
     IContext* FUN_007ec160();           // 0x007ec160 (thiscall, no args)
@@ -2561,6 +2556,7 @@ extern cCellGame_s00e7_77a0* gspCellGame_s00e7_77a0;    // 0x016b3c04
 extern CellState* gspCellState_s00e7_77a0;   // 0x016b3c0c
 extern Vector3_s00e7_77a0 gCellWorldCenter_s00e7_77a0;  // 0x016b3c28
 extern Vector3_s00e7_77a0 gDefaultTransform; // 0x015a7c4c
+int  FUN_00e4cce0_5(int id, int a, float b, float c, float d);  // 0x00e4cce0
 int  sGetSourceLevel();                          // 0x00e4ee60
 void FUN_00e86980(int a, int b);                 // 0x00e86980
 void FUN_00bbbde0(int grid, int obstacle);       // 0x00bbbde0 (thunk to 0x00bbb210)
@@ -2574,7 +2570,6 @@ int  FUN_00e74a20(int a1, int a2, float f1, int type, int count, float f2, float
 void sDropLoot(int a1, void* key, int a3, void* pos, float radius, int lvl, int a7, int a8,
                void* out, int* count);                  // 0x00e771d0
 int  FUN_00e76540(void* a, int b, int c);        // 0x00e76540
-int  FUN_00e76540(void* a, int b, int entry, void* center, float x, float y, float z); // 0x00e76540 (full argument list)
 class RandomLCG_s00e7_77a0 { public: double RandomDoubleUniform(); };  // 0x009360d0
 extern RandomLCG_s00e7_77a0 gMathRandom_s00e7_77a0;   // 0x01601760
 inline int GetStageLevel(int stage)
@@ -3061,18 +3056,13 @@ int FUN_00e4ee30(int n)
 // @ 0x00e4ee60
 int __fastcall SP_sGetSourceLevel(int, int n)
 {
-    const int* r;
-    if (n == 1000) {
-        r = &g_1483e60;
-    } else {
-        int i = 0;
-        if (n >= 0) {
-            int* p = g_1483c34;
-            do { p += 7; ++i; } while (n >= *p);
-        }
-        r = &g_1483c14[i * 7];
+    if (n == 1000) return g_1483e60;
+    int i = 0;
+    if (n >= 0) {
+        int* p = g_1483c34;
+        do { p += 7; ++i; } while (n >= *p);
     }
-    return *r;
+    return g_1483c14[i * 7];
 }
 
 // @ 0x00e4ef60
@@ -3196,7 +3186,7 @@ int __fastcall FUN_00e51900(char* self)
 }
 
 // @ 0x00e51930
-static void FUN_00e51930(char* self)
+void FUN_00e51930(char* self)
 {
   int id = *(int*)(self + 0x248);
   if (id != 0 && *(int*)(self + 0xfc) != 0) {
@@ -3656,25 +3646,25 @@ float FUN_00e563e0(void* obj)
     float f = g_1485720;
     int idx = *(int*)((char*)obj + 0x358);
     if (idx != -1) {
-        int lvl = SP_sGetSourceLevel(gspCellGame_s00e6_e8c0, gspCellGame_s00e6_e8c0->mpLevelInfo->mLevel);
+        int lvl = SP_sGetSourceLevel();
         f = g_1483bd0[idx] / g_1483bd0[lvl];
     }
     return FUN_00e837c0(0x7ac2e49f, f);
 }
 
 // @ 0x00e56450
-float FUN_00e56450(int self)
+double FUN_00e56450(int self)
 {
     int idx = *(int*)(self + 0x358);
     if (idx != -1) {
-        int lvl = SP_sGetSourceLevel(gspCellGame_s00e6_e8c0, gspCellGame_s00e6_e8c0->mpLevelInfo->mLevel);
+        int lvl = SP_sGetSourceLevel();
         float r = g_1483bd0[idx] / g_1483bd0[lvl];
-        if (r <= 0.5f) return 4.0f;
-        if (r <= 1.0f) return 4.0f - (r - 0.5f) * 4.0f;
-        if (r <= 2.0f) return 2.0f;
-        if (r <= 4.0f) return 2.0f - (r - 2.0f) * 0.5f;
+        if (r <= 0.5f) return 4.0;
+        if (r <= 1.0f) return 4.0 - ((double)r - 0.5) * 4.0;
+        if (r <= 2.0f) return 2.0;
+        if (r <= 4.0f) return 2.0 - ((double)r - 2.0) * 0.5;
     }
-    return 1.0f;
+    return 1.0;
 }
 
 // @ 0x00e56510
@@ -5093,12 +5083,11 @@ void sInitGfx()
 // @ 0x00e61140
 void FUN_00e61140(void)
 {
-    CellObj5190* s = gspCellGame_s00e6_1000->field_5190;
-    int a = FUN_00e51430(s->field_1c);
+    int a = gspCellGame_s00e6_1000->field_5190->field_1c->Call();
     int d = a - gspCellGame_s00e6_1000->field_5190->field_2c + 0x32;
-    int b = FUN_00e5c9d0();
-    FUN_00e83910(&gspCellGame_s00e6_1000->field_5190->sub10, d, b, gspCellGame_s00e6_1000->field_5164);
-    FUN_00e828c0();
+    int b = f5c9d0();
+    f83910(&gspCellGame_s00e6_1000->field_5190->sub10, d, b, gspCellGame_s00e6_1000->field_5164);
+    f828c0();
     gspCellGame_s00e6_1000->field_5168 = 1;
 }
 
@@ -5108,7 +5097,6 @@ bool FUN_00e61320(int param)
     cCellGame* g = gspCellGame_s00e6_1000;
     if (g->field_5190->field_0c == 0)
         return false;
-    _ReadWriteBarrier();
     switch (param) {
     case 0:
         FUN_00e611b0();
@@ -5230,13 +5218,10 @@ void __cdecl FUN_00e63bf0(int* pCell, int effKind, int* pEffect, uint16_t* xform
 }
 
 // @ 0x00e63d10
-struct CellXformSink {
-    void FUN_00e627a0(int src);       // 0x00e627a0 (__thiscall, ret 4)
-};
 void __cdecl FUN_00e63d10(int arg)
 {
     g_16b3de0 = FUN_00e61550_s00e6_3ac0();
-    ((CellXformSink*)g_16b3de0.mpObject)->FUN_00e627a0(arg);
+    FUN_00e627a0(arg);
 }
 
 // @ 0x00e63d60
@@ -6122,7 +6107,7 @@ void FUN_00e67510(int world, int* ppEffect, int a3, int a4, int a5, int a6, char
         d.pos.y = gCellWorldCenter_s00e6_6980.y;
         d.pos.z = gCellWorldCenter_s00e6_6980.z;
         d.scale = g_one_1485720;
-        d.rot.Assign((void*)&g_16b3dac);
+        d.rot.Assign((void*)0x16b3dac);
         FUN_00e84150(a5, a6, &d);
         FUN_00e63480((void*)*ppEffect, a3, &d);
         return;
@@ -7600,7 +7585,7 @@ void FUN_00e6d8f0(int handle, int)
     FUN_00e6d200(c2, 0, 0, c2->mState1);
 
     if (cell->mEffectGroup == gspCellGame_s00e6_cbd0->mSel4100 && gspCellGfx_s00e6_cbd0->mField16254 < 0x10)
-        FUN_00e51930((char*)cell);
+        FUN_00e51930();
 
     FUN_00e82130(&it2);
     FUN_00e82130(&it1);
@@ -8385,10 +8370,8 @@ void FUN_00e72fb0(int* param_1, int param_2)
 // @ 0x00e730d0
 bool FUN_00e730d0(int param_1, int param_2, int param_3)
 {
-    ObjectPool_s00e7_2430* cells = &gspCellGame_s00e7_2430->mCells;
-    if (!cells->GetChecked(param_1)) return false;
-    cells = &gspCellGame_s00e7_2430->mCells;
-    int other = (int)cells->GetChecked(param_2);
+    if (!gspCellGame_s00e7_2430->mCells.GetChecked(param_1)) return false;
+    int other = (int)gspCellGame_s00e7_2430->mCells.GetChecked(param_2);
     if (!other) return false;
     if (FUN_00e4ff50(other) == 1) {
         FUN_00e72fb0((int*)other, param_3);
@@ -9134,7 +9117,8 @@ bool FUN_00e778b0(int* p)
     cSpawnCell* c = (cSpawnCell*)cells.GetChecked(h);
     if (c == 0)
         return false;
-    int r = FUN_00e76540(c, -1, FUN_00e4cce0(8), &gCellWorldCenter_s00e7_77a0, 0.0f, 1.5f, 0.0f);
+    int r = FUN_00e4cce0_5(8, (int)&gCellWorldCenter_s00e7_77a0, 0.0f, 1.5f, 0.0f);
+    r = FUN_00e76540(c, -1, r);
     gspCellState_s00e7_77a0->mFieldE0 = r;
     gspCellState_s00e7_77a0->mFieldF4 = 0.0f;
     return true;

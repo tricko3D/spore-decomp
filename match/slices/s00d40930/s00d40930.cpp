@@ -64,6 +64,9 @@ struct cGameNounManager {
     void* GetSelectedAnimal();                                   // 0x00989360
     void* GetAvatar();                                           // 0x00b1fdb0
     void* GetGameDataVector(void* f1, void* f2, void* f3, void* f4, void* tag); // 0x00b21340
+    void* GetCurrentTerrainSphere();                             // 0x00f67d90
+    void* GetClassNouns();                                       // 0x00d3f9b0 (class 0x3a2511e)
+    void  RemoveNoun(void* noun);                                // 0x00b225d0
 };
 void*  NounManager();                                            // 0x00b3d300
 void*  PlanetModel();                                            // 0x00b3d350
@@ -218,4 +221,143 @@ void __stdcall FUN_00d414e0(uint32_t tuningId)
     case 3: LoadCreatureGameplayTuning(0xf71fa311, 0x7c340397); return;
     case 4: return;
     }
+}
+
+// ---------------------------------------------------------------------------
+// 0x00d40930  creature-mode tick: retire the active mode nouns, then drop the
+// game-data records that point at the mode state.
+// ---------------------------------------------------------------------------
+typedef void (__thiscall* TFnV)(void*);
+typedef bool (__thiscall* TFnI)(void*);
+#define VT(o, off) (*(void***)(o))[(off) / 4]
+
+void __cdecl g_operatorDeleteArray(void* p);                     // 0x00f47380
+bool __stdcall g_IsCreatureModeValid(int state);                 // 0x00597060
+
+// reference-counted noun operations (thiscall, reached by direct call)
+struct cModeNounOps {
+    void SetNextDestructedState();                               // 0x00c40200
+    void SetLifetime(float seconds, int keep);                   // 0x00c40830
+};
+
+// singleton at 0x0169e294 (cCreatureModeStrategy)
+struct cModeStrategy {
+    uint8_t mPad000[0xe0];       // +0x000
+    int32_t mState;              // +0x0e0
+};
+
+// terrain sphere returned by NounManager::GetCurrentTerrainSphere
+struct cTerrainSphere {
+    uint8_t mPad000[0x10e8];     // +0x000
+    void*   mpField10e8;         // +0x10e8
+};
+
+// noun of game-data class 0x3a2511e
+struct cModeNoun {
+    uint8_t  mPad000[0x28];      // +0x000
+    uint32_t mField28;           // +0x028 (mode hash)
+    uint8_t  mPad02c[0x08];      // +0x02c
+    void*    mpSubObject;        // +0x034 (vtable; slot +0x48 = eligible)
+    uint8_t  mPad038[0x6b];      // +0x038
+    uint8_t  mbFieldA3;          // +0x0a3
+    uint8_t  mPad0a4[0x6c];      // +0x0a4
+    uint32_t mField110;          // +0x110
+};
+
+// record in the game-data list requested from NounManager::GetGameDataVector
+struct cGameDataRecord {
+    uint8_t  mPad000[0x10c];     // +0x000
+    uint32_t mClassId;           // +0x10c
+    uint32_t mField110;          // +0x110 (mode hash)
+    uint8_t  mPad114[0x90];      // +0x114
+    void*    mpLinked;           // +0x1a4
+};
+
+// pointer vector with its inline allocator (0x14 bytes; the copy ctor is out
+// of line and destruction is written out at the use site, as in the original)
+struct cNounVector {
+    void**   mpBegin;            // +0x00
+    void**   mpEnd;              // +0x04
+    void**   mpCap;              // +0x08
+    uint32_t mAllocator[2];      // +0x0c
+
+    cNounVector(const cNounVector& other);                       // 0x00ba95a0
+};
+
+// @ 0x00d40930
+void FUN_00d40930(void)
+{
+    cGameNounManager* nouns = (cGameNounManager*)NounManager();
+    cTerrainSphere* sphere = (cTerrainSphere*)nouns->GetCurrentTerrainSphere();
+    if (sphere == 0 || sphere->mpField10e8 == 0)
+        return;
+
+    cModeStrategy* strategy = *(cModeStrategy**)0x0169e294;
+    int32_t* pState = &strategy->mState;
+    if (*pState > 4)
+        return;
+    if (!g_IsCreatureModeValid(*pState))
+        return;
+
+    uint32_t modeId = 0;
+    int modeIndex = *pState;
+    --modeIndex;
+    switch (modeIndex) {
+    case 0: modeId = 0x57f31d0e; break;
+    case 1: modeId = 0x57f31d0d; break;
+    case 2: modeId = 0x57f31d0c; break;
+    case 3: modeId = 0x57f31d0b; break;
+    }
+
+    cGameNounManager* nouns2 = (cGameNounManager*)NounManager();
+    cNounVector* active = (cNounVector*)nouns2->GetClassNouns();
+    uint32_t count = (uint32_t)(active->mpEnd - active->mpBegin);
+    for (uint32_t i = 0; i < count; ++i) {
+        cModeNoun* noun = (cModeNoun*)active->mpBegin[i];
+        if (noun == 0)
+            continue;
+        if (noun->mField110 != 2)
+            continue;
+        if (noun->mField28 != modeId)
+            continue;
+        if (((TFnI)VT((char*)noun + 0x34, 0x48))((char*)noun + 0x34)) {
+            ((cModeNounOps*)noun)->SetNextDestructedState();
+            noun->mbFieldA3 = 0;
+            ((cModeNounOps*)noun)->SetLifetime(*(float*)0x01471064, 1); // 0.5f
+        } else {
+            nouns2->RemoveNoun(noun);
+        }
+    }
+
+    {
+        cGameDataVec* gd = (cGameDataVec*)nouns2->GetGameDataVector((void*)0x00cd7d10, (void*)0x00d3d420,
+                                                                   (void*)0x00ace070, (void*)0x00b1e500,
+                                                                   (void*)0x0036be27e);
+        cNounVector records(*(cNounVector*)((char*)gd + 4));
+        // Both passes walk the same [begin, end) range; retail keeps the two
+        // bounds in callee-saved registers for the whole block and reuses the
+        // start pointer for the final block release.
+        void** begin = records.mpBegin;
+        void** end = records.mpEnd;
+        for (void** it = begin; it != end; ++it) {
+            cGameDataRecord* rec = (cGameDataRecord*)*it;
+            if (rec == 0)
+                continue;
+            if (rec->mClassId != 0x03a2511e)
+                continue;
+            if (rec->mField110 != modeId)
+                continue;
+            if (rec->mpLinked != 0)
+                nouns2->RemoveNoun(rec->mpLinked);
+            nouns2->RemoveNoun(rec);
+        }
+        for (void** it = begin; it < end; ++it) {
+            void* p = *it;
+            if (p != 0)
+                ((TFnV)VT(p, 4))(p);                             // release
+        }
+        if (begin != 0 && ((int*)begin)[-1] != 0)
+            g_operatorDeleteArray(begin);
+    }
+    ++*pState;
 }

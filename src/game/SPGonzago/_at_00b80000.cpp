@@ -2,29 +2,7 @@
 // Object file: SPGonzago/_at_00b80000.obj.  Function bodies keep the slice's code; types, members and virtual calls use the
 // canonical headers under src/game/include.  Each function keeps its '// @ 0xVA' marker.
 
-// addresses retail relocates here, named so the build relocates them too
-extern "C" char g_1465850[];
-extern "C" char g_1465858[];
-
 #include "game/types.h"
-#include "SP/cVarListSerializer.h"
-#include "SP/cSPSpaceInventoryItem.h"
-#include "SP/cSPEditorSpeciesManager.h"
-struct PlantArchiveStreamHolder {
-    virtual void slot0(); virtual void slot1(); virtual void slot2();
-    virtual void slot3(); virtual void slot4(); virtual void slot5();
-    virtual void* GetStream(); // +0x18
-};
-struct PlantArchive {
-    virtual void slot0(); virtual void slot1(); virtual void slot2();
-    virtual void slot3(); virtual void slot4(); virtual void slot5();
-    virtual void slot6(); virtual void slot7();
-    virtual PlantArchiveStreamHolder* GetStreamHolder(); // +0x20
-};
-extern SP::cDataSerializerGeneric gPlantCargoSerializerList[]; // 0x0156bd78
-SP::cSPEditorSpeciesManager* __cdecl SpeciesManager(); // 0x00401090
-
-
 #include "SP/cCity.h"
 #include "SP/cCivilization.h"
 #include "SP/cPlanet.h"
@@ -886,6 +864,10 @@ extern "C" int   __cdecl FUN_00693d60(void* db, int a, int b, int c);           
 extern "C" void  __cdecl FUN_00692ea0(void);                                               // 0x00692ea0
 extern "C" void  __cdecl FUN_00692ec0(void* p);                                            // 0x00692ec0
 extern "C" void  __cdecl FUN_00693900(void);                                               // 0x00693900
+extern "C" char  __cdecl FUN_00c87580(void* stream);                                       // 0x00c87580
+extern "C" char  __cdecl FUN_00c879a0(void* stream);                                       // 0x00c879a0
+extern "C" void* __cdecl FUN_00401090(void* key);                                          // 0x00401090
+extern "C" void* __cdecl FUN_004df440(void* mgr, void* key);                               // 0x004df440
 extern "C" void* __cdecl FUN_00ac0d80(void* first, void* last, void* key);                 // 0x00ac0d80
 extern "C" void* __cdecl FUN_010212a0(void);                                               // 0x010212a0
 extern "C" void* __cdecl FUN_0093aa70(void* stream, void* data, int n, int a);             // 0x0093aa70
@@ -949,8 +931,8 @@ struct S {
   void  FUN_00b8f7f0(void** out);                                           // 0x00b8f7f0
   int   FUN_00b8f860();                                                     // 0x00b8f860
   void  FUN_00b8f9b0(int* out);                                             // 0x00b8f9b0
-  bool  FUN_00b8fa40(void* stream);                                         // 0x00b8fa40
-  bool  FUN_00b8fad0(void* stream);                                         // 0x00b8fad0
+  char  FUN_00b8fa40(void* stream);                                         // 0x00b8fa40
+  char  FUN_00b8fad0(void* stream);                                         // 0x00b8fad0
   char  FUN_00b8fb70();                                                     // 0x00b8fb70
   int   FUN_00b8fbb0(void* src);                                            // 0x00b8fbb0
   void* FUN_00b8fdd0(void** out, TreeNode* pos, int* key);                  // 0x00b8fdd0
@@ -1173,24 +1155,21 @@ void cPlanetModel_s00b8_d190::FUN_00b8de60()
     }
 }
 
-struct IntVec_b8dec0 {
-    int32_t* mpBegin;
-    int32_t* mpEnd;
-    int32_t size() const { return (int32_t)(mpEnd - mpBegin); }
-};
 // @ 0x00b8dec0
 int32_t cPlanetModel_s00b8_d190::FUN_00b8dec0(int32_t index)
 {
-    if (index < ((const IntVec_b8dec0*)&mField15C)->size())
-        return ((const IntVec_b8dec0*)&mField15C)->mpBegin[index];
+    if (index < (int32_t)(mField160 - mField15C) >> 2) {
+        return *(int32_t*)(mField15C + index * 4);
+    }
     return 0;
 }
 
 // @ 0x00b8def0
 int32_t cPlanetModel_s00b8_d190::FUN_00b8def0(int32_t index)
 {
-    if (index < ((const IntVec_b8dec0*)&mField170)->size())
-        return ((const IntVec_b8dec0*)&mField170)->mpBegin[index];
+    if (index < (int32_t)(mField174 - mField170) >> 2) {
+        return *(int32_t*)(mField170 + index * 4);
+    }
     return 0;
 }
 
@@ -1792,37 +1771,36 @@ void S::FUN_00b8f9b0(int* out)
 }
 
 // @ 0x00b8fa40
-bool S::FUN_00b8fa40(void* stream)
+char S::FUN_00b8fa40(void* stream)
 {
-    PlantArchiveStreamHolder* __restrict holder = static_cast<PlantArchive*>(stream)->GetStreamHolder();
-    uint32_t version = 0x70a2863c;
-    void* output = holder->GetStream();
-    FUN_0093aa70(output, &version, 1, 0);
-    bool baseResult = reinterpret_cast<SP::cSPSpaceInventoryItem*>((char*)this - 0xc)->SP::cSPSpaceInventoryItem::Write(
-        *static_cast<SP::cIObjectDatabaseOStream*>(stream));
-    SP::cVarListSerializer serializer((char*)this - 0xc, gPlantCargoSerializerList,
-                                     SP::cVarListSerializer::kSignature);
-    bool result = serializer.Serialize(*static_cast<SP::cIObjectDatabaseOStream*>(stream));
-    if (result && baseResult)
-        return true;
-    return false;
+  unsigned key = 0x70a2863c;
+  int* io = (int*)VFn(stream, 0x20);
+  void* w = VFn(io, 0x18);
+  FUN_0093aa70(w, &key, 1, 0);
+  char c1 = FUN_00c87580(stream);
+  char buf[0xa14];
+  FUN_00692f90(buf, (char*)this - 0xc, (void*)0x0156bd78, 0x1a80d26);
+  char c2 = FUN_00692900(buf, stream);
+  return (c2 != 0 && c1 != 0) ? 1 : 0;
 }
 
 // @ 0x00b8fad0
-bool S::FUN_00b8fad0(void* stream)
+char S::FUN_00b8fad0(void* stream)
 {
-    void* input = static_cast<PlantArchive*>(stream)->GetStreamHolder()->GetStream();
-    uint32_t version;
-    FUN_0093a780(input, &version, 1, 0);
-    bool baseResult = reinterpret_cast<SP::cSPSpaceInventoryItem*>((char*)this - 0xc)->SP::cSPSpaceInventoryItem::Read(
-        *static_cast<SP::cIObjectDatabaseIStream*>(stream));
-    SP::cVarListSerializer serializer((char*)this - 0xc, gPlantCargoSerializerList,
-                                     SP::cVarListSerializer::kSignature);
-    bool result = serializer.Serialize(*static_cast<SP::cIObjectDatabaseIStream*>(stream));
-    bool ok = result && baseResult;
-    const EA::ResourceMan::Key& key = *reinterpret_cast<const EA::ResourceMan::Key*>((char*)this + 0x50);
-    *reinterpret_cast<const SP::cSpeciesProfile**>((char*)this + 0x94) = SpeciesManager()->GetPlantProfile(key);
-    return ok;
+  unsigned key = 0;
+  int* io = (int*)VFn(stream, 0x20);
+  void* r = VFn(io, 0x18);
+  FUN_0093a780(r, &key, 1, 0);
+  char c1 = FUN_00c879a0(stream);
+  char buf[0xa14];
+  FUN_00692f90(buf, (char*)this - 0xc, (void*)0x0156bd78, 0x1a80d26);
+  char c2 = FUN_00693e10(buf, stream);
+  char ok;
+  if (c2 != 0 && c1 != 0) ok = 1; else ok = 0;
+  char* self = (char*)this;
+  void* mgr = FUN_00401090(self + 0x50);
+  *(void**)(self + 0x94) = FUN_004df440(mgr, self + 0x50);
+  return ok;
 }
 
 // @ 0x00b8fb70
@@ -1937,8 +1915,8 @@ void* S::FUN_00b8ff90()
 {
   char* self = (char*)this;
   ((void (__thiscall*)(void*))FUN_00b5b960)(self);       // SP::cGonzagoSubsystem ctor
-  *(void**)(self + 0x00) = (void*)g_1465858;
-  *(void**)(self + 0x04) = (void*)g_1465850;
+  *(void**)(self + 0x00) = (void*)0x01465858;
+  *(void**)(self + 0x04) = (void*)0x01465850;
   _ReadWriteBarrier();
   char* eax = self + 0x20;
   *(int*)(eax + 4) = 0;
@@ -1958,8 +1936,8 @@ void* S::FUN_00b8ffd0(char del)
 {
   char* self = (char*)this;
   char* ecx = self + 0x1c;
-  *(void**)(self + 0x00) = (void*)g_1465858;
-  *(void**)(self + 0x04) = (void*)g_1465850;
+  *(void**)(self + 0x00) = (void*)0x01465858;
+  *(void**)(self + 0x04) = (void*)0x01465850;
   char* p = *(char**)(ecx + 0xc);
   ((void (__thiscall*)(char*, char*))FUN_00b8fd90)(ecx, p);
   ((void (__thiscall*)(void*))FUN_00b5b9a0)(self);       // SP::cGonzagoSubsystem dtor

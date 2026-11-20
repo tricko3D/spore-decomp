@@ -16,7 +16,6 @@ struct cSPVector3 {
     float x, y, z;
     cSPVector3() {}
     cSPVector3(float ax, float ay, float az) : x(ax), y(ay), z(az) {}
-    cSPVector3(const cSPVector3& v) { x = v.x; y = v.y; z = v.z; }
     cSPVector3& operator+=(const cSPVector3& v) { x += v.x; y += v.y; z += v.z; return *this; }
     float Length() const { return sqrtf(x * x + y * y + z * z); }
     cSPVector3 Normalized() const
@@ -44,14 +43,26 @@ struct Transform {
     // The same default constructor, inlined from this TU (uses this TU's copies of the
     // zero vector / identity matrix statics).
     inline Transform(InlineInit);
-    void SetOffset(const cSPVector3& v) { mOffset = v; mnFlags |= kFlagOffset; ++mnTransformCount; }
+    void SetOffset(cSPVector3 v) { mOffset = v; mnFlags |= kFlagOffset; ++mnTransformCount; }
     void SetRotation(const cSPMatrix3& m) { mRotation = m; mnFlags |= kFlagRotation; ++mnTransformCount; }
 };
 
 extern cSPVector3 sZeroVector;      // 0x0169f28c
 extern cSPMatrix3 sIdentityMatrix;  // 0x0169f268
 inline Transform::Transform(InlineInit)
-    : mnFlags(0), mnTransformCount(0), mOffset(sZeroVector), mfScale(1.0f), mRotation(sIdentityMatrix) {}
+    : mnFlags(0), mnTransformCount(0), mOffset(sZeroVector), mfScale(1.0f)
+{
+    // Element-wise float initialization, as the original's inlined default constructor.
+    mRotation.m[0] = sIdentityMatrix.m[0];
+    mRotation.m[1] = sIdentityMatrix.m[1];
+    mRotation.m[2] = sIdentityMatrix.m[2];
+    mRotation.m[3] = sIdentityMatrix.m[3];
+    mRotation.m[4] = sIdentityMatrix.m[4];
+    mRotation.m[5] = sIdentityMatrix.m[5];
+    mRotation.m[6] = sIdentityMatrix.m[6];
+    mRotation.m[7] = sIdentityMatrix.m[7];
+    mRotation.m[8] = sIdentityMatrix.m[8];
+}
 
 cSPMatrix3 RotationFromTo(const cSPVector3& from, const cSPVector3& to);   // 0x0069b1c0
 
@@ -170,6 +181,7 @@ namespace CitizenTree {
 
 enum { kNumPoints = 32 };
 
+// @ 0x00d98140
 void UpdateStream(CitizenStream* s, float dt)
 {
     bool created = false;
@@ -182,7 +194,9 @@ void UpdateStream(CitizenStream* s, float dt)
                 s->mpModel->GetTransform(xf);
                 s->mpStream->SetTransform(xf);
                 s->mpStream->Start(0);
-                s->mOrigin = xf.mOffset;
+                s->mOrigin.x = xf.mOffset.x;
+                s->mOrigin.y = xf.mOffset.y;
+                s->mOrigin.z = xf.mOffset.z;
                 s->mPoints.resize(kNumPoints);
                 s->mTargets.resize(kNumPoints);
                 created = true;

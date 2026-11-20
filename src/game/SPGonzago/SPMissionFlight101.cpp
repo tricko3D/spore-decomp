@@ -4,7 +4,6 @@
 
 #include "game/types.h"
 #include "SP/cHerd.h"
-#include <intrin.h>
 
 namespace SP { class cPlanetRecord; }
 
@@ -25,9 +24,6 @@ struct cDispatchObject {
 
     void* Call(int nSlot) {
         return ((void* (*)(void*))mpMethods->mSlots[nSlot >> 2])(this);
-    }
-    void CallMethod(int nSlot) {
-        ((void (__thiscall*)(void*))mpMethods->mSlots[nSlot >> 2])(this);
     }
     char CallChar(int nSlot) {
         return ((char (*)(void*))mpMethods->mSlots[nSlot >> 2])(this);
@@ -285,14 +281,12 @@ struct Flight101VTable {
 namespace Flight101Native {
 struct Inventory {
     void FUN_00ff46e0();
-    void FUN_00ff4310();
 };
 struct SpaceGame {
     Inventory* GetPlayerInventory();             // 0x00a1ad60
 };
 struct MissionManager {
     void FUN_00feba60(bool enabled);
-    void SetTutorialMissionState2(uint32_t nMissionId); // 0x00fede60
 };
 SpaceGame* SpaceGameGet();                       // 0x01002bd0
 MissionManager* GetMissionManager();             // 0x00feb9f0
@@ -333,26 +327,30 @@ void cSPMissionFlight101::Fulfill()
 void cSPMissionFlight101::OnReject()
 {
     BaseOnReject();
-    Flight101Native::GetMissionManager()->SetTutorialMissionState2((uint32_t)mMissionId);
-    Flight101Native::Inventory* inventory = Flight101Native::SpaceGameGet()->GetPlayerInventory();
-    if (inventory != nullptr) {
-        inventory->FUN_00ff46e0();
-        inventory->FUN_00ff4310();
+    uint32_t nMissionId = (uint32_t)mMissionId;
+    ((cDispatchObject*)GetMissionManager())->Call1(0x00, nMissionId);
+
+    void* pInventory = ((cDispatchObject*)SpaceGameGet())->Call(0x00);
+    if (pInventory != nullptr) {
+        ((cDispatchObject*)pInventory)->Call(0x00);
+        ((cDispatchObject*)pInventory)->Call(0x00);
     }
-    Flight101Native::GetMissionManager()->FUN_00feba60(true);
+    ((cDispatchObject*)GetMissionManager())->Call1(0x00, 1);
 }
 
 // @ 0x00c55970
 void cSPMissionFlight101::OnAccept()
 {
     BaseOnAccept();
-    Flight101Native::GetMissionManager()->SetTutorialMissionState2((uint32_t)mMissionId);
-    Flight101Native::Inventory* inventory = Flight101Native::SpaceGameGet()->GetPlayerInventory();
-    if (inventory != nullptr) {
-        inventory->FUN_00ff46e0();
-        inventory->FUN_00ff4310();
+    uint32_t nMissionId = (uint32_t)mMissionId;
+    ((cDispatchObject*)GetMissionManager())->Call1(0x00, nMissionId);
+
+    void* pInventory = ((cDispatchObject*)SpaceGameGet())->Call(0x00);
+    if (pInventory != nullptr) {
+        ((cDispatchObject*)pInventory)->Call(0x00);
+        ((cDispatchObject*)pInventory)->Call(0x00);
     }
-    Flight101Native::GetMissionManager()->FUN_00feba60(true);
+    ((cDispatchObject*)GetMissionManager())->Call1(0x00, 1);
 }
 
 // @ 0x00c559e0
@@ -500,7 +498,7 @@ int cSPMissionFlight101::Update(void* pParam)
 {
     int32_t nResult = (int32_t)(intptr_t)UpdateBase(pParam);
     if (nResult == 3 && mpCurrSubMission == nullptr)
-        ((cDispatchObject*)this)->CallMethod(0xf8);
+        ((cDispatchObject*)this)->Call(0xf8);
     return nResult;
 }
 
@@ -564,7 +562,6 @@ cSPMissionFlight101::cSPMissionFlight101()
     mpVftable = &gVtableFlight101;
     mpVftable2 = &gVtableFlight101Unk;
     mpVftable3 = &gVtableFlight101Extra;
-    _ReadWriteBarrier();
     mHerds.mpBegin = nullptr;
     mHerds.mpEnd = nullptr;
     mHerds.mpCapacity = nullptr;

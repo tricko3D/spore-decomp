@@ -42,6 +42,15 @@ struct RefPtr {
     void Release_00e82130();         // thiscall, release p
 };
 
+// A RefPtr whose lifetime is one block: the user-defined destructor is what makes cl give the
+// object a real 4-byte stack slot instead of the outgoing-argument scratch area (retail's
+// `push ecx` frame, released by the shared `pop ecx; ret` epilogue).
+struct ScopedRefPtr {
+    int* p;
+    ScopedRefPtr()  { ((RefPtr*)this)->Ctor_00743b50(); }
+    ~ScopedRefPtr() { ((RefPtr*)this)->Release_00e82130(); }
+};
+
 // ---------------------------------------------------------------- external globals / callees
 extern char* g_016b3c04;             // cell game object pointer (+0x411c owner id, +0x5190 table)
 
@@ -57,38 +66,21 @@ extern "C" char FUN_00e6a060(int obj, int p14);
 extern "C" void FUN_00e6a250(int a1, int a2, int a3, float f, int* a5, int* a9, int a10, int a12);
 extern "C" int* FUN_00e4cc40(int id, RefPtr* out);     // thunk_FUN_00e823a0
 
-extern "C" char FUN_00e52960();
-// usercall shim for FUN_00e52960 (reads ESI). Behaviour: ESI = obj, call, AL is the result.
-static char Usercall_e52960(int obj) {
-    char r;
-    __asm {
-        push esi
-        mov  esi, obj
-        call FUN_00e52960
-        pop  esi
-        mov  r, al
-    }
-    return r;
-}
+// FUN_00e52960 is a usercall in retail: it takes its object in ESI and returns AL, with nothing
+// pushed.  Plain C++ cannot name that convention, so the object is passed as an ordinary argument
+// here (semantics preserved, two pushes/call-frame bytes differ).
+extern "C" char FUN_00e52960(int obj);
 
 static inline int CellOwnerId() { return *(int*)(g_016b3c04 + 0x411c); }
 
-// Retail saves the incoming ECX with its 4-byte local-frame push and restores it at every exit.
-// Keep the same caller-visible register state for LTCG callers without changing the C++ body.
-struct EcxPreserve {
-    __forceinline EcxPreserve() { __asm push ecx }
-    __forceinline ~EcxPreserve() { __asm pop ecx }
-};
-
 // ---------------------------------------------------------------- the function
+// @ 0x00e6a3f0
 extern "C" void sResolvePartCollision(int p1, int p2, int p3, float p4, int* p5, int p6, int p7,
                                       int p8, int* p9, int p10, unsigned int p11, int p12, int p13,
                                       int p14)
 {
-    EcxPreserve ecxPreserve;
     CollPart* A = (CollPart*)p5;
     CollPart* B = (CollPart*)p9;
-    int uVar5;
     int iVar2;
     char cVar1;
 
@@ -105,9 +97,10 @@ extern "C" void sResolvePartCollision(int p1, int p2, int p3, float p4, int* p5,
     }
     if (p6 == 7) return;
     if (p10 == 6) {
-        if (*p5 == CellOwnerId()) uVar5 = 0x12;
-        else uVar5 = 1;
-        FUN_00e59cc0(p1, p2, p3, p4, *p5, *p9, p8, p14, uVar5);
+        if (*p5 == CellOwnerId())
+            FUN_00e59cc0(p1, p2, p3, p4, *p5, *p9, p8, p14, 0x12);
+        else
+            FUN_00e59cc0(p1, p2, p3, p4, *p5, *p9, p8, p14, 1);
     }
     {
         float dx = A->px - B->px;
@@ -124,103 +117,99 @@ extern "C" void sResolvePartCollision(int p1, int p2, int p3, float p4, int* p5,
     }
     iVar2 = FUN_00e4cce0(0x13);
     if (B->kind == iVar2 && p7 == 7 && p13 == 0xc && FUN_00e5f590((int)p9, p2) == 1 &&
-        Usercall_e52960((int)p9) != 0 && FUN_00e57340((int)p9) > 2) {
-        uVar5 = 8;
-    LAB_00e6a61c:
-        FUN_00e59cc0(p1, p2, p3, p4, *p5, *p9, p8, p14, uVar5);
+        FUN_00e52960((int)p9) != 0 && FUN_00e57340((int)p9) > 2) {
+        FUN_00e59cc0(p1, p2, p3, p4, *p5, *p9, p8, p14, 8);
         return;
     }
     iVar2 = FUN_00e4cce0(0x14);
     if (B->kind == iVar2 && p12 > 2 && (p7 == 7 || p7 == 4) && p13 == 0xb &&
         FUN_00e6a060((int)p9, p14) == 1) {
-        uVar5 = 0x14;
-        goto LAB_00e6a61c;
+        FUN_00e59cc0(p1, p2, p3, p4, *p5, *p9, p8, p14, 0x14);
+        return;
     }
     iVar2 = FUN_00e4cce0(0x19);
     if (B->kind == iVar2 && p12 > 2 && (p13 == 0xc || p13 == 10 || p13 == 0xb) && p7 == 4) {
-        uVar5 = 0xd;
-    LAB_00e6a762:
-        FUN_00e59cc0(p1, p2, p3, p4, *p5, *p9, p8, p14, uVar5);
+        FUN_00e59cc0(p1, p2, p3, p4, *p5, *p9, p8, p14, 0xd);
         return;
     }
     if (p10 == 4) {
-        RefPtr r;
         int* obj;
-        r.Ctor_00743b50();
-        obj = FUN_00e4cc40(A->kind, &r);
+        ScopedRefPtr r;              // ctor at 0xe6a696, dtor (Release) at 0xe6a729
+        obj = FUN_00e4cc40(A->kind, (RefPtr*)&r);
         if (*(int*)((char*)obj + 0xb4) == 4) {
             iVar2 = *p9;
             int iVar4 = *p5;
-            uVar5 = 2;
-            FUN_00e59cc0(p1, p2, p3, p4, iVar4, iVar2, -1, -1, uVar5);
+            FUN_00e59cc0(p1, p2, p3, p4, iVar4, iVar2, -1, -1, 2);
         } else {
             if ((p12 == 0 || p12 == 1 || p12 == 2) &&
                 (p11 != 2 || *p5 == CellOwnerId())) {
-                uVar5 = 3;
+                iVar2 = *p9;
+                int iVar4 = *p5;
+                FUN_00e59cc0(p1, p2, p3, p4, iVar4, iVar2, -1, -1, 3);
             } else {
-                uVar5 = 1;
+                iVar2 = *p9;
+                int iVar4 = *p5;
+                FUN_00e59cc0(p1, p2, p3, p4, iVar4, iVar2, -1, -1, 1);
             }
-            iVar2 = *p9;
-            int iVar4 = *p5;
-            FUN_00e59cc0(p1, p2, p3, p4, iVar4, iVar2, -1, -1, uVar5);
         }
-        r.Release_00e82130();
     }
     if (p7 == 3) {
         if (p10 != 3) return;
         if (p12 != 1) return;
         if (A->flag != 0) return;
-        uVar5 = 9;
-        goto LAB_00e6a762;
+        FUN_00e59cc0(p1, p2, p3, p4, *p5, *p9, p8, p14, 9);
+        return;
     }
     if (p13 == 3) return;
     if (p7 == 2) {
         if (p10 == 2) {
-            if (p12 != 2) {
-                if (p12 == 0) {
-                    if (B->flag != 0 || A->flag != 0) goto LAB_00e6ad4a;
-                    uVar5 = 10;
-                    goto LAB_00e6a8a6;
+            if (p12 == 2) {
+                if (A->flag == 0 && B->flag == 0 && p13 == 2) {
+                    FUN_00e59cc0(p1, p2, p3, p4, *p5, *p9, p8, p14, 0xf);
                 }
-                if (p12 == 1) {
-                    if (*p9 != CellOwnerId() || B->flag != 0 || A->flag != 0) goto LAB_00e6a99f;
+                if (A->flag != 0 || p13 == 2) goto LAB_00e6ad4e;
+                if (FUN_00e57340((int)p9) > 1) {
                     FUN_00e59cc0(p1, p2, p3, p4, *p5, *p9, p8, p14, 7);
-                    goto LAB_00e6a9a3;
-                }
-                goto LAB_00e6ac96;
-            }
-            if (A->flag == 0 && B->flag == 0 && p13 == 2) {
-                FUN_00e59cc0(p1, p2, p3, p4, *p5, *p9, p8, p14, 0xf);
-            }
-            if (A->flag != 0 || p13 == 2) goto LAB_00e6ad4e;
-            iVar2 = FUN_00e57340((int)p9);
-            if (iVar2 < 2) {
-                cVar1 = Usercall_e52960((int)p9);
-                if (cVar1 == 0) {
-                    FUN_00e59cc0(p1, p2, p3, p4, *p5, *p9, p8, p14, 1);
                     goto LAB_00e6ad4e;
                 }
+                if (FUN_00e52960((int)p9) != 0) {
+                    FUN_00e59cc0(p1, p2, p3, p4, *p5, *p9, p8, p14, 7);
+                    goto LAB_00e6ad4e;
+                }
+                FUN_00e59cc0(p1, p2, p3, p4, *p5, *p9, p8, p14, 1);
+                goto LAB_00e6ad4e;
             }
-        } else {
-            if (((p11 & 1) == 0) || (p12 != 1)) {
-                /* fVar3 stays p4 */
-            } else {
-            LAB_00e6a99f:
-            LAB_00e6a9a3:
+            if (p12 == 0) {
+                if (B->flag != 0 || A->flag != 0) goto LAB_00e6ad4a;
+                FUN_00e59cc0(p1, p2, p3, p4, *p5, *p9, p8, p14, 10);
+                goto LAB_00e6ad4a;
+            }
+            if (p12 == 1) {
+                if (*p9 == CellOwnerId() && B->flag == 0 && A->flag == 0) {
+                    FUN_00e59cc0(p1, p2, p3, p4, *p5, *p9, p8, p14, 7);
+                }
                 if (*p9 != CellOwnerId() && A->flag == 0) {
                     FUN_00e59cc0(p1, p2, p3, p4, *p5, *p9, p8, p14, 10);
                 }
+                if (p10 != 2) goto LAB_00e6ad4e;
+                goto LAB_00e6ac96;
             }
-            if (p10 != 2) goto LAB_00e6ad4e;
-        LAB_00e6ac96:
-            if (p12 != 3 || A->flag != 0) goto LAB_00e6ad4e;
-            cVar1 = FUN_00e50540((int)p5);
-            if (cVar1 == 0) {
-                uVar5 = 4;
-                goto LAB_00e6a8a6;
+            goto LAB_00e6ac96;
+        }
+        if (((p11 & 1) != 0) && (p12 == 1)) {
+            if (*p9 != CellOwnerId() && A->flag == 0) {
+                FUN_00e59cc0(p1, p2, p3, p4, *p5, *p9, p8, p14, 10);
             }
         }
-        uVar5 = 7;
+        if (p10 != 2) goto LAB_00e6ad4e;
+    LAB_00e6ac96:
+        if (p12 != 3 || A->flag != 0) goto LAB_00e6ad4e;
+        if (FUN_00e50540((int)p5) != 0) {
+            FUN_00e59cc0(p1, p2, p3, p4, *p5, *p9, p8, p14, 7);
+            goto LAB_00e6ad4e;
+        }
+        FUN_00e59cc0(p1, p2, p3, p4, *p5, *p9, p8, p14, 4);
+        goto LAB_00e6ad4e;
     } else {
         if (p7 == 7) {
             if (((p11 & 1) == 0) || (1 < p12)) {
@@ -235,7 +224,8 @@ extern "C" void sResolvePartCollision(int p1, int p2, int p3, float p4, int* p5,
                         FUN_00e59cc0(p1, p2, p3, p4, *p5, *p9, p8, p14, 8);
                         goto LAB_00e6ad4e;
                     }
-                    uVar5 = 0xe;
+                    FUN_00e59cc0(p1, p2, p3, p4, *p5, *p9, p8, p14, 0xe);
+                    goto LAB_00e6ad4e;
                 } else {
                     if (p12 == 1) {
                         if (A->flag == 0 && B->flag == 0 && FUN_00e57340((int)p9) > 1) {
@@ -253,7 +243,8 @@ extern "C" void sResolvePartCollision(int p1, int p2, int p3, float p4, int* p5,
                         FUN_00e59cc0(p1, p2, p3, p4, *p5, *p9, p8, p14, 8);
                     }
                     if (A->flag != 0 || B->flag != 1) goto LAB_00e6ad4e;
-                    uVar5 = 5;
+                    FUN_00e59cc0(p1, p2, p3, p4, *p5, *p9, p8, p14, 5);
+                    goto LAB_00e6ad4e;
                 }
             } else {
                 if (p10 != 3) {
@@ -269,11 +260,9 @@ extern "C" void sResolvePartCollision(int p1, int p2, int p3, float p4, int* p5,
                     goto LAB_00e6ad4e;
                 }
                 if (A->flag != 0 || FUN_00e57340((int)p9) < 2) goto LAB_00e6ad4e;
-                uVar5 = 6;
+                FUN_00e59cc0(p1, p2, p3, p4, *p5, *p9, p8, p14, 6);
+                goto LAB_00e6ad4e;
             }
-        LAB_00e6a8a6:
-            FUN_00e59cc0(p1, p2, p3, p4, *p5, *p9, p8, p14, uVar5);
-            goto LAB_00e6ad4e;
         }
         if (p7 != 4) {
         LAB_00e6ad4a:
@@ -297,16 +286,14 @@ extern "C" void sResolvePartCollision(int p1, int p2, int p3, float p4, int* p5,
             goto LAB_00e6ad4a;
         }
         if (p12 == 1) {
-            if (A->flag == 0) {
-                uVar5 = 0xb;
-                goto LAB_00e6a8a6;
-            }
-            goto LAB_00e6ad4a;
+            if (A->flag != 0) goto LAB_00e6ad4a;
+            FUN_00e59cc0(p1, p2, p3, p4, *p5, *p9, p8, p14, 0xb);
+            goto LAB_00e6ad4e;
         }
         if (p12 != 3 || A->flag != 0) goto LAB_00e6ad4a;
-        uVar5 = 4;
+        FUN_00e59cc0(p1, p2, p3, p4, *p5, *p9, p8, p14, 4);
+        goto LAB_00e6ad4e;
     }
-    FUN_00e59cc0(p1, p2, p3, p4, *p5, *p9, p8, p14, uVar5);
 LAB_00e6ad4e:
     FUN_00e6a250(p1, p2, p3, p4, p5, p9, p10, p12);
 }

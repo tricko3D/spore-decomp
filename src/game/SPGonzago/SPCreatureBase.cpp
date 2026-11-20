@@ -2,14 +2,6 @@
 // Object file: SPGonzago/SPCreatureBase.obj.  Function bodies keep the slice's code; types, members and virtual calls use the
 // canonical headers under src/game/include.  Each function keeps its '// @ 0xVA' marker.
 
-// addresses retail relocates here, named so the build relocates them too
-extern "C" char g_150c8bc[];
-extern "C" char g_150c900[];
-extern "C" char g_1570858[];
-extern "C" char g_1571798[];
-extern "C" char g_15816b8[];
-extern "C" char g_1601760[];
-
 // s00c19b60's items define the slices' own placement new(size_t, void*); s00c0acd0 adds <algorithm>, which reaches
 // <new> through <memory>/<xmemory> (C2084).  Same hand guard as SPGraphicsModelManager.cpp (rewrite.py placement_new_guard).
 #define __PLACEMENT_NEW_INLINE
@@ -1448,7 +1440,7 @@ class RandomLinearCongruential_s00c0_acd0 {
 };
 }
 }
-#define GRAND ((EA::Random::RandomLinearCongruential_s00c0_acd0*)g_1601760)
+#define GRAND ((EA::Random::RandomLinearCongruential_s00c0_acd0*)0x1601760)
 bool __cdecl SP_GetPropertyAsUint32Array(unsigned int prop, unsigned int arg,
                                          int* count, int** data);
 int  __cdecl SP_GetCurrentGameMode_s00c0_acd0();
@@ -4021,8 +4013,6 @@ struct Fnc0c0e0   { bool __thiscall f(int,int); };             // 0x00c0c0e0
 struct Fnc12310   { void __thiscall f(int); };                 // 0x00c12310
 struct Fnf25080   { bool __thiscall f(void*); };               // 0x00f25080
 struct Fnc7dc20   { void __thiscall f(); };                    // 0x00c7dc20
-extern "C" void _ReadWriteBarrier(void);
-#pragma intrinsic(_ReadWriteBarrier)
 #define ERASE_ALL(self, off) do { \
     P* end_ = *(P**)((char*)(self)+(off)+4); \
     P* beg_ = *(P**)((char*)(self)+(off)); \
@@ -5909,12 +5899,6 @@ void* Stimuli::Find(uint a, uint b)
     return 0;
 }
 
-struct ActionCtx;
-void FUN_00b498d0(ActionCtx* ctx);   // 0x00b498d0
-void FUN_00b49730(void* ctx);        // 0x00b49730
-void FUN_00b493e0(void* ctx);        // 0x00b493e0
-void FUN_00b4c730(void* ctx);        // 0x00b4c730
-
 // @ 0x00c06500
 void CB_s00c0_53b0::func6500()
 {
@@ -5922,20 +5906,17 @@ void CB_s00c0_53b0::func6500()
     SP_GetCurrentGameMode();
     *(uint32_t*)((char*)self + 0x2b0) = 0;
     char* body = (char*)self + 0xc0;
-    void* v = (void*)FUN_00c06000_tc(FUN_00b3d310());
+    FUN_00b3d310();
+    void* v = FUN_00c06000();
     ((Fn421b0*)body)->f(v);
     ((Fn44040*)body)->f();
     int* m = (int*)FUN_00b3d310();
-    switch (m[0x20 / 4]) {
-    case 0:
-    case 2:
-        ((Fn43fe0*)body)->f((void*)&FUN_00b498d0);
-    }
-    bool on = ((*(uint32_t*)((char*)self + 0xb58) >> 9) & 1) != 0;
-    if (on && SP_GetCurrentGameMode() == (void*)0x01654c05) {
-        ((Fn43fe0*)body)->f((void*)&FUN_00b49730);
-        ((Fn43fe0*)body)->f((void*)&FUN_00b493e0);
-        ((Fn43fe0*)body)->f((void*)&FUN_00b4c730);
+    if (m[0x20 / 4] == 0 || m[0x20 / 4] == 2)
+        ((Fn43fe0*)body)->f((void*)0x00b498d0);
+    if (((*(uint32_t*)((char*)self + 0xb58) >> 9) & 1) && SP_GetCurrentGameMode() == (void*)0x01654c05) {
+        ((Fn43fe0*)body)->f((void*)0x00b49730);
+        ((Fn43fe0*)body)->f((void*)0x00b493e0);
+        ((Fn43fe0*)body)->f((void*)0x00b4c730);
     }
 }
 
@@ -6321,14 +6302,7 @@ void __thiscall CCCh::funcCCh(int a)
     ((SPTimer*)(self + 0xfc0))->Restart();
     ((Fn3170*)(self + 0xfe0))->f();
     *(float*)(self + 0x1000) = 0.0f;
-    _ReadWriteBarrier();
-    {
-        P* const last = *(P**)(self + 0x1024);
-        P* const first = *(P**)(self + 0x1020);
-        memmove(first, last, (char*)*(P**)(self + 0x1024) - (char*)last);
-        int d = (int)last - (int)first; d >>= 2; d = -d; d += d; d += d;
-        *(int*)(self + 0x1024) += d;
-    }
+    ERASE_ALL(self, 0x1020);
     *(uint32_t*)(self + 0x1678) = 0;
     *(uint32_t*)(self + 0x101c) = 0;
 }
@@ -7532,15 +7506,15 @@ int __thiscall C_s00c0_bd70::C0bd70(void* fields)
 {
   int sum = ((GameDataFields*)this)->GetFieldValues(fields);
   {
-    cVarListSerializer v((char*)this + 0x34, (void*)g_15816b8, 0x1a80d26);
+    cVarListSerializer v((char*)this + 0x34, (void*)0x15816b8, 0x1a80d26);
     sum += v.GetFields(fields);
   }
   sum += ((LocoFields*)((char*)this + 0xc0))->GetFieldValues(fields);
   {
-    cVarListSerializer v((char*)this + 0x5a8, (void*)g_1570858, 0x1a80d26);
+    cVarListSerializer v((char*)this + 0x5a8, (void*)0x1570858, 0x1a80d26);
     sum += v.GetFields(fields);
   }
-  cVarListSerializer v3(this, (void*)g_1571798, 0x1a80d26);
+  cVarListSerializer v3(this, (void*)0x1571798, 0x1a80d26);
   sum += v3.GetFields(fields);
   return sum;
 }
@@ -7683,14 +7657,17 @@ int __thiscall C_s00c0_bd70::C0c250_()
   bool b = false;
   void* p = FUN_00b3d4c0();
   if (p) {
-    b = ((CreatureBaseMgr*)p)->FUN_00ba3f90(
-            &cf->mB28, ((GameNounManager_s00c0_bd70*)SP_NounManager())->GetAvatar(), this) == 6;
+    void* nm = SP_NounManager();
+    void* av = ((GameNounManager_s00c0_bd70*)nm)->GetAvatar();
+    b = ((CreatureBaseMgr*)p)->FUN_00ba3f90(&cf->mB28, av, this) == 6;
   }
-  if ((bool)((cf->mB58 >> 7) & 1) || b ||
-      ((*(bool(__thiscall*)(void*))((*(void***)this)[0xd0/4]))(this) &&
-       SP_GetCurrentGameMode() != (void*)0x1654c10))
-    return 1;
-  return 0;
+  if (((cf->mB58 >> 7) & 1) == 0 && !b) {
+    bool def = (*(bool(__thiscall*)(void*))((*(void***)this)[0xd0/4]))(this);
+    if (!def) return 0;
+    if (SP_GetCurrentGameMode() != (void*)0x1654c10) return 1;
+    return 0;
+  }
+  return 1;
 }
 
 // @ 0x00c0c2d0
@@ -7981,7 +7958,7 @@ void __thiscall CCB::cf50()
 float __thiscall CCB::cfa0(int index, char flag)
 {
     if (*(char*)((char*)this + 0xbb0) != 0)
-        return ce80(2, 1) + GF((int)g_150c900);
+        return ce80(2, 1) + GF(0x150c900);
     float v = flag != 0 ? GF((char*)this + 0xfa8 + index * 4) : ce80(index, 0);
     return v;
 }
@@ -7992,7 +7969,7 @@ void __thiscall CCB_s00c0_ce80::cff0(int param)
     G32((char*)this + 0xf98) = param;
     float v;
     if (*(char*)((char*)this + 0xbb0) != 0)
-        v = ce80(2, 1) + GF((int)g_150c900);
+        v = ce80(2, 1) + GF(0x150c900);
     else
         v = ce80(param, 0);
     GF((char*)this + 0x2a0) = v;
@@ -8007,7 +7984,7 @@ int __thiscall CCB::d050(float param)
         if (iVar1 != 1) {
             float f;
             if (*(char*)((char*)this + 0xbb0) != 0)
-                f = ce80(2, 1) + GF((int)g_150c900);
+                f = ce80(2, 1) + GF(0x150c900);
             else
                 f = ce80(iVar1, 0);
             if (f >= param) {
@@ -8245,18 +8222,14 @@ void __thiscall CCB_s00c0_ce80::d950(char param_2)
 }
 
 // @ 0x00c0d970
-struct IdentityColorRGB { uint32_t r, g, b; };
-struct IdentityColorTarget {
-    char pad[0x74];
-    IdentityColorRGB color;   // +0x74
-    float alpha;              // +0x80
-};
 void __thiscall CCB_s00c0_ce80::d970(float* param_2)
 {
-    IdentityColorTarget* t = *(IdentityColorTarget**)((char*)this + 0xb54);
-    t->color = *(IdentityColorRGB*)param_2;
-    t = *(IdentityColorTarget**)((char*)this + 0xb54);
-    t->alpha = 1.0f;
+    char* p = *(char**)((char*)this + 0xb54);
+    *(uint32_t*)(p + 0x74) = ((uint32_t*)param_2)[0];
+    *(uint32_t*)(p + 0x78) = ((uint32_t*)param_2)[1];
+    *(uint32_t*)(p + 0x7c) = ((uint32_t*)param_2)[2];
+    char* q = *(char**)((char*)this + 0xb54);
+    *(float*)(q + 0x80) = GF(0x1485720);
 }
 
 // @ 0x00c0d9b0
@@ -8399,11 +8372,8 @@ void __thiscall CCM_s00c0_ddb0::ddb0(float* param_2)
 // @ 0x00c0dfb0
 void* __thiscall CCM_s00c0_ddb0::dfb0(int param)
 {
-    void* p = mpInner_b54;
-    if (p != 0) {
-        p = ((CCMInner*)p)->mpTable_17c;
-        return ((F_cab60*)p)->f(param);
-    }
+    CCMInner* p = mpInner_b54;
+    if (p != 0) return ((F_cab60*)p->mpTable_17c)->f(param);
     return 0;
 }
 
@@ -8412,8 +8382,7 @@ void* __thiscall CCM_s00c0_ddb0::dfd0(int param)
 {
     CCMInner* p = mpInner_b54;
     if (p != 0) {
-        F_cab60* t = (F_cab60*)p->mpTable_17c;
-        char* r = (char*)t->f(param);
+        char* r = (char*)((F_cab60*)p->mpTable_17c)->f(param);
         if (r != 0) return *(void**)(r + 0x8c);
     }
     return 0;
@@ -8476,9 +8445,11 @@ bool __thiscall CCM::e0c0(int param_2)
 char __thiscall CCM_s00c0_ddb0::e120(int param_2)
 {
     char* p = *(char**)(*(char**)((char*)this + 0xb54) + 0x184);
+    int* pu = (int*)(p + 0xf4c);
     for (int i = 0; i < 0x10; ++i) {
-        int v = ((int*)(p + 0xf4c))[i];
+        int v = *pu;
         if (v != -1 && *(int*)(v * 0xf0 + (int)p + 0xe0) == param_2) return 1;
+        ++pu;
     }
     return 0;
 }
@@ -8564,16 +8535,17 @@ float __thiscall CCM_s00c0_ddb0::e3a0()
 char __thiscall CCM_s00c0_ddb0::e3d0()
 {
     char* c = *(char**)((char*)this + 0xa94);
-    if (c == 0) return 1;
-    uint32_t local_4 = 0;
-    void* vt = *(void**)c;
-    ((void(__thiscall*)(void*, void*, int, int, int))(*(void**)((char*)vt + 0x58)))(
-        c, &local_4, 0, 0, 0);
-    if (local_4 != 0) {
-        void* lm = FUN_0067cb20();
-        char* r = (char*)((void*(__thiscall*)(void*, uint32_t))(*(void**)((char*)*(void**)lm + 0x40)))(
-            lm, local_4);
-        if (r != 0) return *(char*)(r + 0x1d);
+    if (c != 0) {
+        uint32_t local_4 = 0;
+        void* vt = *(void**)c;
+        ((void(__thiscall*)(void*, void*, int, int, int))(*(void**)((char*)vt + 0x58)))(
+            c, &local_4, 0, 0, 0);
+        if (local_4 != 0) {
+            void* lm = FUN_0067cb20();
+            char* r = (char*)((void*(__thiscall*)(void*, uint32_t))(*(void**)((char*)*(void**)lm + 0x40)))(
+                lm, local_4);
+            if (r != 0) return *(char*)(r + 0x1d);
+        }
     }
     return 1;
 }
@@ -8591,7 +8563,8 @@ char __thiscall CCM_s00c0_ddb0::e420()
     }
     char* r = (char*)((void*(__thiscall*)(void*, uint32_t))(*(void**)((char*)*(void**)lm + 0x40)))(
         lm, local_4);
-    return (r != 0 && *(char*)(r + 0x1c) != 0) ? 1 : 0;
+    if (r != 0 && *(char*)(r + 0x1c) != 0) return 1;
+    return 0;
 }
 
 // @ 0x00c0e480
@@ -8611,7 +8584,7 @@ double SP::cSPCreatureBase::GetTime()
 float __thiscall CCM::e4f0()
 {
     if (SP_GetCurrentGameMode() == (void*)0x1654c10
-        && *(int*)(G32((int)&g_16c7aa4) + 0xcc) == 2
+        && *(int*)(G32(0x16c7aa4) + 0xcc) == 2
         && this != 0) {
         int r = (int)((VQuery3*)this)->Query(0xd0036e08);
         bool bFlag = ((G32((char*)this + 0xb58) >> 9) & 1) != 0;
@@ -8625,7 +8598,7 @@ float __thiscall CCM::e4f0()
         float v = GF(e + 0x34c);
         if (v >= 0.0f) return v;
     }
-    return GF((int)g_150c8bc);
+    return GF(0x150c8bc);
 }
 
 // @ 0x00c0e580
@@ -8634,12 +8607,12 @@ void* __thiscall CCM_s00c0_ddb0::e580()
     char* c = *(char**)((char*)this + 0xb54);
     if (c != 0) {
         float* p = ((F_a048a0*)c)->f();
-        if (p[0] != GF((int)&g_168d910) || p[1] != GF((int)&g_168d914) || p[2] != GF((int)&g_168d918)) {
+        if (p[0] != GF(0x168d910) || p[1] != GF(0x168d914) || p[2] != GF(0x168d918)) {
             return ((F_a048a0*)(*(void**)((char*)this + 0xb54)))->f();
         }
     }
     void* self = (char*)this + 0xc0;
-    return ((void*(__thiscall*)(void*))((*(void***)self)[0x2c / 4]))(self);
+    return (*(void*(__thiscall**)(void*))((*(void***)self)[0x2c / 4]))(self);
 }
 
 // @ 0x00c0e5f0
@@ -9181,9 +9154,9 @@ void __thiscall CAN::fae0(int param_2)
     b->f0c = 0;
     b->f10 = 0;
     b->weight = 0.0f;
-    void** slot = (void**)&b->target;
-    if (void* q = *slot) {
-        *slot = 0;
+    void* q = b->target;
+    if (q != 0) {
+        b->target = 0;
         ((void (__thiscall *)(void*))(*(int**)q)[0xc0 / 4])(q);
     }
 }
@@ -10651,18 +10624,22 @@ void* Pool_s00c1_4350::Alloc(uint32_t* out)
 }
 
 // @ 0x00c14530
-struct RefSlot_s00c1_4530 {
-    IRefCounted_s00c1_4350* mp;
-    ~RefSlot_s00c1_4530() { if (mp) mp->Release(); }
-};
-struct Pool_s00c1_4530 {
-    RefSlot_s00c1_4530 mSlots[7];
-    RefSlot_s00c1_4530 mLast;  // +0x1c
-    static void operator delete(void* p) { EAFree(p); }
-};
 void DestroyPool()
 {
-    delete (Pool_s00c1_4530*)gSingleton168d900;
+    uint8_t* p = (uint8_t*)gSingleton168d900;
+    if (gSingleton168d900 != 0) {
+        uint8_t* slot = p + 0x1c;
+        if (*(IRefCounted_s00c1_4350**)(p + 0x1c) != 0)
+            (*(IRefCounted_s00c1_4350**)(p + 0x1c))->Release();
+        int n = 6;
+        do {
+            slot -= 4;
+            if (*(IRefCounted_s00c1_4350**)slot != 0)
+                (*(IRefCounted_s00c1_4350**)slot)->Release();
+            n--;
+        } while (n >= 0);
+        EAFree(p);
+    }
     gSingleton168d900 = 0;
 }
 
@@ -10951,16 +10928,11 @@ void CreatureBase_s00c1_4350::OnStartSwimming()
         mbSelfPowered = 1;
 }
 
-// The object FUN_b3d310 returns is passed as `this` to the summarizer getter at 0x00c14350
-// (the getter itself never reads it).
-struct SummarizerHost_s00c1_4e50 {
-    cContentValidationSummarizer* GetContentValidationSummarizer();   // 0x00c14350
-};
-
 // @ 0x00c14e50
 void CreatureBase_s00c1_4350::NotifySummarizer()
 {
-    void* c = (void*)((SummarizerHost_s00c1_4e50*)FUN_b3d310())->GetContentValidationSummarizer();
+    FUN_b3d310();
+    void* c = (void*)GetContentValidationSummarizerExternal();
     ((cSpatialObject_s00c1_4350*)((char*)this + 0xc0))->FUN_c421b0(c);
 }
 
@@ -14741,14 +14713,17 @@ void* cCreatureFactory::FUN_00c201a0(char flag, void* param2, void* param3)
 
     if (flag != 0) {
         cFactoryObject* found = (cFactoryObject*)FUN_00c14e70(param3);
-        if (found == 0 || !found->o10()) {
-            FUN_00c17350(param3, 0);
-            created = (cFactoryObject*)FUN_00c1d120(param2, param3);
-            if (created != 0) {
-                created->o08(0);
-            }
-            return created;
+        if (found != 0 && found->o10()) {
+            return 0;
         }
+
+        FUN_00c17350(param3, 0);
+
+        created = (cFactoryObject*)FUN_00c1d120(param2, param3);
+        if (created != 0) {
+            created->o08(0);
+        }
+        return created;
     } else {
         FUN_00c17350(param3, 0);
     }

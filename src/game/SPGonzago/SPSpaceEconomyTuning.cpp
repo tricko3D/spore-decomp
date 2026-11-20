@@ -1,7 +1,3 @@
-// addresses retail relocates here, named so the build relocates them too
-extern "C" char g_1416f14[];
-extern "C" char g_14996d4[];
-
 #include "game/types.h"
 #include <intrin.h>
 
@@ -197,7 +193,7 @@ float f010307a0(void* props, uint idA, uint idB)
 void* cSPSpaceEconomyTuning::f010308d0(char flags)
 {
     void* self = this;
-    *(void**)self = (void*)g_14996d4;
+    *(void**)self = (void*)0x14996d4;
     _ReadWriteBarrier();
     int* p = (int*)((int*)self)[2];
     if (p) {
@@ -212,7 +208,7 @@ void* cSPSpaceEconomyTuning::f010308d0(char flags)
     int* r = (int*)((int*)self)[2];
     if (r)
         ((VtableDtor2*)r)->e04();
-    *(void**)self = (void*)g_1416f14;
+    *(void**)self = (void*)0x1416f14;
     if (flags & 1)
         operator_delete__(self);
     return self;

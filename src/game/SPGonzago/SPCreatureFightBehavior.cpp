@@ -2,9 +2,6 @@
 // Object file: SPGonzago/SPCreatureFightBehavior.obj.  Function bodies keep the slice's code; types, members and virtual calls use the
 // canonical headers under src/game/include.  Each function keeps its '// @ 0xVA' marker.
 
-// addresses retail relocates here, named so the build relocates them too
-extern "C" char g_1601760[];
-
 #include "game/types.h"
 #include "SP/cCombatant.h"
 #include "SP/cSPCreatureBase.h"
@@ -18,7 +15,7 @@ extern int      gRandomBase;       // 0x01582ec4
 struct Variant {
   int mField[6];
 
-  Variant* CopyFrom(const int* src);
+  void CopyFrom(const int* src);
   void AssignFrom(const int* src);
 };
 struct RecordArray {
@@ -1527,7 +1524,7 @@ void FUN_00d65500(int param)
 // @ 0x00d65530
 long double FUN_00d65530(float base, char doubled)
 {
-  RNG* rng = (RNG*)g_1601760;
+  RNG* rng = (RNG*)0x1601760;
   uint32_t r = rng->Uniform(gRandomMax);
   float value = (float)(gRandomBase + (int)r) * 0.001f + base;
   if (doubled)
@@ -1702,21 +1699,17 @@ int RecordArray::FindNext(int index)
 }
 
 // @ 0x00d660e0
-Variant* Variant::CopyFrom(const int* src)
+void Variant::CopyFrom(const int* src)
 {
   int* dst = (int*)this;
   dst[0] = src[0];
-  if (!(bool)(((uint32_t)src[0] >> 31) & 1)) {
-    int* d = dst + 1;
-    if (d != 0) {
-      d[0] = src[1];
-      d[1] = src[2];
-      d[2] = src[3];
-      d[3] = src[4];
-      d[4] = src[5];
-    }
+  if ((((uint32_t)src[0] >> 31) & 1) == 0 && dst + 1 != 0) {
+    dst[1] = src[1];
+    dst[2] = src[2];
+    dst[3] = src[3];
+    dst[4] = src[4];
+    dst[5] = src[5];
   }
-  return this;
 }
 
 // @ 0x00d66120

@@ -1,611 +1,392 @@
-// Slice s00fe0f40: SP::cAppModeSpace::HandleSimulationUpdate (0x00fe0f40, 2647 bytes).
-// Flags: /O2 /MD /Gy /TP /arch:SSE /fp:fast (scalar SSE math, __asm float helpers, no /EHsc needed).
-//
-// Per-frame update of the space game mode: counts down a delayed message, waits for the
-// planet-entry bakes, drives the solar->planet and entry->new-game transitions, the scripted
-// tutorial steps, then ticks the simulator subsystems (game time, UFO keys, community editor,
-// every game noun of one type, tool effects), runs the player's current space tool, handles
-// mouse-driven planet navigation / edge spin, the camera mouse wheel, the UI and finally the
-// planet-follow camera.
-//
-// Member offsets are retail (dev PDB cAppModeSpace shifted by +0x5c and extended). Callees that
-// only have FUN_ names are named after their use here (descriptive, not PDB).
+// Slice s00fe0f40: SP::cAppModeSpace::HandleSimulationUpdate
+// Per-frame simulation update: countdown-triggered command, deferred-object drain,
+// simulation time accumulation, solar->planet transition, the space-mode UI state
+// chain, space-game input/tool handling and the planet destination marker.
 #include "types.h"
 #include <math.h>
 
-#pragma warning(disable : 4035)
+// ---- retail callees (address in the comment) ----
+void __cdecl operator_delete__(void* p);                        // 0xf47380
+void* __cdecl Fn_00401010();                                    // 0x401010  drain predicate host
+void* __cdecl Fn_0067dd20();                                    // 0x67dd20
+void* __cdecl App();                                            // 0x67dd10
+void* __cdecl UIMgr_67dd50();                                   // 0x67dd50
+void* __cdecl ConfigManager();                                  // 0x67dd30
+void* __cdecl ObjectDb();                                       // 0x67ddc0
+void* __cdecl PlanetModel();                                    // 0xb3d350
+void* __cdecl PlanetWatcher();                                  // 0xb3d310
+void* __cdecl NounManager();                                    // 0xb3d300
+void* __cdecl ToolManager();                                    // 0xb3d390
+void* __cdecl SpaceGfx();                                       // 0xb3d470
+void* __cdecl CommHostMgr();                                    // 0xb3d490
+void* __cdecl SpaceUIManager();                                 // 0xb3d410
+void* __cdecl GameTimeManager();                                // 0xb3d380
+void* __cdecl World();                                          // 0xb3d230
+void* __cdecl GameInputManager();                               // 0xb3d250
+void* __cdecl TriggerManager();                                 // 0xb3d4d0
+void* __cdecl GetUFOSimulator();                                // 0xffbe50
+void* __cdecl GetUniverseContext();                             // 0x1021080
+void* __cdecl GetPlayerEmpire();                                // 0x1021300
+int*  __cdecl Fn_00c30f90(void* empire);                        // 0xc30f90
+void  __cdecl Fn_00e1dc70();                                    // 0xe1dc70
+void  __cdecl AdvanceBackgroundSim(int n);                      // 0x1022920
+void  __cdecl Fn_00b84270(void* model);                         // 0xb84270
+void  __cdecl Fn_00b88420(void* model);                         // 0xb88420
+bool  __cdecl Fn_00d09660(void* o);                             // 0xd09660
+void  __cdecl Fn_00b6dbd0(float f);                             // 0xb6dbd0
+void  __cdecl Fn_00804f10(float x, float y);                    // 0x804f10
+void  __cdecl Fn_00fb8db0(void* o);                             // 0xfb8db0
+void  __cdecl NormalizedSafe(float* out, const void* in);       // 0x449c20 SP::normalized_safe
+void  __cdecl Fn_007c40f0(void* out, void* viewer);             // 0x7c40f0
+void  __cdecl Fn_00409930(void* t);                             // 0x409930 Transform ctor
+void* __cdecl Fn_00c37360();                                    // 0xc37360
+void* __cdecl Fn_00b21340(void* nm, void* a, void* b, void* c, void* d, void* e); // 0xb21340
 
-// EA float->int64 helper: fistp in the current (round-to-nearest) mode. The 8-aligned result
-// is what gives the caller its `and esp,-8` frame.
-inline int64_t FloatToInt64(float f)
-{
-    __declspec(align(8)) int64_t result;
-    __asm fld f
-    __asm fistp result
-    return result;
-}
+// thiscall helpers: one dummy class per signature, so the callee stays a member
+// function and the first argument is the retail ecx (this pointer).
+#define THISCALL_0(ret, name) struct name##_S { ret F(); }; \
+    static ret name(void* p) { return ((name##_S*)p)->F(); }
+#define THISCALL_1(ret, name, A) struct name##_S { ret F(A a); }; \
+    static ret name(void* p, A a) { return ((name##_S*)p)->F(a); }
+#define THISCALL_2(ret, name, A, B) struct name##_S { ret F(A a, B b); }; \
+    static ret name(void* p, A a, B b) { return ((name##_S*)p)->F(a, b); }
+#define THISCALL_3(ret, name, A, B, C) struct name##_S { ret F(A a, B b, C c); }; \
+    static ret name(void* p, A a, B b, C c) { return ((name##_S*)p)->F(a, b, c); }
 
-// float->int with the current MXCSR rounding (asm helper in the original).
-__forceinline int RoundToInt(float f) { __asm cvtss2si eax, f }
+THISCALL_0(void*, Fn_00a1ad60)                       // 0xa1ad60 GetPlayerInventory
+THISCALL_0(void*, Fn_00ff3f00)                       // 0xff3f00
+THISCALL_0(void*, Fn_0104f930)                       // 0x104f930
+THISCALL_0(bool,  Fn_0104bd50)                       // 0x104bd50
+THISCALL_0(int,   Fn_0104be00)                       // 0x104be00
+THISCALL_0(int,   Fn_00b31c60)                       // 0xb31c60 scaled game time
+THISCALL_0(void,  Fn_00b515e0)                       // 0xb515e0 PlanetWatcher::Update
+THISCALL_1(void,  Fn_00b5e9a0, int)                  // 0xb5e9a0 SP::UpdateWorldVisibility
+THISCALL_1(void,  Fn_00ffe860, int)                  // 0xffe860 UpdateUfoKeys
+struct Fn_00ffe570_S { void F(float x, float y, bool b, int i1, int i2, int i3, int i4); };
+static void Fn_00ffe570(void* p, float x, float y, bool b, int i1, int i2, int i3, int i4)
+{ ((Fn_00ffe570_S*)p)->F(x, y, b, i1, i2, i3, i4); }        // 0xffe570
+THISCALL_1(void,  Fn_00ffcab0, float)                // 0xffcab0 Update
+THISCALL_1(void,  Fn_00d124e0, int)                  // 0xd124e0
+THISCALL_1(void,  Fn_010377f0, int)                  // 0x10377f0 UpdateForSpaceGame
+THISCALL_1(void,  Fn_00ae8510, int)                  // 0xae8510 CommHost::Update
+THISCALL_0(void,  Fn_0104f2a0)                       // 0x104f2a0
+THISCALL_3(void,  Fn_01051090, void*, float*, uint32_t) // PlayerUseToolUpdate
+THISCALL_3(void,  Fn_01050bb0, void*, float*, uint32_t) // PlayerUseToolStart
+THISCALL_1(void,  Fn_010743a0, uint32_t)             // cSPUISpace::Update
+THISCALL_3(void,  Fn_00697b20, float, float, int)    // 0x697b20
+THISCALL_1(void,  Fn_007c4010, uint32_t*)            // cViewer::FUN
+THISCALL_0(float, Fn_00b7e4d0)                       // 0xb7e4d0
+THISCALL_0(float, Fn_00c37120)                       // 0xc37120
+THISCALL_0(float, Fn_00c373b0)                       // 0xc373b0
+THISCALL_0(float, Fn_00c373c0)                       // 0xc373c0
+THISCALL_0(float, Fn_00c373d0)                       // 0xc373d0
+THISCALL_0(float, Fn_00c373e0)                       // 0xc373e0
+THISCALL_0(bool,  Fn_00e36fa0)                       // 0xe36fa0
+THISCALL_0(void,  Fn_00e36de0)                       // 0xe36de0 ResetState
+THISCALL_0(bool,  Fn_00e36dd0)                       // 0xe36dd0
+THISCALL_0(void,  Fn_00e3b1f0)                       // 0xe3b1f0 HidePanels
+THISCALL_0(bool,  Fn_00e36e10)                       // 0xe36e10
+THISCALL_3(void,  Fn_00e3e350, char, const char*, char) // 0xe3e350 Activate
+THISCALL_0(int64_t, Fn_0093a5e0)                     // 0x93a5e0 GetElapsedTime
+THISCALL_0(float, Fn_01017220)                       // 0x1017220
 
-__forceinline float Clamp(float value, float minValue, float maxValue)
-{
-    __asm {
-        movss xmm0, value
-        maxss xmm0, minValue
-        minss xmm0, maxValue
-        movss value, xmm0
-    }
-    return value;
-}
+extern float g_timeScale;        // 0x13ec5b4
+extern float g_zero;             // 0x13eb1bc
+extern float g_one;              // 0x1485720
+extern float g_kHalf;            // 0x1471064
+extern float g_kb8a0;            // 0x13eb8a0
+extern float g_k85378;           // 0x1485378
+extern float g_k65544;           // 0x1465544
+extern float g_v16d9944;         // 0x16d9944
+extern float g_v16d9948;         // 0x16d9948
+extern float g_v16d994c;         // 0x16d994c
+extern char  gAppNameTag[];      // 0x1654c05
+extern void* g_TestSystem;       // 0x15fd928 (cTestSystem singleton)
 
-#define PVCAT2(a, b) a##b
-#define PVCAT(a, b) PVCAT2(a, b)
-#define PV virtual void PVCAT(pv_, __COUNTER__)();
-#define PV2 PV PV
-#define PV4 PV2 PV2
-#define PV8 PV4 PV4
+// ---- vtable thunks ----
+typedef void (__thiscall* T0)(void*);
+typedef void (__thiscall* T1)(void*, uint32_t);
+typedef void (__thiscall* TF)(void*, float);
+typedef void (__thiscall* T2)(void*, void*, void*);
+typedef bool (__thiscall* TB1)(void*, uint32_t);
+typedef bool (__thiscall* TBP)(void*, void*);
+typedef void* (__thiscall* TP0)(void*);
+typedef void* (__thiscall* TP1)(void*, uint32_t);
+typedef uint32_t (__thiscall* TU0)(void*);
+static void* Vfn(void* o, int off) { return *(void**)(*(char**)o + off); }
 
-struct Vector2 {
-    float x, y;
+// ---- layout (offsets taken from the retail code) ----
+struct Node { Node* next; Node* prev; void* payload; };   // payload at +0x08
+struct Vec3 { float x, y, z; };
+struct Transform { float m[11]; };   // 0x2c bytes
+
+struct cSpaceGameState {
+    uint8_t pad_00[0x14];
+    void*   mpUISpace;      // +0x14
+    uint8_t pad_18[0x08];
+    void*   mpObj20;        // +0x20
+    uint8_t pad_24[0x2c];
+    uint8_t mFlags50;       // +0x50
 };
 
-struct Vector3 {
-    float x, y, z;
-    Vector3() {}
-    Vector3(float _x, float _y, float _z) : x(_x), y(_y), z(_z) {}
-    Vector3(const Vector3& o) : x(o.x), y(o.y), z(o.z) {}
-    Vector3 operator*(float s) const { return Vector3(x * s, y * s, z * s); }
+struct cInventory {
+    uint8_t pad_00[0x604];
+    float   mField604;      // +0x604
 };
-
-struct Matrix3 { float m[9]; };
-
-// cSPTransform (0x38 bytes)
-struct Transform {
-    uint16_t mFlags;
-    uint16_t mChangeCount;
-    Vector3 mOffset;      // +0x04
-    float mScale;         // +0x10
-    Matrix3 mRotation;    // +0x14
-    Transform();          // 0x00409930
-};
-
-struct ResourceKey {
-    uint32_t instanceID;
-    uint32_t typeID;
-    uint32_t groupID;
-};
-
-struct Rect {
-    int left, top, right, bottom;
-};
-
-Vector3 normalized_safe(const Vector3& v);                   // 0x00449c20
-
-void operator delete[](void* p);                              // 0x00f47380
-
-namespace eastl {
-struct ListNodeBase {
-    ListNodeBase* mpNext;
-    ListNodeBase* mpPrev;
-};
-template <typename T>
-struct ListNode : public ListNodeBase {
-    T mValue;
-};
-template <typename T>
-class list { public:
-    typedef ListNode<T> node_type;
-    ListNodeBase mNode;
-    uint32_t mAllocator;
-
-    bool empty() const { return mNode.mpNext == &mNode; }
-    T& front() { return ((node_type*)mNode.mpNext)->mValue; }
-    void pop_front()
-    {
-        node_type* pNode = (node_type*)mNode.mpNext;
-        pNode->mpPrev->mpNext = pNode->mpNext;
-        pNode->mpNext->mpPrev = pNode->mpPrev;
-        operator delete[](pNode);
-    }
-};
-}  // namespace eastl
-
-namespace EA {
-class Stopwatch { public:
-    uint32_t data[6];
-    uint64_t GetElapsedTime() const;                          // 0x0093a5e0
-};
-}
 
 namespace SP {
+struct cAppModeSpace {
+    void HandleSimulationUpdate(float dtA, float dtB);
+    void CompleteTransitionFromSolarToPlanet();     // 0xfe0c60
+    void CompleteTransitionFromEntryToNewGame();    // 0xfdbc20
+    void TransitionFromCivToSpace(int a, int b);    // 0xfdba50
 
-// ----------------------------------------------------------------------------- managers
-
-struct IMessageManager {                                      // FUN_0067dd20()
-    PV8 PV2
-    virtual void PostMSG(uint32_t messageID);                 // +0x28
-};
-IMessageManager* MessageManager();                            // 0x0067dd20
-
-struct IBakeManager {                                         // FUN_00401010()
-    PV8 PV4 PV2 PV
-    virtual bool IsBaked(const ResourceKey& key);             // +0x3c
-};
-IBakeManager* BakeManager();                                  // 0x00401010
-
-class cTerrainSphere { public:
-    PV4
-    virtual struct cPlanetCenter* GetCenter();                // +0x10
-    PV8 PV4 PV2 PV
-    virtual bool IsReady();                                   // +0x50
-};
-struct cPlanetCenter {
-    Vector3 GetPosition();                                    // 0x00fb8db0
-};
-
-class cPlanetModel { public:
-    uint32_t pad00[0x24 / 4];
-    cTerrainSphere* mpTerrain;                                // +0x24
-    void FinishPlanetLoad();                                  // 0x00b84270
-    void ActivatePlanet();                                    // 0x00b88420
-    float GetMinAltitude();                                   // 0x00b7e4d0
-};
-cPlanetModel* PlanetModel();                                  // 0x00b3d350
-
-struct cPlanetRenderer { void OnPlanetEntered(); };           // 0x00b515e0
-cPlanetRenderer* PlanetRenderer();                            // 0x00b3d310
-
-struct cTutorialManager {                                     // FUN_00b3d410()
-    bool IsActive();                                          // 0x00e36fa0
-    void StartIntro();                                        // 0x00e36de0
-    bool IsIntroDone();                                       // 0x00e36dd0
-    void StartStep2();                                        // 0x00e3b1f0
-    bool IsStep2Done();                                       // 0x00e36e10
-    void Finish(int a, const char* name, int b);              // 0x00e3e350
-};
-cTutorialManager* TutorialManager();                          // 0x00b3d410
-extern const char g_tutorialFinishName[];                     // 0x01654c05
-
-class cTestSystem { public:
-    uint32_t pad00[0x70 / 4];
-    eastl::ListNodeBase mTests;                               // +0x70
-};
-extern cTestSystem* sTestSystem;                              // 0x015fd928
-
-struct cGameState { uint32_t pad00[0x2c / 4]; int mState; };  // +0x2c
-cGameState* GameState();                                      // 0x00b3d4d0
-
-class cEmpire { public: int* GetCities(); };                         // 0x00c30f90
-class cSPLivingUniverse { public:
-    static cEmpire* GetPlayerEmpire();                        // 0x01021300
-    static int GetUniverseContext();                          // 0x01021080
-};
-void OnPlayerEmpireHasNoCities();                             // 0x00e1dc70
-
-struct cSimulatorSystem {                                     // FUN_00b3d230()
-    PV8 PV2 PV
-    virtual void Update(int deltaMS);                         // +0x2c
-    virtual void PostUpdate(int deltaMS);                     // +0x30
-    void UpdateMessages(int deltaMS);                         // 0x00b5e9a0
-    void PostEvent(uint32_t id);                              // 0x00b5cde0
-};
-cSimulatorSystem* SimulatorSystem();                          // 0x00b3d230
-
-class cGameTimeManager { public:
-    uint32_t pad00[0x48 / 4];
-    uint8_t mFlags;                                           // +0x48 (bit 0: paused)
-    int UpdateTime(int deltaMS);                              // 0x00b31c60
-};
-cGameTimeManager* GameTimeManager();                          // 0x00b3d380
-void UpdateGameTime(int gameDeltaMS);                         // 0x01022920
-
-class cSPUISpace { public:
-    void UpdateUI(int deltaMS);                               // 0x010743a0
-    void FUN_0106ab20(int state);                             // 0x0106ab20
-};
-class cCommunityEditor { public:
-    void HandleSimulationUpdate(int deltaMS);                 // 0x00d124e0
-    bool IsOpen();                                            // 0x00d09660
+    uint8_t          pad_000[0xc8];
+    uint8_t          mTransform_c8[0x20];   // +0xc8 .. +0xe7
+    int32_t          m_e8;                  // +0xe8
+    uint8_t          pad_ec[0x01];          // +0xec
+    bool             m_ed;                  // +0xed
+    bool             m_ee;                  // +0xee
+    uint8_t          pad_ef[0x21];          // +0xef .. +0x10f
+    uint8_t          mStopwatch110[0x10];   // +0x110
+    uint8_t          pad_120[0x08];         // +0x120 .. +0x127
+    float            m_f128;                // +0x128
+    float            m_f12c;                // +0x12c
+    bool             m_130;                 // +0x130
+    bool             m_131;                 // +0x131
+    uint8_t          pad_132[0x2a];         // +0x132 .. +0x15b
+    cSpaceGameState* mpSpaceState;          // +0x15c
+    uint8_t          pad_160[0x04];         // +0x160 .. +0x163
+    uint32_t         m_164;                 // +0x164
+    uint8_t          pad_168[0x02];         // +0x168 .. +0x169
+    bool             m_16a;                 // +0x16a
+    uint8_t          pad_16b[0x05];         // +0x16b .. +0x16f
+    Node             mList170;              // +0x170
+    uint8_t          pad_17c[0x11];         // +0x17c .. +0x18c
+    bool             m_18d;                 // +0x18d
+    bool             m_18e;                 // +0x18e
+    bool             m_18f;                 // +0x18f
+    bool             m_190;                 // +0x190
+    bool             m_191;                 // +0x191
+    bool             m_192;                 // +0x192
+    uint8_t          pad_193[0x01];         // +0x193
+    uint32_t         m_194;                 // +0x194
 };
 
-class cSpatialObject { public:
-    PV8 PV2 PV
-    virtual const Vector3& GetPosition();                     // +0x2c
-};
-
-class cSPSpaceToolData;
-struct cSPPlayerUFO {
-    uint32_t pad00[0x34 / 4];
-    cSpatialObject mSpatial;                                  // +0x34
-    uint32_t pad38[(0x604 - 0x38) / 4];
-    float mEdgeSpin;                                          // +0x604
-    cSPSpaceToolData* GetActiveTool();                        // 0x00ff3f00
-    float GetAltitude();                                      // 0x00c37120
-};
-
-struct cSpaceGameFlags {
-    uint8_t mBits;
-    bool IsSet(uint8_t flag) const { return (mBits & flag) != 0; }
-};
-
-// SP::cSPPlayerInventory (size 0xac): the player's space tool/item inventory.  The virtual
-// HasTool at slot 29 (+0x74) tests a ResourceKey; only its head is modelled here.
-struct cSPPlayerInventory {
-    PV8 PV8 PV8 PV4 PV
-    virtual bool HasTool(const ResourceKey& toolID);          // +0x74
-};
-
-class cSPSimulatorSpaceGame { public:
-    uint32_t pad00[0x14 / 4];
-    cSPUISpace* mpUI;                                         // +0x14
-    uint32_t pad18[2];
-    cCommunityEditor* mpCommunityEditor;                      // +0x20
-    uint32_t pad24[(0x50 - 0x24) / 4];
-    cSpaceGameFlags mFlags;                                   // +0x50
-    cSPPlayerUFO* GetPlayerUFO();                             // 0x00a1ad60
-    cSPPlayerInventory* GetPlayerInventory();                 // 0x00a1ad60
-    void FUN_01003a50();                                      // 0x01003a50
-    void UpdateUfoKeys(int deltaMS);                          // 0x00ffe860
-    void UpdateSpaceGame(int gameDeltaMS);                    // 0x00ffcab0
-    void SetPlanetDestinationFromOffset(float x, float y, bool a, bool b, bool c, bool d, bool e);  // 0x00ffe570
-};
-cSPSimulatorSpaceGame* SpaceGame();                           // 0x00ffbe50
-
-struct cGameNoun {
-    virtual int AddRef();                                     // +0x00
-    virtual int Release();                                    // +0x04
-    PV8 PV8 PV4 PV2
-    virtual void UpdateGameTime(int gameDeltaMS);             // +0x60
-    uint8_t pad[0x135 - 4];
-    bool mbNeedsUpdate;                                       // +0x135
-};
-struct cGameNounVector {
-    cGameNoun** mpBegin;
-    cGameNoun** mpEnd;
-    cGameNoun** mpCapacity;
-    uint32_t mAllocator;
-    uint32_t size() const { return (uint32_t)(mpEnd - mpBegin); }
-    cGameNoun* const& operator[](uint32_t i) const { return mpBegin[i]; }
-};
-struct cGameDataVector {
-    uint32_t pad00;
-    cGameNounVector mData;                                    // +0x04
-};
-typedef void* (*GameDataFn)();
-void* GameData_Create();                                      // 0x00cd7d10
-void* GameData_Cast();                                        // 0x00d3d420
-void* GameData_Write();                                       // 0x00cdb110
-void* GameData_Read();                                        // 0x00b1e520
-class cGameNounManager { public:
-    cGameDataVector* GetGameDataVector(GameDataFn a, GameDataFn b, GameDataFn c, GameDataFn d, uint32_t type);  // 0x00b21340
-    void ProcessPending();                                    // 0x00b22960
-};
-cGameNounManager* NounManager();                              // 0x00b3d300
-
-struct cToolStrategy {
-    PV8 PV2 PV
-    virtual void Update(cSPSpaceToolData* tool, Vector3* pos);  // +0x2c
-    PV2 PV
-    virtual void GetTargetPosition(Vector3* pos);             // +0x3c
-};
-class cSPSpaceToolData { public:
-    cToolStrategy* GetStrategy();                             // 0x0104f930
-    bool IsContinuous();                                      // 0x0104bd50
-    int GetActiveSlot();                                      // 0x0104be00
-};
-class cSPToolManager { public:
-    void UpdateToolEffects();                                 // 0x0104f2a0
-    void PlayerUseToolContinuous(cSPSpaceToolData* tool, Vector3* pos, int deltaMS);  // 0x01051090
-    void PlayerUseToolStart(cSPSpaceToolData* tool, Vector3* pos, bool b);           // 0x01050bb0
-};
-cSPToolManager* ToolManager();                                // 0x00b3d390
-
-struct cUpdater470 { void Update470(int deltaMS); };          // 0x010377f0
-struct cUpdater490 { void Update490(int deltaMS); };          // 0x00ae8510
-cUpdater470* Updater470();                                    // 0x00b3d470
-cUpdater490* Updater490();                                    // 0x00b3d490
-
-struct IGameInputManager {
-    PV4 PV2
-    virtual bool IsTriggered(uint32_t controlID);             // +0x18
-};
-IGameInputManager* GameInputManager();                        // 0x00b3d250
-
-class cViewer { public:
-    Rect GetViewport();                                       // 0x007c4010
-    void GetCameraTransform(Transform* t);                    // 0x007c40f0
-};
-struct IWindowLayout {
-    PV2 PV
-    virtual struct cUIWindow* FindWindowByID(uint32_t id);    // +0x0c
-};
-struct cUIWindow { float GetMaxZoom(); };                     // 0x01017220
-struct IRenderer {
-    PV4 PV2 PV
-    virtual cViewer* GetViewer();                             // +0x1c
-    PV2 PV
-    virtual void Update(int deltaMS);                         // +0x2c
-    PV2
-    virtual IWindowLayout* GetWindowLayout();                 // +0x38
-};
-struct IApp {
-    PV8 PV8 PV4
-    virtual IRenderer* GetRenderer();                         // +0x50
-};
-IApp* App();                                                  // 0x0067dd10
-
-struct MouseState {
-    int mWidth;                                               // +0x00
-    int mHeight;                                              // +0x04
-    int mX;                                                   // +0x08
-    int mY;                                                   // +0x0c
-    char mbInWindow;                                          // +0x10
-};
-struct IInputManager {
-    PV4 PV2 PV
-    virtual MouseState* GetMouseState();                      // +0x1c
-};
-IInputManager* InputManager();                                // 0x0067dd50
-
-struct IConfigManager {
-    PV8 PV4
-    virtual int GetBool(uint32_t id);                         // +0x30
-};
-IConfigManager* ConfigManager();                              // 0x0067dd30
-
-struct cCameraSettings {
-    float GetMinZoomX();                                      // 0x00c373b0
-    float GetMaxZoomX();                                      // 0x00c373c0
-    float GetMinZoomY();                                      // 0x00c373d0
-    float GetMaxZoomY();                                      // 0x00c373e0
-};
-cCameraSettings* CameraSettings();                            // 0x00c37360
-
-struct ICamera {
-    PV2 PV
-    virtual void Refresh();                                   // +0x0c
-    PV8
-    virtual void SetTarget(Vector3* pos);                     // +0x30
-    PV
-    virtual void SetPositionAndDirection(Vector3* pos, Vector3* dir);  // +0x38
-    virtual void SetCameraPosition(Vector3* pos);             // +0x3c
-    PV2 PV
-    virtual uint32_t GetCameraType();                         // +0x4c
-};
-ICamera* ActiveCamera();                                      // 0x0067ddc0
-
-void Camera_Update(float delta);                              // 0x00b6dbd0
-void Cursor_Update(float x, float y);                            // 0x00804f10
-
-struct cLocalInputState {
-    void OnMouseWheel(float x, float y, uint32_t button);        // 0x00697b20
-};
-
-extern const Vector3 kToolTargetDefault;                      // 0x016d9944
-extern const ResourceKey kInterplanetaryDrive;                // 0x016d9994
-void FUN_010213b0(int value);                                 // 0x010213b0
-
-class cAppModeSpace {
-public:
-    uint32_t pad000[0xc8 / 4];
-    cLocalInputState mLocalInputState;                        // +0xc8
-    uint8_t pad0c9[0xe8 - 0xc9];
-    uint32_t mRotateButton;                                   // +0xe8
-    uint8_t pad0ec;
-    bool mMMBDown;                                            // +0xed
-    bool mRMBDown;                                            // +0xee
-    uint8_t pad0ef[0x110 - 0xef];
-    EA::Stopwatch mMMBPlanetTimer;                            // +0x110
-    Vector2 mMousePosition;                                   // +0x128
-    bool mbWheelHandled;                                      // +0x130
-    bool mbCheckEmpire;                                       // +0x131
-    uint8_t pad132[0x15c - 0x132];
-    cSPSimulatorSpaceGame* mpSimulatorSpaceGame;              // +0x15c
-    uint32_t pad160;
-    uint32_t mElapsedBakeTimeForTransitionMS;                 // +0x164
-    uint8_t pad168[2];
-    bool mBakingForPlanetEntryEnded;                          // +0x16a
-    uint8_t pad16b[0x170 - 0x16b];
-    eastl::list<ResourceKey> mNeedsBakingForTransition;       // +0x170
-    uint8_t pad17c[0x18d - 0x17c];
-    bool mbToolBlocked;                                       // +0x18d
-    bool mbTutorial;                                          // +0x18e
-    bool mbTutorialIntro;                                     // +0x18f
-    bool mbTutorialStep2;                                     // +0x190
-    bool mbTutorialStep3;                                     // +0x191
-    bool mbTutorialFinish;                                    // +0x192
-    uint8_t pad193;
-    uint32_t mDelayedMessageCounter;                          // +0x194
-
-    void CompleteTransitionFromSolarToPlanet();               // 0x00fe0c60
-    void CompleteTransitionFromEntryToNewGame();              // 0x00fdbc20
-    void TransitionFromCivToSpace(bool a, bool b);            // 0x00fdba50
-    void InitSpaceGame();                                     // 0x00fdbd60
-    void FUN_00fe0e10();                                      // 0x00fe0e10
-    void FUN_00fe19a0();                                      // 0x00fe19a0
-    void HandleSimulationUpdate(float delta1, float delta2);
-};
-
-// 0x00fe0f40
-void cAppModeSpace::HandleSimulationUpdate(float delta1, float delta2)
+// @ 0x00fe0f40
+void cAppModeSpace::HandleSimulationUpdate(float dtA, float dtB)
 {
-    if (mDelayedMessageCounter > 0) {
-        if (--mDelayedMessageCounter == 0) {
-            MessageManager()->PostMSG(0x21851ebe);
+    if (m_194 != 0) {
+        if (--m_194 == 0) {
+            void* p = Fn_0067dd20();
+            ((T1)Vfn(p, 0x28))(p, 0x21851ebe);
         }
         return;
     }
 
-    if (!mNeedsBakingForTransition.empty()) {
-        IBakeManager* pBakeManager = BakeManager();
-        while (!pBakeManager->IsBaked(mNeedsBakingForTransition.front())) {
-            mNeedsBakingForTransition.pop_front();
-            if (mNeedsBakingForTransition.empty()) {
-                mBakingForPlanetEntryEnded = true;
-                break;
+    // the deferred-object list at +0x170: drop entries until the predicate stops us
+    if (mList170.next != &mList170) {
+        void* pred = Fn_00401010();
+        if (!((TBP)Vfn(pred, 0x3c))(pred, &mList170.next->payload)) {
+            for (;;) {
+                Node* n = mList170.next;
+                n->prev->next = n->next;
+                n->next->prev = n->prev;
+                operator_delete__(n);
+                if (mList170.next == &mList170) {
+                    m_16a = true;
+                    break;
+                }
+                if (((TBP)Vfn(pred, 0x3c))(pred, &mList170.next->payload))
+                    break;
             }
         }
     }
 
-    mElapsedBakeTimeForTransitionMS += (uint32_t)FloatToInt64(delta2 * 1000.0f);
+    float fA = dtB * g_timeScale;
+    __declspec(align(8)) unsigned __int64 msA = (unsigned __int64)fA;
+    m_164 += (uint32_t)msA;
 
-    if (mpSimulatorSpaceGame->mFlags.IsSet(2)) {
-        if (PlanetModel()->mpTerrain->IsReady() &&
-            (mBakingForPlanetEntryEnded || mElapsedBakeTimeForTransitionMS > 15000)) {
-            PlanetModel()->FinishPlanetLoad();
-            PlanetRenderer()->OnPlanetEntered();
-            PlanetModel()->ActivatePlanet();
-            CompleteTransitionFromSolarToPlanet();
+    if (mpSpaceState->mFlags50 & 2) {
+        void* pm23 = *(void**)((char*)PlanetModel() + 0x24);
+        if (((TU0)Vfn(pm23, 0x50))(pm23)) {
+            if (m_16a || m_164 > 0x3a98) {
+                Fn_00b84270(PlanetModel());
+                Fn_00b515e0(PlanetWatcher());
+                Fn_00b88420(PlanetModel());
+                CompleteTransitionFromSolarToPlanet();
+            }
         }
     }
 
-    int deltaMS = RoundToInt(delta2 * 1000.0f);
-    RoundToInt(delta1 * 1000.0f);
+    int a = (int)fA;
+    float fB = dtA * g_timeScale;
+    int b = (int)fB;
+    (void)b;
 
-    if (mpSimulatorSpaceGame->mFlags.IsSet(0x10)) {
-        if (mBakingForPlanetEntryEnded) {
-            CompleteTransitionFromEntryToNewGame();
-            TransitionFromCivToSpace(true, true);
-        } else {
-            SimulatorSystem()->UpdateMessages(deltaMS);
+    if (mpSpaceState->mFlags50 & 0x10) {
+        if (!m_16a) {
+            Fn_00b5e9a0(World(), (uint32_t)a);
             return;
         }
+        CompleteTransitionFromEntryToNewGame();
+        TransitionFromCivToSpace(1, 1);
     }
 
-    if (mbTutorial && TutorialManager()->IsActive() &&
-        (!sTestSystem || sTestSystem->mTests.mpNext == &sTestSystem->mTests)) {
-        if (mbTutorialIntro) {
-            TutorialManager()->StartIntro();
-            mbTutorialIntro = false;
-            mbTutorialStep2 = true;
+    void* ui = SpaceUIManager();
+    if (m_18e && Fn_00e36fa0(ui)
+        && (g_TestSystem == 0
+            || *(void**)((char*)g_TestSystem + 0x70) == (char*)g_TestSystem + 0x70)) {
+        if (m_18f) {
+            Fn_00e36de0(ui);
+            m_18f = false;
+            m_190 = true;
             return;
         }
-        if (mbTutorialStep2 && TutorialManager()->IsIntroDone()) {
-            TutorialManager()->StartStep2();
-            mbTutorialStep2 = false;
-            mbTutorialStep3 = true;
+        if (m_190 && Fn_00e36dd0(ui)) {
+            Fn_00e3b1f0(ui);
+            m_190 = false;
+            m_191 = true;
             return;
         }
-        if (mbTutorialStep3 && TutorialManager()->IsStep2Done()) {
-            mbTutorialStep3 = false;
-            mbTutorialFinish = true;
+        if (m_191 && Fn_00e36e10(ui)) {
+            m_191 = false;
+            m_192 = true;
             return;
         }
-        if (mbTutorialFinish) {
-            mbTutorialFinish = false;
-            TutorialManager()->Finish(0, g_tutorialFinishName, 1);
+        if (m_192) {
+            m_192 = false;
+            Fn_00e3e350(ui, 0, gAppNameTag, 1);
             return;
         }
-        SimulatorSystem()->UpdateMessages(deltaMS);
+        Fn_00b5e9a0(World(), (uint32_t)a);
         return;
     }
 
-    if (mbCheckEmpire) {
-        int state = GameState()->mState;
-        if (state != 1 && state != 2) {
-            mbCheckEmpire = false;
-            if (*cSPLivingUniverse::GetPlayerEmpire()->GetCities() == 0) {
-                OnPlayerEmpireHasNoCities();
-            }
+    if (m_131) {
+        if (((int*)TriggerManager())[0x2c / 4] != 1
+            && ((int*)TriggerManager())[0x2c / 4] != 2) {
+            m_131 = false;
+            if (*Fn_00c30f90(GetPlayerEmpire()) == 0)
+                Fn_00e1dc70();
         }
     }
 
-    int context = cSPLivingUniverse::GetUniverseContext();
-    cSimulatorSystem* pSimulator = SimulatorSystem();
-    int gameDeltaMS = GameTimeManager()->UpdateTime(deltaMS);
-    UpdateGameTime(gameDeltaMS);
-    pSimulator->Update(deltaMS);
-    bool paused = (GameTimeManager()->mFlags & 1) != 0;
-    SpaceGame()->UpdateUfoKeys(deltaMS);
-    if (mpSimulatorSpaceGame->mpCommunityEditor) {
-        mpSimulatorSpaceGame->mpCommunityEditor->HandleSimulationUpdate(deltaMS);
+    void* ctx = GetUniverseContext();
+    void* world = World();
+    int gameTime = Fn_00b31c60(GameTimeManager());
+    AdvanceBackgroundSim(gameTime);
+    ((T1)Vfn(world, 0x2c))(world, (uint32_t)a);
+
+    bool inputFlag = (((uint8_t*)GameTimeManager())[0x48] & 1) != 0;
+    Fn_00ffe860(GetUFOSimulator(), a);
+
+    if (mpSpaceState->mpObj20)
+        Fn_00d124e0(mpSpaceState->mpObj20, a);
+
+    if (!inputFlag) {
+        void** vec = (void**)Fn_00b21340(NounManager(), (void*)0xcd7d10, (void*)0xd3d420,
+                                         (void*)0xcdb110, (void*)0xb1e520, (void*)0xce9f6639);
+        int n = (int)((char*)vec[2] - (char*)vec[1]) >> 2;
+        for (int i = 0; i < n; i++) {
+            void* o = ((void**)vec[1])[i];
+            if (!o)
+                continue;
+            ((T0)Vfn(o, 0x00))(o);
+            if (((uint8_t*)o)[0x135])
+                ((TF)Vfn(o, 0x60))(o, fB);
+            ((T0)Vfn(o, 0x04))(o);
+        }
+        Fn_0104f2a0(ToolManager());
     }
 
-    if (!paused) {
-        const cGameNounVector& nouns = NounManager()->GetGameDataVector(
-            (GameDataFn)GameData_Create, (GameDataFn)GameData_Cast, (GameDataFn)GameData_Write,
-            (GameDataFn)GameData_Read, 0xce9f6639)->mData;
-        uint32_t count = nouns.size();
-        for (uint32_t i = 0; i < count; i++) {
-            cGameNoun* pNoun = nouns[i];
-            if (pNoun) {
-                pNoun->AddRef();
-                if (pNoun->mbNeedsUpdate) {
-                    pNoun->UpdateGameTime(gameDeltaMS);
+    Fn_010377f0(SpaceGfx(), a);
+    Fn_00ae8510(CommHostMgr(), a);
+
+    if (!inputFlag) {
+        void* toolMgr = ToolManager();
+        void* tool = Fn_00ff3f00(Fn_00a1ad60(mpSpaceState));
+        if (tool) {
+            void* prop = Fn_0104f930(tool);
+            if (prop) {
+                Vec3 pos;
+                pos.x = g_v16d9944;
+                pos.y = g_v16d9948;
+                pos.z = g_v16d994c;
+                ((T1)Vfn(prop, 0x3c))(prop, (uint32_t)&pos);
+                ((T2)Vfn(prop, 0x2c))(prop, &pos, tool);
+                if (((TB1)Vfn(GameInputManager(), 0x18))(GameInputManager(), 0xddddddddu)
+                    && !((TB1)Vfn(GameInputManager(), 0x18))(GameInputManager(), 0xcdcdcdcdu)) {
+                    if (Fn_0104bd50(tool)) {
+                        Fn_01051090(toolMgr, tool, (float*)&pos, (uint32_t)a);
+                    } else if (Fn_0104be00(tool) != -1 && !m_18d) {
+                        Fn_01050bb0(toolMgr, tool, (float*)&pos, 1);
+                    }
                 }
-                pNoun->Release();
-            }
-        }
-        ToolManager()->UpdateToolEffects();
-    }
-
-    Updater470()->Update470(deltaMS);
-    Updater490()->Update490(deltaMS);
-
-    if (!paused) {
-        cSPSpaceToolData* pTool = mpSimulatorSpaceGame->GetPlayerUFO()->GetActiveTool();
-        cToolStrategy* pStrategy;
-        if (pTool && (pStrategy = pTool->GetStrategy()) != 0) {
-            Vector3 target = kToolTargetDefault;
-            pStrategy->GetTargetPosition(&target);
-            pStrategy->Update(pTool, &target);
-            if (GameInputManager()->IsTriggered(0xdddddddd) &&
-                !GameInputManager()->IsTriggered(0xcdcdcdcd)) {
-                if (pTool->IsContinuous()) {
-                    ToolManager()->PlayerUseToolContinuous(pTool, &target, deltaMS);
-                } else if (pTool->GetActiveSlot() != -1 && !mbToolBlocked) {
-                    ToolManager()->PlayerUseToolStart(pTool, &target, true);
-                }
             }
         }
 
-        if (context == 0) {
-            IWindowLayout* pLayout = App()->GetRenderer()->GetWindowLayout();
-            cUIWindow* pWindow;
-            if (pLayout && (pWindow = pLayout->FindWindowByID(0x303154cd)) != 0) {
-                if (GameInputManager()->IsTriggered(0xcccccccc) &&
-                    mMMBPlanetTimer.GetElapsedTime() > 250) {
-                    MouseState* pMouse = InputManager()->GetMouseState();
-                    float mouseX = (float)pMouse->mX;
-                    float mouseY = (float)pMouse->mY;
-                    Rect viewport = App()->GetRenderer()->GetViewer()->GetViewport();
-                    int centerX = (viewport.right + viewport.left) / 2;
-                    int centerY = (viewport.bottom + viewport.top) / 2;
-                    cSPPlayerUFO* pUFO = SpaceGame()->GetPlayerUFO();
-                    float minAltitude = PlanetModel()->GetMinAltitude();
-                    float t = (pUFO->GetAltitude() - minAltitude) / (pWindow->GetMaxZoom() - minAltitude);
-                    t = Clamp(t, 0.0f, 1.0f);
-                    float s = 1.0f - t;
-                    float minX = CameraSettings()->GetMinZoomX();
-                    float rangeX = (CameraSettings()->GetMaxZoomX() - minX) * s;
-                    float minY = CameraSettings()->GetMinZoomY();
-                    float rangeY = (CameraSettings()->GetMaxZoomY() - minY) * s;
-                    pUFO->mEdgeSpin = 0.0f;
-                    float cx = (float)centerX;
-                    float cy = (float)centerY;
-                    SpaceGame()->SetPlanetDestinationFromOffset(
-                        ((mouseX - cx) / cx) * (rangeY + minY),
-                        ((mouseY - cy) / cy) * (rangeX + minX),
-                        false, true, false, false, false);
-                } else {
-                    MouseState* pMouse = InputManager()->GetMouseState();
-                    bool inWindow = pMouse->mbInWindow != 0;
-                    if (ConfigManager()->GetBool(0x636ec26) && inWindow) {
-                        float x = (float)pMouse->mX;
-                        float width = (float)pMouse->mWidth;
-                        if (x >= 0.0f && width > x) {
-                            float dist = x;
-                            bool right;
-                            if (x > width * 0.5f) {
-                                dist = width - x;
-                                right = true;
-                            } else {
-                                right = false;
-                            }
-                            if (fabs(dist * 0.25) <= 1.0) {
-                                float spin = right ? -1.0f : 1.0f;
-                                SpaceGame()->GetPlayerUFO()->mEdgeSpin = spin;
+        if (ctx == 0) {
+            void* viewer = ((TP0)Vfn(((TP0)Vfn(App(), 0x50))(App()), 0x38))(((TP0)Vfn(App(), 0x50))(App()));
+            if (viewer) {
+                void* mode = ((TP1)Vfn(viewer, 0x0c))(viewer, 0x303154cdu);
+                if (mode) {
+                    int64_t elapsed = Fn_0093a5e0(mStopwatch110);
+                    if (((TB1)Vfn(GameInputManager(), 0x18))(GameInputManager(), 0xccccccccu)
+                        && elapsed > 250) {
+                        // aim the planet destination at the screen centre
+                        void* v1 = ((TP0)Vfn(UIMgr_67dd50(), 0x1c))(UIMgr_67dd50());
+                        float w = (float)*(int*)((char*)v1 + 8);
+                        float h = (float)*(int*)((char*)v1 + 0xc);
+                        void* v2 = ((TP0)Vfn(((TP0)Vfn(App(), 0x50))(App()), 0x1c))(((TP0)Vfn(App(), 0x50))(App()));
+                        uint32_t rect[4];
+                        Fn_007c4010(v2, rect);
+                        int cx = (rect[0] + rect[2]) / 2;
+                        int cy = (rect[1] + rect[3]) / 2;
+
+                        void* inv2 = Fn_00a1ad60(GetUFOSimulator());
+                        float radius = Fn_00b7e4d0(PlanetModel());
+                        float d1 = Fn_00c37120(inv2) - radius;
+                        float d2 = Fn_01017220(mode) - radius;
+                        float ratio = d1 / d2;
+                        float c = ratio < 0.0f ? 0.0f : ratio;
+                        c = c > 1.0f ? 1.0f : c;
+                        float k = 1.0 - c;
+
+                        float a0 = Fn_00c373b0(Fn_00c37360());
+                        float a1 = Fn_00c373c0(Fn_00c37360());
+                        float dA = (a1 - a0) * k;
+                        float b0 = Fn_00c373d0(Fn_00c37360());
+                        float b1 = Fn_00c373e0(Fn_00c37360());
+                        float dB = (b1 - b0) * k;
+
+                        ((cInventory*)inv2)->mField604 = 0.0f;
+                        float dx = ((w - (float)cx) / (float)cx) * (dB + b0);
+                        float dy = ((h - (float)cy) / (float)cy) * (dA + a0);
+                        Fn_00ffe570(GetUFOSimulator(), dx, dy, false, 1, 0, 0, 0);
+                    } else {
+                        void* o = ((TP0)Vfn(UIMgr_67dd50(), 0x1c))(UIMgr_67dd50());
+                        bool flag = ((uint8_t*)o)[0x10] != 0;
+                        inputFlag = flag;
+                        if (((TB1)Vfn(ConfigManager(), 0x30))(ConfigManager(), 0x636ec26u) && flag) {
+                            float x0 = (float)*(int*)((char*)o + 8);
+                            if (x0 >= g_k85378) {
+                                float x1 = (float)*(int*)o;
+                                if (x1 > x0) {
+                                    bool neg;
+                                    float v;
+                                    if (x0 > x1 * g_kHalf) {
+                                        v = x1 - x0;
+                                        neg = true;
+                                    } else {
+                                        v = x0;
+                                        neg = false;
+                                    }
+                                    if (fabs(v * g_kb8a0) <= 1.0) {
+                                        cInventory* pinv = (cInventory*)Fn_00a1ad60(GetUFOSimulator());
+                                        pinv->mField604 = neg ? g_zero : g_one;
+                                    }
+                                }
                             }
                         }
                     }
@@ -614,72 +395,66 @@ void cAppModeSpace::HandleSimulationUpdate(float delta1, float delta2)
         }
     }
 
-    if (!mbWheelHandled && mpSimulatorSpaceGame && mpSimulatorSpaceGame->mpCommunityEditor &&
-        !mpSimulatorSpaceGame->mpCommunityEditor->IsOpen()) {
-        bool doWheel = false;
-        switch (context) {
-        case 0:
-            doWheel = GameInputManager()->IsTriggered(0xcdcdcdcd);
-            break;
-        case 1:
-        case 2:
-            doWheel = mMMBDown || mRMBDown;
-            break;
+    if (!m_130 && mpSpaceState && mpSpaceState->mpObj20
+        && !Fn_00d09660(mpSpaceState->mpObj20)) {
+        bool apply;
+        int type = (int)ctx;
+        if (type == 0) {
+            apply = ((TB1)Vfn(GameInputManager(), 0x18))(GameInputManager(), 0xcdcdcdcdu);
+        } else if (type < 1 || type > 2) {
+            apply = false;
+        } else {
+            apply = m_ed || m_ee;
         }
-        if (doWheel) {
-            Cursor_Update(mMousePosition.x, mMousePosition.y);
-            mLocalInputState.OnMouseWheel(mMousePosition.x, mMousePosition.y, mRotateButton);
-        }
-    }
-    mbWheelHandled = false;
-
-    App()->GetRenderer()->Update(deltaMS);
-    SpaceGame()->UpdateSpaceGame(gameDeltaMS);
-    mpSimulatorSpaceGame->mpUI->UpdateUI(deltaMS);
-    Camera_Update(delta2);
-
-    if (ActiveCamera() && context == 0) {
-        if (ActiveCamera()->GetCameraType() == 0x5e51c01) {
-            cSPPlayerUFO* pUFO = SpaceGame()->GetPlayerUFO();
-            if (pUFO) {
-                Vector3 dir = normalized_safe(pUFO->mSpatial.GetPosition());
-                Vector3 pos = dir * 500.0f;
-                ActiveCamera()->SetPositionAndDirection(&pos, &dir);
-            }
-            cViewer* pViewer = App()->GetRenderer()->GetViewer();
-            if (pViewer) {
-                Transform xf;
-                pViewer->GetCameraTransform(&xf);
-                ActiveCamera()->SetCameraPosition(&xf.mOffset);
-            }
-            if (PlanetModel() && PlanetModel()->mpTerrain) {
-                Vector3 center = PlanetModel()->mpTerrain->GetCenter()->GetPosition();
-                ActiveCamera()->SetTarget(&center);
-                ActiveCamera()->Refresh();
-            }
+        if (apply) {
+            Fn_00804f10(m_f128, m_f12c);
+            Fn_00697b20(mTransform_c8, m_f128, m_f12c, m_e8);
         }
     }
+    m_130 = false;
 
-    pSimulator->PostUpdate(deltaMS);
-    pSimulator->UpdateMessages(deltaMS);
-    mbToolBlocked = false;
+    void* appViewer = ((TP0)Vfn(App(), 0x50))(App());
+    ((T1)Vfn(appViewer, 0x2c))(appViewer, (uint32_t)a);
+    Fn_00ffcab0(GetUFOSimulator(), fB);
+    Fn_010743a0(mpSpaceState->mpUISpace, (uint32_t)a);
+    Fn_00b6dbd0(dtB);
+
+    void* db = ObjectDb();
+    if (db && ctx == 0 && ((TU0)Vfn(db, 0x4c))(db) == 0x5e51c01u) {
+        void* inv3 = Fn_00a1ad60(GetUFOSimulator());
+        if (inv3) {
+            Vec3 v;
+            void* sub = (char*)inv3 + 0x34;
+            void* src = ((TP0)Vfn(sub, 0x2c))(sub);
+            NormalizedSafe(&v.x, src);
+            v.x *= g_k65544;
+            v.y *= g_k65544;
+            v.z *= g_k65544;
+            Vec3 out2;
+            ((T2)Vfn(ObjectDb(), 0x38))(ObjectDb(), &v, &out2);
+        }
+
+        void* viewer3 = ((TP0)Vfn(((TP0)Vfn(App(), 0x50))(App()), 0x1c))(((TP0)Vfn(App(), 0x50))(App()));
+        if (viewer3) {
+            Transform t;
+            Fn_00409930(&t);
+            Fn_007c40f0(&t, viewer3);
+            ((T1)Vfn(ObjectDb(), 0x3c))(ObjectDb(), (uint32_t)((char*)&t + 4));
+        }
+
+        void* pm = PlanetModel();
+        if (pm && *(void**)((char*)pm + 0x24)) {
+            void* pm24 = *(void**)((char*)pm + 0x24);
+            Vec3 marker;
+            void* r = ((TP1)Vfn(pm24, 0x10))(pm24, (uint32_t)&marker);
+            Fn_00fb8db0(r);
+            ((T1)Vfn(ObjectDb(), 0x30))(ObjectDb(), (uint32_t)&marker);
+            ((T0)Vfn(ObjectDb(), 0x0c))(ObjectDb());
+        }
+    }
+
+    ((T1)Vfn(world, 0x30))(world, (uint32_t)a);
+    Fn_00b5e9a0(world, a);
+    m_18d = false;
 }
-
-// @ 0x00fe19a0
-void cAppModeSpace::FUN_00fe19a0()
-{
-    InitSpaceGame();
-    SimulatorSystem()->PostEvent(0x1103192);
-    mpSimulatorSpaceGame->FUN_01003a50();
-    if (!mpSimulatorSpaceGame->GetPlayerInventory()->HasTool(kInterplanetaryDrive)) {
-        FUN_00fe0e10();
-        return;
-    }
-    if (mpSimulatorSpaceGame->mpUI) {
-        mpSimulatorSpaceGame->mpUI->FUN_0106ab20(0);
-    }
-    FUN_010213b0(-1);
-    NounManager()->ProcessPending();
 }
-
-}  // namespace SP

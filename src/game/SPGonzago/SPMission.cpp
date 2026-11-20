@@ -2,35 +2,6 @@
 // Object file: SPGonzago/SPMission.obj.  Function bodies keep the slice's code; types, members and virtual calls use the
 // canonical headers under src/game/include.  Each function keeps its '// @ 0xVA' marker.
 
-// addresses retail relocates here, named so the build relocates them too
-extern "C" char g_13eb384[];
-extern "C" char g_13eb394[];
-extern "C" char g_13f01bc[];
-extern "C" char g_13f5c04[];
-extern "C" char g_146d164[];
-extern "C" char g_146d174[];
-extern "C" char g_146d188[];
-extern "C" char g_146d624[];
-extern "C" char g_146d638[];
-extern "C" char g_146d840[];
-extern "C" char g_146dfb4[];
-extern "C" char g_146fbf0[];
-extern "C" char g_168ee08[];
-extern "C" char g_168ee1c[];
-extern "C" char g_168ee30[];
-extern "C" char g_168ee44[];
-extern "C" char g_168ee58[];
-extern "C" char g_168ee6c[];
-extern "C" char g_168ee80[];
-extern "C" char g_168ee94[];
-extern "C" char g_168eea8[];
-extern "C" char g_168eebc[];
-extern "C" char g_168eed0[];
-extern "C" char g_168eee4[];
-extern "C" char g_168eef8[];
-extern "C" char g_168ef48[];
-extern "C" char g_16e0d08[];
-
 // Hand guard (kept by merge_preamble on re-apply): the generated tm.h defines `struct tm` unguarded, so it
 // collides with <wchar.h>'s own `struct tm` (C2011) as soon as a slice of this module needs <wchar.h>.
 // Defining the CRT guard first makes <wchar.h> skip its copy; tm.h (via SP/cStarRecord.h) still supplies
@@ -273,7 +244,6 @@ public:
 };
 struct cSpeciesExportImpl {
     void v0(int a, void* b);                           // 0x00c59f90 (non-virtual)
-    void FUN_00c59fd0(uint32_t flags, const void* pPayload);  // 0x00c59fd0 (non-virtual)
 };
 }
 namespace SP {
@@ -430,7 +400,7 @@ virtual void m068();
     bool FUN_00c472c0();
     void FUN_00c472e0();
     void ExportPlanet(uint32_t targetType, void* pOut);  // 0x00c47350 (SP::cSPMission::ExportPlanet)
-    void ExportSpecies(uint32_t speciesData, uint32_t itemType);  // 0x00c473f0 (SP::cSPMission::ExportSpecies)
+    void ExportSpecies(uint32_t itemType, uint32_t flags);  // 0x00c473f0 (SP::cSPMission::ExportSpecies)
     void StartCompletedFeedbackTimer();  // 0x00c47440 (SP::cSPMission::StartCompletedFeedbackTimer)
     void* FUN_00c474b0(uint32_t nType);
     void FUN_00c47610();
@@ -1242,26 +1212,26 @@ struct cGameData {
     virtual void       v08();                               // +0x08
     virtual cGameData* Cast(uint32_t nType);                // +0x0c
 };
-static inline void AppendBanner(cVec<EA::AutoRefCount<cGameData> >& entries, cGameData* object)
-{
-    EA::AutoRefCount<cGameData> value;
-    value.mpObject = object;
-    if (object)
-        object->AddRef();
-    if (entries.mpEnd < entries.mpCapacity) {
-        EA::AutoRefCount<cGameData>* slot = entries.mpEnd++;
-        if (slot) {
-            slot->mpObject = object;
-            if (object)
-                object->AddRef();
-        }
-    } else {
-        entries.DoInsertValue(entries.mpEnd, value);
-        object = value.mpObject;
+template <class T>
+struct AutoRefCount {
+    T* mpObject;                                            // +0x00
+
+    AutoRefCount() : mpObject(0) {}
+    AutoRefCount(T* pObject) : mpObject(pObject) { if (mpObject) mpObject->AddRef(); }
+    AutoRefCount(const AutoRefCount& rOther) : mpObject(rOther.mpObject) { if (mpObject) mpObject->AddRef(); }
+    ~AutoRefCount() { if (mpObject) mpObject->Release(); }
+
+    // Copy-assignment used by the banner vector: stores the pointer and takes a
+    // reference (the destination is always a fresh slot, so nothing to release).
+    AutoRefCount& operator=(const AutoRefCount& rOther)
+    {
+        mpObject = rOther.mpObject;
+        if (mpObject) mpObject->AddRef();
+        return *this;
     }
-    if (object)
-        object->Release();
-}
+
+    T* operator->() const { return mpObject; }
+};
 struct cPlanet_s00c4_a850 {
     char     mPad000[0x13c];                                // +0x000
     void*    mpData13C;                                     // +0x13c
@@ -1580,7 +1550,7 @@ struct cMissionBalance : cSPMission_s00c4_a850 {
 };
 struct cBannerListHost {
     char mPad000[0x1c];                                     // +0x000
-    cVec<EA::AutoRefCount<cGameData> > mEntries;                // +0x01c
+    cVec<AutoRefCount<cGameData> > mEntries;                // +0x01c
     bool ReadBannerList(void* pArchive);                    // 0x00c4a850
 };
 namespace Simulator {
@@ -1653,17 +1623,11 @@ bool   __fastcall FUN_00bb9c30(void* pThis);                            // 0x00b
 void   __cdecl FUN_00e39ab0(uint32_t nKey, int32_t nFlags, ResourceKey_s00c4_a850* pOut3, ResourceKey_s00c4_a850* pOut2,
                             void* pData, int32_t nFlags2, ResourceKey_s00c4_a850* pOut1, ResourceKey_s00c4_a850* pOut0);   // 0x00e39ab0
 void   __cdecl FUN_00f27e00(ResourceKey_s00c4_a850* pKey);                         // 0x00f27e00
-extern char gMissionSerializerList; // 0x01574c48
-struct MissionStreamHolder {
-    virtual void slot0(); virtual void slot1(); virtual void slot2();
-    virtual void slot3(); virtual void slot4(); virtual void slot5();
-    virtual void* GetStream(); // +0x18
-};
-struct MissionArchive {
-    virtual void slot0(); virtual void slot1(); virtual void slot2();
-    virtual void slot3(); virtual void slot4(); virtual void slot5();
-    virtual void slot6(); virtual void slot7();
-    virtual MissionStreamHolder* GetStreamHolder(); // +0x20
+struct cVarListSerializer {
+    char mData[0xa08];                                      // +0x000
+
+    void Construct(void* pOwner, uint32_t nKey, uint32_t nID);   // 0x00692f90
+    bool Serialize(void* pArchive);                         // 0x00693e10
 };
 struct cIOStream;
 struct cStreamHost {
@@ -2005,7 +1969,10 @@ struct cSpaceRelationshipTuning {
 };
 cSpaceRelationshipTuning* __cdecl GetSpaceRelationshipTuning();  // 0x010407c0
 void  __cdecl OperatorDeleteArray(void* p);              // 0x00f47380
-
+struct cVarListSerializer_s00c4_5860 {
+    void Ctor(void* self, void* mission, const char* name, u32 id);  // 0x00692f90
+    u8   Serialize(void* stream);                                    // 0x00692900
+};
 // ---- items of slice s00c45860 end
 
 // @ 0x00b9c630
@@ -2677,28 +2644,23 @@ void cSPMission_s00c4_5860::RemoveToolVector1a8()
     }
 }
 
-static inline void WriteMissionWord(MissionStreamHolder* __restrict holder, i32 value)
-{
-    void* output = holder->GetStream();
-    WriteUint32(output, &value, 1, 0);
-}
-
 // @ 0x00c46310
 u8 cSPMission_s00c4_5860::SerializeVarList(void* stream)
 {
-    SP::cVarListSerializer ser(this,
-        reinterpret_cast<SP::cDataSerializerGeneric*>(&gMissionSerializerList),
-        SP::cVarListSerializer::kSignature);
-    u8 result = ser.Serialize(*static_cast<SP::cIObjectDatabaseOStream*>(stream));
+    cVarListSerializer_s00c4_5860 ser;
+    ser.Ctor(&ser, this, "Mission", 0x1a80d26);
+    u8 result = ser.Serialize(stream);
     i32 n = (i32)(mVec1c.mpEnd - mVec1c.mpBegin);
-    MissionStreamHolder* __restrict holder =
-        static_cast<MissionArchive*>(stream)->GetStreamHolder();
-    WriteMissionWord(holder, n);
+    void* o = (*(void*(__thiscall**)(void*))((char*)*(void**)stream + 0x20))(stream);
+    void* s = (*(void*(__thiscall**)(void*))((char*)*(void**)o + 0x18))(o);
+    i32 count = n;
+    WriteUint32(s, &count, 1, 0);
     for (i32 i = 0; i < n; ++i) {
         i32 field = *(i32*)((char*)mVec1c.mpBegin[i] + 0x70);
-        MissionStreamHolder* __restrict entryHolder =
-            static_cast<MissionArchive*>(stream)->GetStreamHolder();
-        WriteMissionWord(entryHolder, field);
+        void* o2 = (*(void*(__thiscall**)(void*))((char*)*(void**)stream + 0x20))(stream);
+        void* s2 = (*(void*(__thiscall**)(void*))((char*)*(void**)o2 + 0x18))(o2);
+        i32 v = field;
+        WriteUint32(s2, &v, 1, 0);
     }
     return result;
 }
@@ -2738,10 +2700,10 @@ void cSPMission_s00c4_5860::WriteUintVector(VecU32_s00c4_5860* vec, void* stream
 cGenericPressureEvent* cGenericPressureEvent::ctor()
 {
     Ctor();
-    *(void* volatile*)((char*)this + 0x34) = (void*)g_13eb384;
-    mpVtbl = (void*)g_146d188;
-    mpVtbl4 = (void*)g_146d174;
-    mpVtbl34 = (void*)g_146d164;
+    *(void* volatile*)((char*)this + 0x34) = (void*)0x13eb384;
+    mpVtbl = (void*)0x146d188;
+    mpVtbl4 = (void*)0x146d174;
+    mpVtbl34 = (void*)0x146d164;
     mTimer38.Ctor();
     mTimer58.Ctor();
     return this;
@@ -2750,12 +2712,12 @@ cGenericPressureEvent* cGenericPressureEvent::ctor()
 // @ 0x00c46540
 void* cGenericPressureEvent::ScalarDeletingDtor(u32 flags)
 {
-    mpVtbl = (void*)g_146d188;
-    mpVtbl4 = (void*)g_146d174;
-    mpVtbl34 = (void*)g_146d164;
+    mpVtbl = (void*)0x146d188;
+    mpVtbl4 = (void*)0x146d174;
+    mpVtbl34 = (void*)0x146d164;
     mTimer58.Dtor();
     mTimer38.Dtor();
-    mpVtbl34 = (void*)g_13eb394;
+    mpVtbl34 = (void*)0x13eb394;
     Dtor();
     if ((flags & 1) != 0)
         OperatorDeleteArray(this);
@@ -2971,7 +2933,6 @@ namespace SP {
 u8 __cdecl GetPropertyAsKey16(void* props, u32 key, void* out); // 0x006a1250
 ::cStarMap* __cdecl GetStarMapNoArg();                   // 0x01046fc0 (no-arg singleton)
 cSPMissionManager* __cdecl GetMissionManagerNoArg();     // 0x00feb9f0 (no-arg getter)
-cSPMissionManager* __cdecl GetPropertyManagerNoArg();    // 0x0067de30 (SP::PropertyManager accessor; SetMissionProperty is its vtable slot 11)
 struct cSPUILayout16 { void Add(); };                    // 0x00dd27c0
 void* __cdecl cSPUILayoutCtor16();                       // 0x00dd1ca0
 }
@@ -2993,8 +2954,8 @@ void __thiscall cSPMission_s00c4_6ab0::FUN_00c46ab0()
     vec->resize(8);
     *(u32*)(vec->mData + 0x1c) = mMissionId;
     u32 shifted = mFlags >> 3;
-    bool requiresCheck = (shifted & 1) != 0;
-    if (requiresCheck) {
+    _ReadWriteBarrier();
+    if ((shifted & 1) != 0) {
         cSPMissionManager* mm = GetMissionManager((void*)(uintptr_t)mMissionId);
         mm->Event();
     }
@@ -3063,7 +3024,7 @@ namespace SP {
 void __thiscall cSPMission_s00c4_6ab0::SetMissionID(uint32_t missionId)
 {
     mMissionId = missionId;
-    cSPMissionManager* pManager = GetPropertyManagerNoArg();
+    cSPMissionManager* pManager = GetMissionManagerNoArg();
     cGameData* pOldProperty = (cGameData*)mpMissionKey;
     if (pOldProperty) {
         mpMissionKey = 0;
@@ -3184,7 +3145,7 @@ void SP::cSPMission::ExportPlanet(SP::cPlanet * targetType, unsigned int pOut)
 
 // @ 0x00c473f0
 namespace SP {
-void __thiscall cSPMission_s00c4_6ab0::ExportSpecies(uint32_t speciesData, uint32_t itemType)
+void __thiscall cSPMission_s00c4_6ab0::ExportSpecies(uint32_t itemType, uint32_t flags)
 {
     if (itemType == 0x29aa9073)
         return;
@@ -3193,10 +3154,10 @@ void __thiscall cSPMission_s00c4_6ab0::ExportSpecies(uint32_t speciesData, uint3
     cSPMission_s00c4_6ab0* pOwner = mpMissionManager;
     if (!pOwner)
         return;
-    cSpeciesExportImpl* pExport = (cSpeciesExportImpl*)pOwner->QueryInterface(0x422227c);
+    ISpeciesExport* pExport = (ISpeciesExport*)pOwner->QueryInterface(0x422227c);
     if (!pExport)
         return;
-    pExport->FUN_00c59fd0(0, &((cSpeciesData*)speciesData)->mSpeciesKey);
+    pExport->Export(0, &mSpecies.mSpeciesKey);
 }
 }  // namespace SP
 
@@ -3216,7 +3177,11 @@ void __thiscall cSPMission_s00c4_6ab0::StartCompletedFeedbackTimer()
         return;
 
     cAudioSystem* pAudio = GetSystemAT();
-    KillSetiEffects(0x0c871d6e, pAudio ? pAudio->GetOutputDevice() : 0);
+    if (pAudio) {
+        KillSetiEffects(0x0c871d6e, pAudio->GetOutputDevice());
+        return;
+    }
+    KillSetiEffects(0x0c871d6e, (void*)pAudio);
 }
 }  // namespace SP
 
@@ -3421,14 +3386,11 @@ bool cSPMission_s00c4_7a10::Validate()
     if (mField8C != -1 && empire == 0) {
         goto fail;
     }
-    if (pv88()) {
-        void* targetEmpire = (void*)FUN_00c452a0();
-        if (mField94 != -1 && targetEmpire == 0) {
-            goto fail;
-        }
-    } else {
-        SetState(1);
-        return false;
+    if (!pv88()) {
+        goto fail;
+    }
+    if (mField94 != -1 && FUN_00c452a0() == 0) {
+        goto fail;
     }
     if (((cPlanet_s00c4_7a10*)mPlanet9C)->mField13C->FUN_00b8d970()) {
         goto fail;
@@ -3603,30 +3565,30 @@ void SPObject::FUN_00c48970(int idx, WStr* out)
         return;
     switch (mArrCC[idx]) {
     case 0:
-        out->append(((CStr*)g_168ee08)->GetText());
+        out->append(((CStr*)0x168ee08)->GetText());
         return;
     case 1:
-        (*(Translator**)g_16e0d08)->mField10 = v;
-        out->append(((CStr*)g_168ee1c)->GetText());
+        (*(Translator**)0x16e0d08)->mField10 = v;
+        out->append(((CStr*)0x168ee1c)->GetText());
         return;
     case 2:
-        (*(Translator**)g_16e0d08)->mField10 = v;
-        out->append(((CStr*)g_168ee30)->GetText());
+        (*(Translator**)0x16e0d08)->mField10 = v;
+        out->append(((CStr*)0x168ee30)->GetText());
         return;
     case 3:
-        (*(Translator**)g_16e0d08)->mField10 = v;
-        out->append(((CStr*)g_168ee44)->GetText());
+        (*(Translator**)0x16e0d08)->mField10 = v;
+        out->append(((CStr*)0x168ee44)->GetText());
         return;
     case 4:
-        (*(Translator**)g_16e0d08)->mField10 = v;
-        out->append(((CStr*)g_168ee58)->GetText());
+        (*(Translator**)0x16e0d08)->mField10 = v;
+        out->append(((CStr*)0x168ee58)->GetText());
         return;
     case 5:
-        (*(Translator**)g_16e0d08)->mField10 = v;
-        out->append(((CStr*)g_168ee6c)->GetText());
+        (*(Translator**)0x16e0d08)->mField10 = v;
+        out->append(((CStr*)0x168ee6c)->GetText());
         return;
     case 6:
-        out->append(((CStr*)g_168ee80)->GetText());
+        out->append(((CStr*)0x168ee80)->GetText());
         return;
     }
 }
@@ -3639,7 +3601,7 @@ void SPObject::FUN_00c48a90(WStr* out)
         return;
     _ReadWriteBarrier();
     if (i < 10) {
-        const wchar_t* p = ((CStr*)((int)g_168ef48 + i * 0x14))->GetText();
+        const wchar_t* p = ((CStr*)(0x168ef48 + i * 0x14))->GetText();
         out->assign(p, p + WStrLen(p));
     }
 }
@@ -3649,22 +3611,22 @@ void SPObject::FUN_00c48ae0(WStr* out)
 {
     switch (mKindF8) {
     case 0:
-        out->append(((CStr*)g_168ee94)->GetText());
+        out->append(((CStr*)0x168ee94)->GetText());
         break;
     case 1:
-        out->append(((CStr*)g_168eea8)->GetText());
+        out->append(((CStr*)0x168eea8)->GetText());
         return;
     case 2:
-        out->append(((CStr*)g_168eebc)->GetText());
+        out->append(((CStr*)0x168eebc)->GetText());
         return;
     case 3:
-        out->append(((CStr*)g_168eed0)->GetText());
+        out->append(((CStr*)0x168eed0)->GetText());
         return;
     case 4:
-        out->append(((CStr*)g_168eee4)->GetText());
+        out->append(((CStr*)0x168eee4)->GetText());
         return;
     case 5:
-        out->append(((CStr*)g_168eef8)->GetText());
+        out->append(((CStr*)0x168eef8)->GetText());
         return;
     }
 }
@@ -3857,7 +3819,7 @@ void SPObject::FUN_00c49140(WStr* out)
     CivData* o = (CivData*)GetCivData();
     if (o) {
         o->FUN_c30c80();
-        WStr3(out, (const wchar_t*)g_13f5c04, *o->GetCities());
+        WStr3(out, (const wchar_t*)0x13f5c04, *o->GetCities());
     }
 }
 
@@ -3867,7 +3829,7 @@ void SPObject::FUN_00c49180(WStr* out)
     CivData* o = (CivData*)GetOwnerEmpire();
     if (o) {
         o->FUN_c30c80();
-        WStr3(out, (const wchar_t*)g_13f5c04, *o->GetCities());
+        WStr3(out, (const wchar_t*)0x13f5c04, *o->GetCities());
     }
 }
 
@@ -4065,7 +4027,7 @@ void SPObject::FUN_00c49800(WStr* out)
 {
     float f = mFieldC8;
     int i = SseCeilToInt(f);
-    WStr3(out, (const wchar_t*)g_13f01bc, i);
+    WStr3(out, (const wchar_t*)0x13f01bc, i);
 }
 
 // @ 0x00c49840
@@ -4075,7 +4037,7 @@ void SPObject::FUN_00c49840(WStr* out)
     // Retail computes both interval bounds before formatting the lower bound.
     int low = SseRoundToInt(value - 0.5f);
     SseRoundToInt(value + 0.5f);
-    WStr3(out, (const wchar_t*)g_13f01bc, low);
+    WStr3(out, (const wchar_t*)0x13f01bc, low);
 }
 
 // @ 0x00c49890
@@ -4085,7 +4047,7 @@ void SPObject::FUN_00c49890(WStr* out)
     // Retail computes both interval bounds before formatting the upper bound.
     SseRoundToInt(value - 0.5f);
     int i = SseRoundToInt(value + 0.5f);
-    WStr3(out, (const wchar_t*)g_13f01bc, i);
+    WStr3(out, (const wchar_t*)0x13f01bc, i);
 }
 
 // @ 0x00c498e0
@@ -4525,22 +4487,27 @@ bool SP::cSPMission::HandleMessage(unsigned int msg, void * m)
 // @ 0x00c4a850
 bool cBannerListHost::ReadBannerList(void* pArchive)
 {
-    SP::cVarListSerializer serializer(this,
-        reinterpret_cast<SP::cDataSerializerGeneric*>(&gMissionSerializerList),
-        SP::cVarListSerializer::kSignature);
-    bool result = serializer.Serialize(*static_cast<SP::cIObjectDatabaseIStream*>(pArchive));
-    MissionArchive* archive = static_cast<MissionArchive*>(pArchive);
-    void* input = archive->GetStreamHolder()->GetStream();
-    int32_t count;
-    EA_IO_ReadInt32(input, &count, 1, 0);
-    for (int32_t i = 0; i < count; ++i) {
-        void* entryInput = archive->GetStreamHolder()->GetStream();
-        int32_t id;
-        EA_IO_ReadInt32(entryInput, &id, 1, 0);
-        AppendBanner(mEntries,
-            static_cast<cStarManager_s00c4_a850*>(SP_StarManager())->GetBannerByID((uint32_t)id));
+    cVarListSerializer serializer;
+    serializer.Construct(this, 0x1574c48, 0x1a80d26);
+    bool bResult = serializer.Serialize(pArchive);
+
+    cArchive* pArchiveObject = (cArchive*)pArchive;
+    cStreamHost* pHost = ((cArchiveVtbl*)pArchiveObject->mpVtbl)->pGetStreamHost(pArchiveObject);
+    cIOStream* pStream = ((cStreamHostVtbl*)pHost->mpVtbl)->pGetStream(pHost);
+
+    int32_t nCount = 0;
+    EA_IO_ReadInt32(pStream, &nCount, 1, 0);
+    for (int32_t i = 0; i < nCount; ++i) {
+        cStreamHost* pEntryHost = ((cArchiveVtbl*)pArchiveObject->mpVtbl)->pGetStreamHost(pArchiveObject);
+        cIOStream* pEntryStream = ((cStreamHostVtbl*)pEntryHost->mpVtbl)->pGetStream(pEntryHost);
+
+        int32_t nID = 0;
+        EA_IO_ReadInt32(pEntryStream, &nID, 1, 0);
+
+        AutoRefCount<cGameData> pBanner = StarManager((uint32_t)nID)->GetBannerByID((uint32_t)nID);
+        mEntries.push_back(pBanner);
     }
-    return result;
+    return bResult;
 }
 
 // @ 0x00c4a980
@@ -4617,9 +4584,9 @@ Simulator::cMissionAdventure::cMissionAdventure()
     Simulator_cGenericPressureEvent_ctor(this);
     mField1f0 = 0;
     mpData1f4 = 0;
-    mpVtbl = (void**)g_146d638;
-    mpVtbl04 = (void**)g_146dfb4;
-    mpVtbl34 = (void**)g_146d624;
+    mpVtbl = (void**)0x146d638;
+    mpVtbl04 = (void**)0x146dfb4;
+    mpVtbl34 = (void**)0x146d624;
 }
 
 // @ 0x00c4b0c0
@@ -4706,7 +4673,7 @@ Simulator::cMissionBalance::cMissionBalance()
     Simulator_cGenericPressureEvent_ctor(this);
     mField1f0 = 0;
     mThreshold = 0;
-    mpVtbl = (void**)g_146d840;
-    mpVtbl04 = (void**)g_146dfb4;
-    mpVtbl34 = (void**)g_146fbf0;
+    mpVtbl = (void**)0x146d840;
+    mpVtbl04 = (void**)0x146dfb4;
+    mpVtbl34 = (void**)0x146fbf0;
 }

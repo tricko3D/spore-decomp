@@ -2,10 +2,6 @@
 // Object file: SPGonzago/SPCommunity.obj.  Function bodies keep the slice's code; types, members and virtual calls use the
 // canonical headers under src/game/include.  Each function keeps its '// @ 0xVA' marker.
 
-// addresses retail relocates here, named so the build relocates them too
-extern "C" char g_1570f10[];
-extern "C" char g_1571000[];
-
 #include "game/types.h"
 #include "SP/cLaneInfo.h"
 #include "cSPVector3.h"
@@ -53,16 +49,10 @@ struct AutoRef {
     void** AsPPTypeParam() { Reset(); return (void**)&mp; }
     ~AutoRef() { if (mp) mp->Release(); }
 };
-struct CommunityStreamHolder {
-    virtual void slot0(); virtual void slot1(); virtual void slot2();
-    virtual void slot3(); virtual void slot4(); virtual void slot5();
-    virtual void* GetStream(); // +0x18
-};
-struct CommunityOutputStream {
-    virtual void slot0(); virtual void slot1(); virtual void slot2();
-    virtual void slot3(); virtual void slot4(); virtual void slot5();
-    virtual void slot6(); virtual void slot7();
-    virtual CommunityStreamHolder* GetStreamHolder(); // +0x20
+struct cVarListSerializer {
+    uint8_t mData[0xa14];
+    cVarListSerializer(void* object, const void* descriptor, uint32_t classId);
+    void Serialize(void* stream);
 };
 struct Elem20 {
     float f0, f1, f2, f3, f4, f5, f6;
@@ -345,10 +335,9 @@ int __fastcall FUN_00c00590(void* ecx_this, void* edx)
 // @ 0x00c005b0
 void __fastcall FUN_00c005b0(void* ecx_this, void* edx, void* stream)
 {
-    CommunityStreamHolder* __restrict holder =
-        static_cast<CommunityOutputStream*>(stream)->GetStreamHolder();
+    void* iface = ((FnVp)VT(stream, 0x20))(stream);
     uint32_t tag = 0x17f243b;
-    void* io = holder->GetStream();
+    void* io = ((FnVp)VT(iface, 0x18))(iface);
     EA_IO_WriteUint32(io, tag, 1, 0);
 
     void* p = *(void**)((char*)ecx_this + 0x11c);
@@ -360,10 +349,8 @@ void __fastcall FUN_00c005b0(void* ecx_this, void* edx, void* stream)
         }
     }
 
-    SP::cVarListSerializer ser(ecx_this,
-        reinterpret_cast<SP::cDataSerializerGeneric*>(&DAT_015710b8),
-        SP::cVarListSerializer::kSignature);
-    ser.Serialize(*static_cast<SP::cIObjectDatabaseOStream*>(stream));
+    cVarListSerializer ser(ecx_this, &DAT_015710b8, 0x1a80d26);
+    ser.Serialize(stream);
 }
 
 // @ 0x00c00850
@@ -533,7 +520,7 @@ void FUN_00c01ce0(ISerializableObject* object, EmptyBubbleVec* vec)
         value.mW = 0.0f;
         value.mFlags = 0;
         cVarListSerializer_s00c0_15e0 serializer;
-        serializer.Construct(&value, (int)g_1570f10, 0x1a80d26);
+        serializer.Construct(&value, 0x1570f10, 0x1a80d26);
         serializer.Serialize(object);
 
         if (vec->mpEnd < vec->mpCap) {
@@ -763,7 +750,7 @@ void FUN_00c024f0(ISerializableObject* object, LaneRecVec* vec)
         value.mPad10[0] = 0;
         value.mPad10[1] = 0;
         cVarListSerializer_s00c0_15e0 serializer;
-        serializer.Construct(&value, (int)g_1571000, 0x1a80d26);
+        serializer.Construct(&value, 0x1571000, 0x1a80d26);
         serializer.Serialize(object);
 
         if (vec->mpEnd < vec->mpCap) {

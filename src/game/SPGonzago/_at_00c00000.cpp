@@ -107,7 +107,7 @@ struct CreatureBase_s00c0_45a0 {
   bool  __declspec(noinline) SubB770();
   void  Sub4dd0(int);
   void  Sub4e50(float);
-  __declspec(noinline) void* Sub4750();
+  void* Sub4750();
   int   Sub4790();
   int   Sub47d0();
   bool  Flag04710();
@@ -123,6 +123,10 @@ bool  __thiscall CreatureBase_s00c0_45a0::Flag388()
 {
   void* p = *(void**)((char*)this + 0xe84);
   return p != 0 && *(char*)((char*)p + 0x388) != 0;
+}
+bool __declspec(noinline) __thiscall CreatureBase_s00c0_45a0::SubB770()
+{
+  return mB34 == 1;
 }
 template <typename T> struct AutoRef { T* mpObject; };
 struct SpeciesProfile {
@@ -246,12 +250,12 @@ struct NodePool {
 };
 static void ReleaseRef(void* p)
 {
-    if (p) ((void(__thiscall*)(void*))((*(void***)p)[1]))(p);
+    if (p) (*(void(__thiscall**)(void*))((*(void***)p)[1]))(p);
 }
 // ---- items of slice s00c053b0 end
 
 // ---- items of slice s00c0ddb0 begin (TODO(rewrite): local stubs, replace by canonical classes)
-struct F_64     { int   __thiscall f(); };            // 0x00c887e0 cCommunity::func64h
+struct F_64     { char  __thiscall f(); };            // 0x00c887e0 cCommunity::func64h
 struct F_a02bd0 { int   __thiscall f(); };            // 0x00a02bd0
 struct CCMInner {
     uint32_t pad_00[0x17c / 4];  // +0x000
@@ -260,7 +264,7 @@ struct CCMInner {
 #define G32(a)  (*(uint32_t*)(a))
 struct CCM {
     void  __thiscall ddb0(float*);
-    int   __thiscall de30();
+    char  __thiscall de30();
     void  __thiscall de60(int, int);
     bool  __thiscall dee0(int, int*, char);
     void* __thiscall dfb0(int);
@@ -406,40 +410,41 @@ bool __thiscall CreatureBase_s00c0_45a0::Flag04710()
 {
   if ((mFlags0b58 & 0x4000) != 0)
     return true;
-  if (!SubB770()) {
-    HerdObj* h = (HerdObj*)mpHerd1674;
-    CreatureBase_s00c0_45a0* a = (CreatureBase_s00c0_45a0*)*(void**)((char*)h + 0x164);
-    if (a != 0 && (a->mFlags0b58 & 0x4000) != 0)
-      return true;
-  }
+  if (SubB770())
+    return false;
+  HerdObj* h = (HerdObj*)mpHerd1674;
+  if (h == 0) return false;
+  CreatureBase_s00c0_45a0* a = (CreatureBase_s00c0_45a0*)*(void**)((char*)h + 0x164);
+  if (a == 0) return false;
+  if ((a->mFlags0b58 & 0x4000) != 0)
+    return true;
   return false;
 }
-
-extern "C" char g_1654c10[];   // 0x01654c10: the creature game mode object (GetCurrentGameMode result)
 
 // @ 0x00c04750
 void* __thiscall CreatureBase_s00c0_45a0::Sub4750()
 {
-  if (SP_GetCurrentGameMode() == (void*)g_1654c10) {
+  void* p = 0;
+  if (SP_GetCurrentGameMode() == (void*)0x1654c10) {
     int g = ((GameDataStub*)this)->GetObjectData();
     if (g != 0) {
       int idx = ((ThingMgrStub*)*(int*)((char*)g_16c7aa4 + 0x74))->GetThing();
-      return (void*)(idx * 0x4e0 + *(int*)((char*)g + 0x70));
+      p = (void*)(idx * 0x4e0 + *(int*)((char*)g + 0x70));
     }
   }
-  return 0;
+  return p;
 }
 
 // @ 0x00c04790
 int __thiscall CreatureBase_s00c0_45a0::Sub4790()
 {
   unsigned f = mFlags0b58;
-  if (!(bool)((f >> 8) & 1) && !(bool)((f >> 9) & 1)) {
-    if (Sub4750() != 0)
-      return *(int*)((char*)Sub4750() + 0x4a8);
-    return 0;
-  }
-  return 2;
+  if (((f >> 8) & 1) != 0) return 2;
+  if (((f >> 9) & 1) != 0) return 2;
+  void* p = Sub4750();
+  if (p == 0) return 0;
+  p = Sub4750();
+  return *(int*)((char*)p + 0x4a8);
 }
 
 // @ 0x00c047d0
@@ -459,21 +464,17 @@ int __thiscall CreatureBase_s00c0_45a0::Sub47d0()
 }
 
 // @ 0x00c04820
-static inline void** FindIf_c04820(void** first, void** last, bool (__cdecl* pred)(void*))
-{
-  for (; first != last; ++first)
-    if (pred(*first))
-      break;
-  return first;
-}
 void* __cdecl FUN_00c04820(void** first, void** last, bool (__cdecl* pred)(void*))
 {
-  first = FindIf_c04820(first, last, pred);
-  if (first != last) {
-    void** next = first;
-    return FUN_00c032c0(++next, last, first, (void*)pred);
+  void** p = first;
+  while (p != last) {
+    if (pred(*p))
+      break;
+    ++p;
   }
-  return first;
+  if (p == last)
+    return p;
+  return FUN_00c032c0(p + 1, last, p, (void*)pred);
 }
 
 // @ 0x00c04870
@@ -483,18 +484,16 @@ void __fastcall FUN_00c04870(void** p)
     operator_delete_(p[7]);
   void** q = (void**)((char*)p[9] - 4);
   p[9] = q;
-  char* v = (char*)*q;
+  void* v = *q;
   p[7] = v;
-  char* e = v + 0xa0;
-  p[8] = e;
-  char* r = e - 0x14;
-  p[6] = r;
-  void** a = *(void***)(r + 0x10);
+  p[8] = (void*)((char*)v + 0xa0);
+  p[6] = (void*)((char*)v + 0x8c);
+  void** a = *(void***)((char*)v + 0x9c);
   if (a)
-    ((FnVoid)(*(void***)a)[1])(a);
-  void** b = *(void***)(r + 0xc);
+    (*(FnVoid)(*(char**)a + 4))(a);
+  void** b = *(void***)((char*)v + 0x98);
   if (b)
-    ((FnVoid)(*(void***)b)[1])(b);
+    (*(FnVoid)(*(char**)b + 4))(b);
 }
 
 // @ 0x00c049f0
@@ -834,14 +833,14 @@ uint8_t* NodePool::Cur()
 void NodePool::Pop()
 {
     uint8_t* cur = mpPoolBegin;
-    if (cur != mpBlockCur) {
-        uint8_t* esi = cur - 0x14;
-        mpPoolBegin = esi;
-        ReleaseRef(*(void**)(esi + 0x10));
-        ReleaseRef(*(void**)(esi + 0xc));
-    } else {
-        FUN_00c04870((void**)this);
+    if (cur == mpBlockCur) {
+        FUN_00c04870();
+        return;
     }
+    uint8_t* esi = cur - 0x14;
+    mpPoolBegin = esi;
+    ReleaseRef(*(void**)(esi + 0x10));
+    ReleaseRef(*(void**)(esi + 0xc));
 }
 
 // @ 0x00c05ee0
@@ -987,7 +986,7 @@ float SP::cGameBundleContainer::GetBundleCapacity(unsigned int) const
 }
 
 // @ 0x00c0de30
-int __thiscall CCM::de30()
+char __thiscall CCM::de30()
 {
     char* p = *(char**)((char*)this + 0xa94);
     if (p != 0) {

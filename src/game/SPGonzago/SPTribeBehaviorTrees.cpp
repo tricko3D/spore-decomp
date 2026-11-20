@@ -2,9 +2,6 @@
 // Object file: SPGonzago/SPTribeBehaviorTrees.obj.  Function bodies keep the slice's code; types, members and virtual calls use the
 // canonical headers under src/game/include.  Each function keeps its '// @ 0xVA' marker.
 
-// addresses retail relocates here, named so the build relocates them too
-extern "C" char g_147c2c4[];
-
 #include "game/types.h"
 #include "SP/cCombatant.h"
 #include "SP/cLocomotiveObject.h"
@@ -174,7 +171,7 @@ static void AttachTargetInfo(cSimCreature* pCreature, void* pTarget,
 // ---- items of slice s00da6880 begin (TODO(rewrite): local stubs, replace by canonical classes)
 extern const float g_f147c218;          // 0x0147c218
 extern const float g_f147c21c;          // 0x0147c21c
-extern const float g_f1473c70;          // 0x01473c70 duration (20.0f), next to the 0x0147c21c family
+extern const float g_f1473c70;          // 0x0147c21c-family duration (20.0f)
 extern const float g_f13ec4d0;          // 0x013ec4d0 (100.0f)
 extern const float g_f13eecd8;          // 0x013eecd8 (20.0f)
 extern const float g_f1486110;          // 0x01486110 (5.0f)
@@ -3659,21 +3656,19 @@ struct RegionPosition {
     VFILL(8) VFILL(9) VFILL(10)
     virtual float* GetPosition();
 };
-struct RegionBase_s00da_dfb0 {                            // primary base, +0x000..+0x5a7
-    virtual void v00();
-    char pad4[0xc0 - 4];
+struct Region {
+    char pad0[0xc0];
     RegionPosition sub;                                   // +0xc0
     char pad1[0x5a8 - 0xc0 - sizeof(RegionPosition)];
+    char target[4];                                       // +0x5a8, address handed to the host
 };
-struct RegionTarget_s00da_dfb0 { virtual void v00(); };   // +0x5a8, the interface handed to the host
-struct Region : RegionBase_s00da_dfb0, RegionTarget_s00da_dfb0 {};
 struct SpawnHost {
     VFILL(0) VFILL(1) VFILL(2) VFILL(3) VFILL(4) VFILL(5) VFILL(6) VFILL(7)
     VFILL(8) VFILL(9) VFILL(10) VFILL(11) VFILL(12) VFILL(13) VFILL(14) VFILL(15)
     VFILL(16) VFILL(17) VFILL(18) VFILL(19) VFILL(20) VFILL(21) VFILL(22) VFILL(23)
     VFILL(24) VFILL(25) VFILL(26) VFILL(27) VFILL(28) VFILL(29) VFILL(30) VFILL(31)
     VFILL(32)
-    virtual void Attach(struct RegionTarget_s00da_dfb0* p, bool a, bool b);
+    virtual void Attach(void* p, bool a, bool b);
 };
 struct SpawnIn {
     int32_t pad0;
@@ -4538,7 +4533,7 @@ static void InitLoc74(Loc74* loc)
 #define G1485720       (*(const float*)0x01485720)   // _HK_REAL_ONE
 #define G147C21C       (*(const float*)0x0147c21c)
 #define G147C218       (*(const float*)0x0147c218)   // FLT_MAX, initial nearest-spot distance
-#define VTABLE_147C2C4 ((void*)g_147c2c4)
+#define VTABLE_147C2C4 ((void*)0x0147c2c4)
 #define RNG1601760     ((void*)0x01601760)           // EA::Random::RandomLinearCongruential
 #define SLIST169B41C   ((void*)0x0169b41c)           // rw::SList singleton
 typedef void   (__thiscall* FnV0)(void*);
@@ -6134,8 +6129,7 @@ float __cdecl FUN_00da70e0(cSPCreatureCitizen* c)
     int v = c->FUN_c22dc0();
     if (v == 0 || v == 0xb)
         return 0.0f;
-    cTribe* tribe = c->GetTribe();
-    cTool* tool = tribe->GetToolOfType(v);
+    cTool* tool = c->GetTribe()->GetToolOfType(v);
     if (tool != 0 && tool->mCombat.GetDamageState() != 2)
         return 0.0f;
     return 1.0f;
@@ -8635,7 +8629,7 @@ bool SpawnPlacementTest(SpawnHost* host, int32_t, int32_t, int32_t, int32_t, Spa
     if (owner != 0) {
         Region* region = owner->FindRegion(0xce9f6639);
         if (region != 0) {
-            host->Attach(region, true, false);
+            host->Attach(region->target, true, false);
             out->zero0 = 0;
             out->radius = (float)ClampRadius(sMathRandomA.RandomDoubleUniform() + 1.0);
             *(uint32_t*)&out->x = *(uint32_t*)&in->x;     // integer copies, as in the original
@@ -9073,7 +9067,7 @@ uint8_t __cdecl FUN_00daeca0(CC* self, int a1, int a2, int a3, int a4, Out* a5)
             else
                 src = (int32_t*)(s ? q : 0);
         } else {
-            src = (int32_t*)&SP::g_15d1164;
+            src = (int32_t*)0x15d1164;
         }
         int32_t v = *src;
         a5->f0 = v;
@@ -9081,7 +9075,7 @@ uint8_t __cdecl FUN_00daeca0(CC* self, int a1, int a2, int a3, int a4, Out* a5)
         a5->f8 = 0;
         a5->fC = 0;
         a5->f10 = -1;
-        return (uint8_t)(self->base.Slot45(a5->f0) != 0 ? 1 : 0);
+        return (uint8_t)(self->base.Slot45(v) != 0 ? 1 : 0);
     }
     return 0;
 }
@@ -10513,10 +10507,9 @@ char FUN_00db2f10(void *pObj, u32 a2, u32 a3, u32 a4, u32 a5, TaskCtx *pCtx)
 void FUN_00db2fa0(TaskCtx *p1, u32 a2, u32 a3, u32 a4, u32 a5, TaskCtx *pCtx)
 {
     (void)p1; (void)a2; (void)a3; (void)a4; (void)a5;
-    void** slot = (void**)&pCtx->mpRefC;
-    if (*slot != 0) {
-        void *p = *slot;
-        *slot = 0;
+    if (pCtx->mpRefC != 0) {
+        void *p = pCtx->mpRefC;
+        pCtx->mpRefC = 0;
         vc_v(p, 4);
     }
     if (pCtx != 0 && pCtx->mpRefC != 0)
@@ -11034,10 +11027,6 @@ bool cSocialActionHost::ResolveTarget(cActionState* pState)
     return pState->mnLoopCount != 0;
 }
 
-struct SocialTargetRef {             // refcounted target: slot 0 is the deleting destructor
-    virtual void Destroy(uint32_t flags);
-    int mnRefCount;                   // +0x04
-};
 // @ 0x00db40f0
 void ReleaseSocialTargetState(void* pArg1, void* pArg2, void* pArg3, void* pArg4, void* pArg5, cActionState* pState)
 {
@@ -11056,15 +11045,14 @@ void ReleaseSocialTargetState(void* pArg1, void* pArg2, void* pArg3, void* pArg4
             operator_delete__(pBlock);
     }
 
-    SocialTargetRef* pTarget = *(SocialTargetRef**)((uint8_t*)pState + 0x0c);
+    cObject* pTarget = (cObject*)*(void**)((uint8_t*)pState + 0x0c);
     if (pTarget == nullptr)
         return;
-    int nRefs = pTarget->mnRefCount;
-    pTarget->mnRefCount = nRefs - 1;
+    int nRefs = *(int*)((uint8_t*)pTarget + 4);
+    *(int*)((uint8_t*)pTarget + 4) = nRefs - 1;
     if (nRefs - 1 == 0) {
-        pTarget->mnRefCount = 1;
-        _ReadWriteBarrier();
-        pTarget->Destroy(1);
+        *(int*)((uint8_t*)pTarget + 4) = 1;
+        pTarget->Call(0x00, (uint32_t)1);
     }
 }
 
@@ -13007,8 +12995,7 @@ void SlotVector::PushDefault()
         SlotEntry tmp;
         tmp.mId = 0x80000000;
         Insert(end, &tmp);
-        bool empty = (bool)((tmp.mId >> 0x1f) & 1);
-        if (!empty) ((GmPayloadVirtual*)&tmp.mObj)->Destroy(0);
+        if (((tmp.mId >> 0x1f) & 1) == 0) ((GmPayloadVirtual*)&tmp.mObj)->Destroy(0);
     }
 }
 

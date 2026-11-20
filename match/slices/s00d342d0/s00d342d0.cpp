@@ -1,3 +1,4 @@
+// @ 0x00d342d0
 // Slice s00d342d0 -- SP::cCreatureModeInputStrategy::UpdateCreaturePickBoxes (0x00d342d0, 3260 bytes).
 // Flags: /O2 /MD /Gy /TP /arch:SSE /fp:fast (no /EHsc: the fixed_vector locals have no EH frame).
 //

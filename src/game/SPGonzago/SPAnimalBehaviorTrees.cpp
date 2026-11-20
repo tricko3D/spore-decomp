@@ -1298,7 +1298,7 @@ struct cGameNounManager_s00d7_d370 {
 };
 }
 namespace SP {
-template <int N, class B> struct VPad : VPad<N - 1, B> { virtual void vpad(VPad<N, B>*) {} };
+template <int N, class B> struct VPad : VPad<N - 1, B> { virtual void vp() {} };
 }
 namespace SP {
 template <class B> struct VPad<0, B> : B {};
@@ -1315,6 +1315,7 @@ namespace SP {
 struct cCombatantList {
     uint32_t     FindFirstValid();                    // 0x00c0f780
     ICombatant*  GetAt(uint32_t index);               // 0x00c0f8a0
+    float        FUN_00d7dca0();                      // @0xd7dca0
 };
 }
 // ---- items of slice s00d7d370 end
@@ -4422,16 +4423,11 @@ public:
     uint32_t mField1d8;                              // +0x1d8
 };
 }
-struct cCombatant_s00d8_bd30 { virtual void v00(); };       // SP::cCombatant, +0x5a8 (handed to the stimuli)
 namespace SP {
-class cLookupResultBase_s00d7_a560 {                 // primary bases, +0x000..+0x5a7
+class cLookupResult {
 public:
-    virtual void v00();
-    uint8_t mPad04[0x5a8 - 4];
-};
-class cLookupResult : public cLookupResultBase_s00d7_a560, public cCombatant_s00d8_bd30 {   // cCombatant at +0x5a8
-public:
-    uint8_t mSub5ac[0xb20 - 0x5ac];                  // +0x5ac
+    uint8_t mPad00[0x5a8];
+    uint8_t mSub5a8[0xb20 - 0x5a8];                  // +0x5a8
     uint32_t mObjectID;                              // +0xb20
     uint8_t mPadB24[0xb4c - 0xb24];
     cManagerOwner* mpB4C;                            // +0xb4c
@@ -4480,7 +4476,7 @@ namespace SP {
 class cEditorOutput {
 public:
     uint8_t mFlag0;
-    cCombatant_s00d8_bd30* mpData4;
+    void* mpData4;
     void Clear();                                    // 0x00d997e0
 };
 }
@@ -6104,7 +6100,7 @@ struct cAICreature;
 struct cStimuli_s00d8_bd30 {                                     // nSPBehaviorTree::behavior_stimuli
     void* mpField0;                                   // +0x00
     void GetAny();                                    // 00d997e0 (thiscall)
-    struct cCombatant_s00d8_bd30* mpField4;           // +0x04 (the entity's cCombatant, +0x5a8)
+    void* mpField4;                                   // +0x04 (entity + 0x5a8)
     void* mpField8;                                   // +0x08
 };
 struct cNeighbourEntry_s00d8_bd30 {                              // entry of the creature+0x1124 list
@@ -6135,7 +6131,7 @@ struct cEntryIter2 {                                  // filtered iterator over 
     cEntryPred2 mPred;                                // +0x08
     void SkipToValid();                               // 00b3d870 (thiscall)
 };
-struct cAICreatureBase_s00d8_bd30 {                   // primary bases, +0x000..+0x5a7
+struct cAICreature {                                  // creature as seen by the behaviour-tree deciders
 VPAD(0);
 VPAD(1);
 VPAD(2);
@@ -6149,8 +6145,7 @@ VPAD(7);
     uint32_t pad04[(0xc0 - 0x04) / 4];                // +0x04 (object holds only the vptr)
     cLocomotive_s00d8_bd30 mLoco;                                // +0xc0
     uint32_t pad_c4[(0x5a8 - 0xc4) / 4];
-};
-struct cAICreature : cAICreatureBase_s00d8_bd30, cCombatant_s00d8_bd30 {   // creature as seen by the behaviour-tree deciders
+    uint32_t mField5a8;                               // +0x5a8 (nID-ish payload, handed to the stimuli)
     uint32_t pad5ac[(0xb20 - 0x5ac) / 4];
     void* mpB20;                                      // +0xb20
     uint32_t padB24[(0xb4c - 0xb24) / 4];
@@ -6182,7 +6177,7 @@ static __forceinline float Answer(cStimuli_s00d8_bd30* stim, uint8_t* out, cAICr
     if (stim)
         stim->GetAny();
     *out = 1;
-    stim->mpField4 = target;
+    stim->mpField4 = &target->mField5a8;
     return 1.0f;
 }
 // ---- items of slice s00d8bd30 end
@@ -7347,7 +7342,7 @@ float CanStartEditorAction(cEditorGameObject* p, uint32_t a, uint32_t b, uint32_
 }
 }  // namespace SP
 
-// Legacy copy; byte-exact definition is in match/slices/s00d79470/s00d79470.cpp.
+// @ 0x00d7a470
 namespace SP {
 float IsD51660BitClear()
 {
@@ -7377,10 +7372,15 @@ float IsEditorObjectBitClear(cEditorGameObject* p)
 namespace SP {
 float IsLookupBFlagSet(cEditorGameObject* p)
 {
-    cLookupResult* result = ResolveB(p->mpB4C->mManager.Get(0x2000, 0));
-    // Reuse the by-value argument slot for the scalar return value.
-    *(float*)&p = result != 0 && (bool)((result->mFlagsB58 >> 9) & 1) ? kEditorOne : 0.0f;
-    return *(float*)&p;
+    cObjectManager* manager = &p->mpB4C->mManager;
+    void* handle = manager->Get(0x2000, 0);
+    cLookupResult* result = handle ? ResolveB(handle) : 0;
+    if (result != 0) {
+        uint32_t shifted = result->mFlagsB58 >> 9;
+        if (shifted & 1)
+            return 1.0f;
+    }
+    return 0.0f;
 }
 }  // namespace SP
 
@@ -7398,13 +7398,14 @@ float IsEditorActionAvailableValue(cEditorGameObject* p)
 namespace SP {
 float GetEditorSelection(cEditorGameObject* p, uint32_t a, uint32_t b, uint32_t c, cEditorOutput* output, uint8_t* flag)
 {
-    void* handle = p->mpB4C->mManager.Get(0x800000, 0);
+    cObjectManager* manager = &p->mpB4C->mManager;
+    void* handle = manager->Get(0x800000, 0);
     cLookupResult* result = handle ? ResolveA(handle) : 0;
     if (result && result->mByteB5E == 0) {
         if (output)
             output->Clear();
         *flag = 1;
-        output->mpData4 = result;
+        output->mpData4 = (void*)((uint32_t)result + 0x5a8);
         return 1.0f;
     }
     return 0.0f;
@@ -7742,8 +7743,7 @@ float __cdecl FUN_00d7afb0(CB* cb)
 // @ 0x00d7b000
 float __cdecl FUN_00d7b000(CB* cb)
 {
-  bool busy = ((*(u32*)&cb->mFlagBitsB58 >> 8) & 1) != 0;
-  if (!busy) {
+  if (!cb->mFlagBitsB58.mBit8) {
     CB* a = (CB*)FUN_00d99500((void*)FUN_00d99980((void*)BS(cb)->Play(0x800, 0)));
     if (a != 0 && (a->mp_b4c->mFlags5fc & 0x1000) != 0)
       return 1.0f;
@@ -8381,19 +8381,20 @@ bool __cdecl FUN_00d7c1f0(cSPCreatureBase* pCreature)
 float __cdecl FUN_00d7c270(cSPCreatureBase* pCreature)
 {
     cSPCreatureBase* pAvatar = ((cGameNounManager_s00d7_b550*)NounManager())->GetAvatar();
-    if (pAvatar != 0 && !pAvatar->mbB5e) {
-        if (pAvatar->mpBehaviorTree->mStimuli.Play(0, 0x1000000) != 0)
-            return 1.0f;
+    if (pAvatar == 0 || pAvatar->mbB5e)
+        return 0.0f;
 
-        if (pCreature->mbFB9)
-        {
-            if (((cAnimRequests*)pCreature->mp1624)->FUN_00bc9a00(0x80))
-                pCreature->mbFB9 = false;
-        }
-        if (!((cAnimRequests*)pCreature->mp1624)->FUN_00bc9a00(0x80) && pCreature->mbFB9 &&
-            pCreature->mpBehaviorTree->mStimuli.Play(0x4000000, 0) != 0)
-            return 1.0f;
+    if (pAvatar->mpBehaviorTree->mStimuli.Play(0, 0x1000000) != 0)
+        return 1.0f;
+
+    if (pCreature->mbFB9)
+    {
+        if (((cAnimRequests*)pCreature->mp1624)->FUN_00bc9a00(0x80))
+            pCreature->mbFB9 = false;
     }
+    if (!((cAnimRequests*)pCreature->mp1624)->FUN_00bc9a00(0x80) && pCreature->mbFB9 &&
+        pCreature->mpBehaviorTree->mStimuli.Play(0x4000000, 0) != 0)
+        return 1.0f;
     return 0.0f;
 }
 
@@ -9211,17 +9212,13 @@ float __cdecl FUN_00d7db30(int* pCreature)
 
 // @ 0x00d7dca0
 namespace SP {
-float __cdecl FUN_00d7dca0(cCombatantList* pList)
+float cCombatantList::FUN_00d7dca0()
 {
-    ICombatant* pCombatant = pList->GetAt(pList->FindFirstValid());
-    if (pCombatant) {
-        float& r = (float&)pList;
-        if (pCombatant->QueryInterface(0xce9f6639))
-            r = 1.0f;
-        else
-            r = 0.0f;
-        return r;
-    }
+    ICombatant* pCombatant = GetAt(FindFirstValid());
+    if (!pCombatant)
+        return 0.0f;
+    if (pCombatant->QueryInterface(0xce9f6639))
+        return 1.0f;
     return 0.0f;
 }
 }  // namespace SP
@@ -12170,9 +12167,9 @@ u8 FUN_00d870b0(cCreature* creature, u32 a2, u32 a3, u32 a4, u32 a5, cNodeState*
 // @ 0x00d871a0
 void FUN_00d871a0(cCreature* creature, u32 a2, u32 a3, u32 a4, u32 a5, cNodeState* state)
 {
-    void** slot = &state->m4.p;
-    if (void* p = *slot) {
-        *slot = 0;
+    void* p = state->m4.p;
+    if (p) {
+        state->m4.p = 0;
         ((void (__thiscall*)(void*))VT(p)[4 / 4])(p);
     }
     MOPS(&creature->mB4C->mStimuli)->FUN_00bc98f0(0x200000, 0);
@@ -12217,9 +12214,9 @@ u8 FUN_00d87200(cCreature* creature, u32 a2, u32 a3, u32 a4, u32 a5, cNodeState*
 // @ 0x00d872d0
 void FUN_00d872d0(cCreature* creature, u32 a2, u32 a3, u32 a4, u32 a5, cNodeState* state)
 {
-    void** slot = &state->m4.p;
-    if (void* p = *slot) {
-        *slot = 0;
+    void* p = state->m4.p;
+    if (p) {
+        state->m4.p = 0;
         ((void (__thiscall*)(void*))VT(p)[4 / 4])(p);
     }
     MOPS(&creature->mB4C->mStimuli)->FUN_00bc98f0(0x200000, 0);
@@ -13089,9 +13086,9 @@ void FUN_00d89c00(cSPCreatureBase_s00d8_9430* c, int, int, int, int, DropItemsBl
 {
     c->mpBehavior->mStimuli.ClearAll(0, 0x40000);
 
-    RefObj** slot = &st->mpObject.mpObject;
-    if (RefObj* old = *slot) {
-        *slot = 0;
+    RefObj* old = st->mpObject.mpObject;
+    if (old != 0) {
+        st->mpObject.mpObject = 0;
         old->ReleaseBundle();
     }
     if (st != 0) {
@@ -14097,8 +14094,7 @@ float __cdecl FUN_00d8c780(cAICreature* c, int, int, int, cStimuli_s00d8_bd30* s
 // @ 0x00d8c850
 float __cdecl FUN_00d8c850(cAICreature* c, int, int, int, cStimuli_s00d8_bd30* stim, uint8_t* out)
 {
-    bool busy = ((c->mFlagsB58 >> 8) & 1) != 0;
-    if (busy)
+    if (((c->mFlagsB58 >> 8) & 1) != 0)
         return 0.0f;
     float reach = FUN_00d38a30(3, c);
     cEntryIter it;

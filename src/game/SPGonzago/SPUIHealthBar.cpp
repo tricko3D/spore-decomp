@@ -10,7 +10,6 @@
 #include "SP/cCommunity.h"
 #include "SP/cString.h"
 #include <string.h>
-#include <intrin.h>
 
 // ---- items of slice s00e06220 begin (TODO(rewrite): local stubs, replace by canonical classes)
 #define nullptr 0
@@ -576,7 +575,6 @@ cSPUILoyaltyMeter::cSPUILoyaltyMeter(uint32_t nDelay, int32_t nRootID, uint32_t 
 // @ 0x00e06ac0
 cSPUILoyaltyMeter::~cSPUILoyaltyMeter()
 {
-    _ReadWriteBarrier();    // keep the vtable stores ahead of the first member load
     ILink* pLinkA = m_pLinkA;
     if (pLinkA != nullptr) {
         m_pLinkA = nullptr;

@@ -239,22 +239,12 @@ public:
     }
     cInteraction* back() const
     {
-        struct Iter {
-            cInteraction** mpCurrent;
-            cInteraction** mpBegin;
-            cInteraction** mpEnd;
-            cInteraction*** mpCurrentArrayPtr;
-        };
-        Iter it;
-        it.mpCurrent = mpEnd;
-        it.mpBegin = mpLastBlock;
-        it.mpCurrentArrayPtr = mpLastBlockSlot;
-        if (it.mpCurrent == it.mpBegin) {
-            it.mpBegin = *--it.mpCurrentArrayPtr;
-            it.mpCurrent = it.mpBegin + 64;
-        }
-        --it.mpCurrent;
-        return *it.mpCurrent;
+        cInteraction** ppSlot = mpEnd;
+        cInteraction** ppLastBlock = mpLastBlock;
+        cInteraction*** ppLastSlot = mpLastBlockSlot;
+        if (ppSlot == ppLastBlock)
+            ppSlot = ppLastSlot[-1] + 64;
+        return ppSlot[-1];
     }
 };
 class cInteractionStack {
